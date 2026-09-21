@@ -130,7 +130,6 @@ export class AuthService {
     organisationId: string,
     userAccountId: string,
     newPassword: string,
-    previousSessionId?: string,
   ): Promise<SessionRecord> {
     const passwordHash = await hashPassword(newPassword);
     await db.updateTable('user_accounts').set({ password_hash: passwordHash }).where('id', '=', userAccountId).execute();

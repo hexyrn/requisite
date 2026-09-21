@@ -28,6 +28,7 @@
   },
   "allowScripts": {
     "@nestjs/core@10.4.22": true,
-    "argon2@0.40.3": true
+    "argon2@0.40.3": true,
+    "esbuild@0.21.5": true
   }
 }
