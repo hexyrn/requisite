@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+*.local
+.DS_Store
+npm-debug.log*
+apps/web/node_modules/
+apps/api/node_modules/
+*.tsbuildinfo
+.vscode/
+bootstrap-token.txt
+storage/
