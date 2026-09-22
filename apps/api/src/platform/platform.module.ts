@@ -38,6 +38,7 @@ import { SyncAdapterRegistryService } from './integrations/sync-adapter-registry
 import { SyncHandlerRegistryService } from './integrations/sync-row-handler';
 import { SyncEngineService } from './integrations/sync-engine.service';
 import { DataPortabilityService } from './exports/data-portability.service';
+import { getConfiguredOutboundNetworkPolicy } from '../security/outbound-network-policy';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -80,7 +81,10 @@ import { DataPortabilityService } from './exports/data-portability.service';
     ServiceAccountService,
     EventSchemaService,
     WebhookService,
-    { provide: WEBHOOK_SENDER, useValue: new HttpWebhookSender() },
+    // P3 item 34/12 (SSRF hardening): the outbound network policy is built
+    // fresh at provider-construction time from HEXYRN_OUTBOUND_ALLOWED_HOSTS
+    // - see security/outbound-network-policy.ts for the full design.
+    { provide: WEBHOOK_SENDER, useValue: new HttpWebhookSender(getConfiguredOutboundNetworkPolicy()) },
     WebhookDispatcherService,
     ScheduledReportService,
     SearchService,
