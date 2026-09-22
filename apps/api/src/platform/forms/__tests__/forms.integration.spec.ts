@@ -23,30 +23,87 @@ describeIfDb('FormService - declarative validation, org-scoped customization (P1
   });
 
   const validDefinition = {
-    sections: [{ key: 'main', label: 'Main', fields: [{ key: 'title', label: 'Title', type: 'text' as const, required: true }] }],
+    sections: [
+      {
+        key: 'main',
+        label: 'Main',
+        fields: [{ key: 'title', label: 'Title', type: 'text' as const, required: true }],
+      },
+    ],
   };
 
   it('rejects a definition with an unsupported field key - no way to smuggle executable config in', async () => {
-    const malicious = { sections: [{ key: 'main', label: 'Main', fields: [{ key: 'title', label: 'Title', type: 'text', script: 'alert(1)' }] }] };
+    const malicious = {
+      sections: [
+        {
+          key: 'main',
+          label: 'Main',
+          fields: [{ key: 'title', label: 'Title', type: 'text', script: 'alert(1)' }],
+        },
+      ],
+    };
     expect(() => forms.validateDefinitionShape(malicious)).toThrow(/unsupported keys/i);
   });
 
   it('rejects an invalid field type', async () => {
-    const bad = { sections: [{ key: 'main', label: 'Main', fields: [{ key: 'title', label: 'Title', type: 'not-a-real-type' }] }] };
+    const bad = {
+      sections: [
+        {
+          key: 'main',
+          label: 'Main',
+          fields: [{ key: 'title', label: 'Title', type: 'not-a-real-type' }],
+        },
+      ],
+    };
     expect(() => forms.validateDefinitionShape(bad)).toThrow(/invalid type/i);
   });
 
   it('seeds a default form and it can be retrieved', async () => {
-    await withOrgContext(orgId, (db) => forms.seedDefault(db, orgId, 'com.hexyrn.reference', 'widget.create', 'Create Widget', validDefinition), pool);
-    const def = await withOrgContext(orgId, (db) => forms.getDefinition(db, orgId, 'com.hexyrn.reference', 'widget.create'), pool);
+    await withOrgContext(
+      orgId,
+      (db) =>
+        forms.seedDefault(
+          db,
+          orgId,
+          'com.hexyrn.reference',
+          'widget.create',
+          'Create Widget',
+          validDefinition,
+        ),
+      pool,
+    );
+    const def = await withOrgContext(
+      orgId,
+      (db) => forms.getDefinition(db, orgId, 'com.hexyrn.reference', 'widget.create'),
+      pool,
+    );
     expect(def.is_customized).toBe(false);
     expect((def.definition as any).sections[0].fields[0].key).toBe('title');
   });
 
   it('an administrator can customize the seeded form', async () => {
-    const customized = { sections: [{ key: 'main', label: 'Main', fields: [{ key: 'title', label: 'Widget Title', type: 'text' as const, required: true }, { key: 'notes', label: 'Notes', type: 'textarea' as const }] }] };
-    await withOrgContext(orgId, (db) => forms.customize(db, orgId, 'com.hexyrn.reference', 'widget.create', customized), pool);
-    const def = await withOrgContext(orgId, (db) => forms.getDefinition(db, orgId, 'com.hexyrn.reference', 'widget.create'), pool);
+    const customized = {
+      sections: [
+        {
+          key: 'main',
+          label: 'Main',
+          fields: [
+            { key: 'title', label: 'Widget Title', type: 'text' as const, required: true },
+            { key: 'notes', label: 'Notes', type: 'textarea' as const },
+          ],
+        },
+      ],
+    };
+    await withOrgContext(
+      orgId,
+      (db) => forms.customize(db, orgId, 'com.hexyrn.reference', 'widget.create', customized),
+      pool,
+    );
+    const def = await withOrgContext(
+      orgId,
+      (db) => forms.getDefinition(db, orgId, 'com.hexyrn.reference', 'widget.create'),
+      pool,
+    );
     expect(def.is_customized).toBe(true);
     expect((def.definition as any).sections[0].fields).toHaveLength(2);
   });
@@ -67,17 +124,33 @@ describeIfDb('FormService - declarative validation, org-scoped customization (P1
           label: 'Main',
           fields: [
             { key: 'hasWarranty', label: 'Has warranty?', type: 'boolean' as const },
-            { key: 'warrantyExpiry', label: 'Warranty expiry', type: 'date' as const, required: true, conditional: { dependsOn: 'hasWarranty', equals: true } },
+            {
+              key: 'warrantyExpiry',
+              label: 'Warranty expiry',
+              type: 'date' as const,
+              required: true,
+              conditional: { dependsOn: 'hasWarranty', equals: true },
+            },
           ],
         },
       ],
     };
     expect(() => forms.validateSubmission(conditionalDef, { hasWarranty: false })).not.toThrow();
-    expect(() => forms.validateSubmission(conditionalDef, { hasWarranty: true })).toThrow(/required/i);
-    expect(() => forms.validateSubmission(conditionalDef, { hasWarranty: true, warrantyExpiry: '2026-01-01' })).not.toThrow();
+    expect(() => forms.validateSubmission(conditionalDef, { hasWarranty: true })).toThrow(
+      /required/i,
+    );
+    expect(() =>
+      forms.validateSubmission(conditionalDef, { hasWarranty: true, warrantyExpiry: '2026-01-01' }),
+    ).not.toThrow();
   });
 
   it('customizing a form that was never seeded fails', async () => {
-    await expect(withOrgContext(orgId, (db) => forms.customize(db, orgId, 'com.hexyrn.reference', 'never-seeded', validDefinition), pool)).rejects.toThrow(/not registered/i);
+    await expect(
+      withOrgContext(
+        orgId,
+        (db) => forms.customize(db, orgId, 'com.hexyrn.reference', 'never-seeded', validDefinition),
+        pool,
+      ),
+    ).rejects.toThrow(/not registered/i);
   });
 });

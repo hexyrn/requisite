@@ -36,7 +36,10 @@ export class EventPublisherService {
     // this table has no RLS and why that's safe. Same transaction as the
     // event row above, so publication and "is discoverable for dispatch"
     // are atomic.
-    await db.insertInto('dispatch_queue').values({ organisation_id: organisationId, kind: 'event', ref_id: row.id }).execute();
+    await db
+      .insertInto('dispatch_queue')
+      .values({ organisation_id: organisationId, kind: 'event', ref_id: row.id })
+      .execute();
 
     return row.id;
   }

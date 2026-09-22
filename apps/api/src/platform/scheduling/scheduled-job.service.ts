@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 
-export type JobHandler = (db: Kysely<Database>, organisationId: string, payload: Record<string, unknown>) => Promise<void>;
+export type JobHandler = (
+  db: Kysely<Database>,
+  organisationId: string,
+  payload: Record<string, unknown>,
+) => Promise<void>;
 
 /** In-process job_type -> handler map, same pattern/reasoning as EventHandlerRegistryService. */
 @Injectable()
@@ -26,7 +30,15 @@ export class JobHandlerRegistryService {
  */
 @Injectable()
 export class ScheduledJobService {
-  async enqueue(db: Kysely<Database>, organisationId: string, appId: string, jobType: string, payload: Record<string, unknown>, runAt: Date = new Date(), recurringIntervalSeconds?: number): Promise<string> {
+  async enqueue(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+    jobType: string,
+    payload: Record<string, unknown>,
+    runAt: Date = new Date(),
+    recurringIntervalSeconds?: number,
+  ): Promise<string> {
     const row = await db
       .insertInto('scheduled_jobs')
       .values({
@@ -41,7 +53,15 @@ export class ScheduledJobService {
       .executeTakeFirstOrThrow();
 
     // Routing pointer only - see docs/decisions/0005-cross-org-background-enumeration.md.
-    await db.insertInto('dispatch_queue').values({ organisation_id: organisationId, kind: 'job', ref_id: row.id, due_at: runAt as any }).execute();
+    await db
+      .insertInto('dispatch_queue')
+      .values({
+        organisation_id: organisationId,
+        kind: 'job',
+        ref_id: row.id,
+        due_at: runAt as any,
+      })
+      .execute();
 
     return row.id;
   }

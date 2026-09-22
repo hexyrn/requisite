@@ -44,7 +44,14 @@ describeIfDb('Global input validation (P1 item 15)', () => {
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     await app.register(fastifyCookie as any);
     // Same pipe configuration as main.ts - this test exercises it directly rather than importing main.ts (which also starts listening).
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true } }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   }, 60000);
@@ -55,18 +62,24 @@ describeIfDb('Global input validation (P1 item 15)', () => {
   });
 
   it('login: a malformed email produces a structured 400, never falls through to the database', async () => {
-    const res = await request(server()).post('/api/v1/auth/login').send({ email: 'not-an-email', password: 'whatever-password-1' });
+    const res = await request(server())
+      .post('/api/v1/auth/login')
+      .send({ email: 'not-an-email', password: 'whatever-password-1' });
     expect(res.status).toBe(400);
     expect(res.body.message).toBeDefined();
   });
 
   it('login: a missing field produces a structured 400', async () => {
-    const res = await request(server()).post('/api/v1/auth/login').send({ email: 'someone@test.local' });
+    const res = await request(server())
+      .post('/api/v1/auth/login')
+      .send({ email: 'someone@test.local' });
     expect(res.status).toBe(400);
   });
 
   it('login: an unexpected extra property is rejected outright (forbidNonWhitelisted - mass-assignment defense)', async () => {
-    const res = await request(server()).post('/api/v1/auth/login').send({ email: 'someone@test.local', password: 'whatever-password-1', isOwner: true });
+    const res = await request(server())
+      .post('/api/v1/auth/login')
+      .send({ email: 'someone@test.local', password: 'whatever-password-1', isOwner: true });
     expect(res.status).toBe(400);
   });
 
@@ -88,7 +101,9 @@ describeIfDb('Global input validation (P1 item 15)', () => {
   });
 
   it('invitation accept: a short password fails MinLength validation', async () => {
-    const res = await request(server()).post('/api/v1/auth/invitations/accept').send({ token: 'x'.repeat(32), password: 'short' });
+    const res = await request(server())
+      .post('/api/v1/auth/invitations/accept')
+      .send({ token: 'x'.repeat(32), password: 'short' });
     expect(res.status).toBe(400);
   });
 
@@ -96,7 +111,9 @@ describeIfDb('Global input validation (P1 item 15)', () => {
     // No session -> 401 normally, but validation runs before guards resolve
     // the body's shape is still checked as part of the pipeline; assert we
     // never get a 500/DB error regardless of auth state.
-    const res = await request(server()).post('/api/v1/auth/invitations').send({ email: 'invitee@test.local', roleIds: ['not-a-uuid'] });
+    const res = await request(server())
+      .post('/api/v1/auth/invitations')
+      .send({ email: 'invitee@test.local', roleIds: ['not-a-uuid'] });
     expect([400, 401]).toContain(res.status);
     expect(res.status).not.toBe(500);
   });

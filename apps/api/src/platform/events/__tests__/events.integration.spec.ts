@@ -11,7 +11,13 @@ import { HexyrnAppManifest } from '@hexyrn/app-sdk';
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
-const producerApp: HexyrnAppManifest = { appId: 'com.hexyrn.producer', displayName: 'Producer', version: '1.0.0', majorVersion: 1, requiresCoreVersion: '^0.1.0' };
+const producerApp: HexyrnAppManifest = {
+  appId: 'com.hexyrn.producer',
+  displayName: 'Producer',
+  version: '1.0.0',
+  majorVersion: 1,
+  requiresCoreVersion: '^0.1.0',
+};
 const consumerApp: HexyrnAppManifest = {
   appId: 'com.hexyrn.consumer',
   displayName: 'Consumer',
@@ -36,7 +42,11 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     await registry.registerApp(producerApp, pool);
     await registry.registerApp(consumerApp, pool);
     await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, consumerApp.appId), pool);
-    await withOrgContext(orgId, (db) => registry.grantLicense(db, orgId, consumerApp.appId, 1, { signature: 'x' }), pool);
+    await withOrgContext(
+      orgId,
+      (db) => registry.grantLicense(db, orgId, consumerApp.appId, 1, { signature: 'x' }),
+      pool,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -49,14 +59,28 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
       received.push(payload);
     });
 
-    await withOrgContext(orgId, (db) => publisher.publish(db, orgId, producerApp.appId, 'goods.received', { poNumber: 'PO-1', quantity: 5 }), pool);
+    await withOrgContext(
+      orgId,
+      (db) =>
+        publisher.publish(db, orgId, producerApp.appId, 'goods.received', {
+          poNumber: 'PO-1',
+          quantity: 5,
+        }),
+      pool,
+    );
     const { processed } = await dispatcher.dispatchPending(50, pool);
     expect(processed).toBe(1);
     expect(received).toEqual([{ poNumber: 'PO-1', quantity: 5 }]);
   });
 
   it('ABSENT CONSUMER: publishing an event type nobody consumes never errors, and the publisher keeps working', async () => {
-    await expect(withOrgContext(orgId, (db) => publisher.publish(db, orgId, producerApp.appId, 'nobody.listens', {}), pool)).resolves.toBeDefined();
+    await expect(
+      withOrgContext(
+        orgId,
+        (db) => publisher.publish(db, orgId, producerApp.appId, 'nobody.listens', {}),
+        pool,
+      ),
+    ).resolves.toBeDefined();
     const { processed } = await dispatcher.dispatchPending(50, pool);
     expect(processed).toBe(1); // dispatched (zero consumers to deliver to, so trivially "done")
   });
@@ -77,9 +101,17 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     };
     await registry.registerApp(flakyConsumer, pool);
     await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, flakyConsumer.appId), pool);
-    await withOrgContext(orgId, (db) => registry.grantLicense(db, orgId, flakyConsumer.appId, 1, { signature: 'x' }), pool);
+    await withOrgContext(
+      orgId,
+      (db) => registry.grantLicense(db, orgId, flakyConsumer.appId, 1, { signature: 'x' }),
+      pool,
+    );
 
-    await withOrgContext(orgId, (db) => publisher.publish(db, orgId, producerApp.appId, 'flaky.event', {}), pool);
+    await withOrgContext(
+      orgId,
+      (db) => publisher.publish(db, orgId, producerApp.appId, 'flaky.event', {}),
+      pool,
+    );
 
     await dispatcher.dispatchPending(50, pool); // attempt 1: fails
     expect(attempts).toBe(1);
@@ -91,11 +123,15 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     expect(attempts).toBe(3);
   });
 
-  it('ORG CONTEXT: an event published for one org is never delivered as if it were another org\'s event', async () => {
+  it("ORG CONTEXT: an event published for one org is never delivered as if it were another org's event", async () => {
     const orgB = await createTestOrg(pool, 'Events Org B');
     await registry.registerApp(consumerApp, pool);
     await withOrgContext(orgB, (db) => registry.enableApp(db, orgB, consumerApp.appId), pool);
-    await withOrgContext(orgB, (db) => registry.grantLicense(db, orgB, consumerApp.appId, 1, { signature: 'x' }), pool);
+    await withOrgContext(
+      orgB,
+      (db) => registry.grantLicense(db, orgB, consumerApp.appId, 1, { signature: 'x' }),
+      pool,
+    );
 
     const seenOrgIds: string[] = [];
     handlers.register('consumer.org-tracker', async (_db, organisationId) => {
@@ -112,11 +148,23 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     await registry.registerApp(trackerApp, pool);
     for (const org of [orgId, orgB]) {
       await withOrgContext(org, (db) => registry.enableApp(db, org, trackerApp.appId), pool);
-      await withOrgContext(org, (db) => registry.grantLicense(db, org, trackerApp.appId, 1, { signature: 'x' }), pool);
+      await withOrgContext(
+        org,
+        (db) => registry.grantLicense(db, org, trackerApp.appId, 1, { signature: 'x' }),
+        pool,
+      );
     }
 
-    await withOrgContext(orgId, (db) => publisher.publish(db, orgId, producerApp.appId, 'org.tracked', {}), pool);
-    await withOrgContext(orgB, (db) => publisher.publish(db, orgB, producerApp.appId, 'org.tracked', {}), pool);
+    await withOrgContext(
+      orgId,
+      (db) => publisher.publish(db, orgId, producerApp.appId, 'org.tracked', {}),
+      pool,
+    );
+    await withOrgContext(
+      orgB,
+      (db) => publisher.publish(db, orgB, producerApp.appId, 'org.tracked', {}),
+      pool,
+    );
     await dispatcher.dispatchPending(50, pool);
 
     expect(seenOrgIds.sort()).toEqual([orgId, orgB].sort());
@@ -139,13 +187,22 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, unlicensedApp.appId), pool);
     // Deliberately never license it.
 
-    await withOrgContext(orgId, (db) => publisher.publish(db, orgId, producerApp.appId, 'unlicensed.event', {}), pool);
+    await withOrgContext(
+      orgId,
+      (db) => publisher.publish(db, orgId, producerApp.appId, 'unlicensed.event', {}),
+      pool,
+    );
     await dispatcher.dispatchPending(50, pool);
     expect(invoked).toBe(false);
 
     const delivery = await withOrgContext(
       orgId,
-      (db) => db.selectFrom('event_deliveries').selectAll().where('consumer_app_id', '=', unlicensedApp.appId).executeTakeFirst(),
+      (db) =>
+        db
+          .selectFrom('event_deliveries')
+          .selectAll()
+          .where('consumer_app_id', '=', unlicensedApp.appId)
+          .executeTakeFirst(),
       pool,
     );
     expect(delivery?.status).toBe('skipped');

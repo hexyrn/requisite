@@ -63,8 +63,16 @@ export class ApplicationRegistryService {
         if (!cap.provides) continue;
         await db
           .insertInto('capability_providers')
-          .values({ capability: cap.capability, app_id: manifest.appId, service_ref: cap.provides.serviceRef })
-          .onConflict((oc) => oc.columns(['capability', 'app_id']).doUpdateSet({ service_ref: cap.provides!.serviceRef }))
+          .values({
+            capability: cap.capability,
+            app_id: manifest.appId,
+            service_ref: cap.provides.serviceRef,
+          })
+          .onConflict((oc) =>
+            oc
+              .columns(['capability', 'app_id'])
+              .doUpdateSet({ service_ref: cap.provides!.serviceRef }),
+          )
           .execute();
       }
     }
@@ -73,8 +81,14 @@ export class ApplicationRegistryService {
       for (const ec of manifest.eventsConsumed) {
         await db
           .insertInto('event_consumer_registrations')
-          .values({ event_type: ec.eventType, consumer_app_id: manifest.appId, handler_ref: ec.handlerRef })
-          .onConflict((oc) => oc.columns(['event_type', 'consumer_app_id', 'handler_ref']).doNothing())
+          .values({
+            event_type: ec.eventType,
+            consumer_app_id: manifest.appId,
+            handler_ref: ec.handlerRef,
+          })
+          .onConflict((oc) =>
+            oc.columns(['event_type', 'consumer_app_id', 'handler_ref']).doNothing(),
+          )
           .execute();
       }
     }
@@ -84,8 +98,17 @@ export class ApplicationRegistryService {
   async enableApp(db: Kysely<Database>, organisationId: string, appId: string): Promise<void> {
     await db
       .insertInto('app_enablements')
-      .values({ organisation_id: organisationId, app_id: appId, enabled: true, enabled_at: new Date() })
-      .onConflict((oc) => oc.columns(['organisation_id', 'app_id']).doUpdateSet({ enabled: true, enabled_at: new Date(), disabled_at: null }))
+      .values({
+        organisation_id: organisationId,
+        app_id: appId,
+        enabled: true,
+        enabled_at: new Date(),
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(['organisation_id', 'app_id'])
+          .doUpdateSet({ enabled: true, enabled_at: new Date(), disabled_at: null }),
+      )
       .execute();
   }
 
@@ -141,8 +164,16 @@ export class ApplicationRegistryService {
    * Every gate (ApplicationActiveGuard, the event dispatcher, the job
    * runner) calls this rather than re-deriving the logic.
    */
-  async getApplicationState(db: Kysely<Database>, organisationId: string, appId: string): Promise<ApplicationState> {
-    const installedRow = await db.selectFrom('installed_applications').selectAll().where('app_id', '=', appId).executeTakeFirst();
+  async getApplicationState(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+  ): Promise<ApplicationState> {
+    const installedRow = await db
+      .selectFrom('installed_applications')
+      .selectAll()
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
     const installed = !!installedRow;
 
     const enablementRow = await db
@@ -161,7 +192,9 @@ export class ApplicationRegistryService {
       .executeTakeFirst();
     const licensed = !!licenseRow;
 
-    const compatible = installed ? isCoreVersionCompatible(installedRow!.requires_core_version) : false;
+    const compatible = installed
+      ? isCoreVersionCompatible(installedRow!.requires_core_version)
+      : false;
 
     return {
       appId,

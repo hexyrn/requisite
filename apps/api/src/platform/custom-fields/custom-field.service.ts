@@ -49,7 +49,6 @@ export interface CustomFieldDefinitionInput {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/\S+$/;
 
-
 /**
  * Custom field engine. Architecture §2, P1 item 5. JSONB is the canonical
  * store (`custom_field_values.values`); this service and
@@ -64,7 +63,11 @@ const FIELD_KEY_RE = /^[a-z][a-z0-9_]{0,63}$/;
 
 @Injectable()
 export class CustomFieldService {
-  async defineField(db: Kysely<Database>, organisationId: string, input: CustomFieldDefinitionInput) {
+  async defineField(
+    db: Kysely<Database>,
+    organisationId: string,
+    input: CustomFieldDefinitionInput,
+  ) {
     // Defense in depth (P1 security review item: "custom-field injection/
     // query issues"): `key` is embedded into a raw SQL fragment by
     // CustomFieldQueryProvider.expression() below. Single-quote doubling
@@ -74,7 +77,9 @@ export class CustomFieldService {
     // the first place, and rejects garbage keys before they can ever reach
     // a query.
     if (!FIELD_KEY_RE.test(input.key)) {
-      throw new BadRequestException('Custom field key must be lowercase alphanumeric/underscore, starting with a letter (max 64 chars).');
+      throw new BadRequestException(
+        'Custom field key must be lowercase alphanumeric/underscore, starting with a letter (max 64 chars).',
+      );
     }
     return db
       .insertInto('custom_field_definitions')
@@ -123,7 +128,12 @@ export class CustomFieldService {
       .execute();
   }
 
-  async getValues(db: Kysely<Database>, organisationId: string, entityType: string, entityId: string): Promise<Record<string, unknown>> {
+  async getValues(
+    db: Kysely<Database>,
+    organisationId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<Record<string, unknown>> {
     const row = await db
       .selectFrom('custom_field_values')
       .select('values')
@@ -155,9 +165,16 @@ export class CustomFieldService {
     for (const [key, value] of Object.entries(values)) {
       const def = byKey.get(key);
       if (!def) {
-        throw new BadRequestException(`Unknown custom field "${key}" for entity type "${entityType}".`);
+        throw new BadRequestException(
+          `Unknown custom field "${key}" for entity type "${entityType}".`,
+        );
       }
-      this.validateValue(def.field_type as CustomFieldType, key, value, def.select_options as string[] | null);
+      this.validateValue(
+        def.field_type as CustomFieldType,
+        key,
+        value,
+        def.select_options as string[] | null,
+      );
     }
 
     for (const def of definitions) {
@@ -178,44 +195,72 @@ export class CustomFieldService {
     const now = new Date();
     await db
       .insertInto('custom_field_values')
-      .values({ organisation_id: organisationId, entity_type: entityType, entity_id: entityId, values: merged as any, updated_at: now as any })
-      .onConflict((oc) => oc.columns(['organisation_id', 'entity_type', 'entity_id']).doUpdateSet({ values: merged as any, updated_at: now as any }))
+      .values({
+        organisation_id: organisationId,
+        entity_type: entityType,
+        entity_id: entityId,
+        values: merged as any,
+        updated_at: now as any,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(['organisation_id', 'entity_type', 'entity_id'])
+          .doUpdateSet({ values: merged as any, updated_at: now as any }),
+      )
       .execute();
   }
 
-  private validateValue(fieldType: CustomFieldType, key: string, value: unknown, selectOptions: string[] | null): void {
+  private validateValue(
+    fieldType: CustomFieldType,
+    key: string,
+    value: unknown,
+    selectOptions: string[] | null,
+  ): void {
     if (value === null || value === undefined) return;
     switch (fieldType) {
       case 'integer':
-        if (!Number.isInteger(value)) throw new BadRequestException(`Custom field "${key}" must be an integer.`);
+        if (!Number.isInteger(value))
+          throw new BadRequestException(`Custom field "${key}" must be an integer.`);
         break;
       case 'decimal':
       case 'currency':
       case 'percentage':
-        if (typeof value !== 'number' || Number.isNaN(value)) throw new BadRequestException(`Custom field "${key}" must be a number.`);
+        if (typeof value !== 'number' || Number.isNaN(value))
+          throw new BadRequestException(`Custom field "${key}" must be a number.`);
         break;
       case 'boolean':
-        if (typeof value !== 'boolean') throw new BadRequestException(`Custom field "${key}" must be a boolean.`);
+        if (typeof value !== 'boolean')
+          throw new BadRequestException(`Custom field "${key}" must be a boolean.`);
         break;
       case 'date':
       case 'datetime':
-        if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) throw new BadRequestException(`Custom field "${key}" must be a valid date.`);
+        if (typeof value !== 'string' || Number.isNaN(Date.parse(value)))
+          throw new BadRequestException(`Custom field "${key}" must be a valid date.`);
         break;
       case 'select':
         if (typeof value !== 'string' || (selectOptions && !selectOptions.includes(value))) {
-          throw new BadRequestException(`Custom field "${key}" must be one of the configured options.`);
+          throw new BadRequestException(
+            `Custom field "${key}" must be one of the configured options.`,
+          );
         }
         break;
       case 'multiselect':
-        if (!Array.isArray(value) || (selectOptions && !value.every((v) => selectOptions.includes(v)))) {
-          throw new BadRequestException(`Custom field "${key}" must be an array of configured options.`);
+        if (
+          !Array.isArray(value) ||
+          (selectOptions && !value.every((v) => selectOptions.includes(v)))
+        ) {
+          throw new BadRequestException(
+            `Custom field "${key}" must be an array of configured options.`,
+          );
         }
         break;
       case 'email':
-        if (typeof value !== 'string' || !EMAIL_RE.test(value)) throw new BadRequestException(`Custom field "${key}" must be a valid email.`);
+        if (typeof value !== 'string' || !EMAIL_RE.test(value))
+          throw new BadRequestException(`Custom field "${key}" must be a valid email.`);
         break;
       case 'url':
-        if (typeof value !== 'string' || !URL_RE.test(value)) throw new BadRequestException(`Custom field "${key}" must be a valid URL.`);
+        if (typeof value !== 'string' || !URL_RE.test(value))
+          throw new BadRequestException(`Custom field "${key}" must be a valid URL.`);
         break;
       case 'short_text':
       case 'long_text':
@@ -225,7 +270,8 @@ export class CustomFieldService {
       case 'location':
       case 'reference':
       case 'attachment':
-        if (typeof value !== 'string') throw new BadRequestException(`Custom field "${key}" must be a string.`);
+        if (typeof value !== 'string')
+          throw new BadRequestException(`Custom field "${key}" must be a string.`);
         break;
     }
   }
@@ -263,7 +309,11 @@ export class CustomFieldQueryProvider {
     }
   }
 
-  filterCondition(def: CustomFieldDefinitionRow, operator: '=' | '>' | '<' | '>=' | '<=' | '!=', value: unknown) {
+  filterCondition(
+    def: CustomFieldDefinitionRow,
+    operator: '=' | '>' | '<' | '>=' | '<=' | '!=',
+    value: unknown,
+  ) {
     const expr = this.expression(def);
     switch (operator) {
       case '=':

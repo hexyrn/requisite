@@ -50,7 +50,11 @@ export class EventDispatcherService {
     for (const entry of dueEntries) {
       // Claim it (best-effort - a real multi-worker deployment would use
       // SELECT ... FOR UPDATE SKIP LOCKED here; P1 runs a single dispatcher).
-      await routingDb.updateTable('dispatch_queue').set({ claimed_at: new Date() }).where('id', '=', entry.id).execute();
+      await routingDb
+        .updateTable('dispatch_queue')
+        .set({ claimed_at: new Date() })
+        .where('id', '=', entry.id)
+        .execute();
       const fullyDispatched = await this.dispatchOne(entry.organisation_id, entry.ref_id, pool);
       if (fullyDispatched) {
         // Terminal (all consumers delivered/skipped, or every failure hit
@@ -64,7 +68,11 @@ export class EventDispatcherService {
         // against this unconditional cleanup step (a real bug found via
         // this test: an insert-inside-dispatchOne meant to "re-queue" was
         // silently undone by this loop's own delete immediately afterward).
-        await routingDb.updateTable('dispatch_queue').set({ claimed_at: null }).where('id', '=', entry.id).execute();
+        await routingDb
+          .updateTable('dispatch_queue')
+          .set({ claimed_at: null })
+          .where('id', '=', entry.id)
+          .execute();
       }
       processed++;
     }
@@ -76,21 +84,40 @@ export class EventDispatcherService {
     return withOrgContext(
       organisationId,
       async (db) => {
-        const event = await db.selectFrom('event_outbox').selectAll().where('id', '=', eventId).executeTakeFirst();
+        const event = await db
+          .selectFrom('event_outbox')
+          .selectAll()
+          .where('id', '=', eventId)
+          .executeTakeFirst();
         if (!event) return true; // detail row gone - nothing to deliver (see ADR 0005's "fail-soft, never fail-open" note); treat as done so the routing entry is cleared.
         if (event.dispatched_at) return true; // already fully dispatched by an earlier pass.
 
         const payload = event.payload as Record<string, unknown>;
-        const consumers = await db.selectFrom('event_consumer_registrations').selectAll().where('event_type', '=', event.event_type).execute();
+        const consumers = await db
+          .selectFrom('event_consumer_registrations')
+          .selectAll()
+          .where('event_type', '=', event.event_type)
+          .execute();
 
         let allTerminal = true;
         for (const consumer of consumers) {
-          const outcome = await this.deliverToConsumer(db, organisationId, eventId, consumer.consumer_app_id, consumer.handler_ref, payload);
+          const outcome = await this.deliverToConsumer(
+            db,
+            organisationId,
+            eventId,
+            consumer.consumer_app_id,
+            consumer.handler_ref,
+            payload,
+          );
           if (outcome === 'retry') allTerminal = false;
         }
 
         if (allTerminal) {
-          await db.updateTable('event_outbox').set({ dispatched_at: new Date() }).where('id', '=', eventId).execute();
+          await db
+            .updateTable('event_outbox')
+            .set({ dispatched_at: new Date() })
+            .where('id', '=', eventId)
+            .execute();
         }
         return allTerminal;
       },
@@ -119,7 +146,14 @@ export class EventDispatcherService {
 
     const state = await this.registry.getApplicationState(db, organisationId, consumerAppId);
     if (!state.active) {
-      await this.upsertDelivery(db, eventId, organisationId, consumerAppId, 'skipped', existing?.attempt_count ?? 0);
+      await this.upsertDelivery(
+        db,
+        eventId,
+        organisationId,
+        consumerAppId,
+        'skipped',
+        existing?.attempt_count ?? 0,
+      );
       return 'skipped';
     }
 
@@ -127,18 +161,45 @@ export class EventDispatcherService {
     const attemptCount = (existing?.attempt_count ?? 0) + 1;
 
     if (!handler) {
-      await this.upsertDelivery(db, eventId, organisationId, consumerAppId, 'failed', attemptCount, 'No handler registered for this handler_ref');
+      await this.upsertDelivery(
+        db,
+        eventId,
+        organisationId,
+        consumerAppId,
+        'failed',
+        attemptCount,
+        'No handler registered for this handler_ref',
+      );
       return attemptCount >= MAX_DELIVERY_ATTEMPTS ? 'failed-terminal' : 'retry';
     }
 
     try {
       await handler(db, organisationId, payload);
-      await this.upsertDelivery(db, eventId, organisationId, consumerAppId, 'delivered', attemptCount);
+      await this.upsertDelivery(
+        db,
+        eventId,
+        organisationId,
+        consumerAppId,
+        'delivered',
+        attemptCount,
+      );
       return 'delivered';
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      await this.upsertDelivery(db, eventId, organisationId, consumerAppId, 'failed', attemptCount, message);
-      logStructured({ event: 'event.delivery.failed', errorCode: 'CONSUMER_HANDLER_ERROR', context: { eventType: handlerRef, attemptCount } });
+      await this.upsertDelivery(
+        db,
+        eventId,
+        organisationId,
+        consumerAppId,
+        'failed',
+        attemptCount,
+        message,
+      );
+      logStructured({
+        event: 'event.delivery.failed',
+        errorCode: 'CONSUMER_HANDLER_ERROR',
+        context: { eventType: handlerRef, attemptCount },
+      });
       return attemptCount >= MAX_DELIVERY_ATTEMPTS ? 'failed-terminal' : 'retry';
     }
   }

@@ -64,10 +64,7 @@ export class PasswordResetController {
 
   @PublicRoute()
   @Post('submit')
-  async submitReset(
-    @Req() req: FastifyRequest,
-    @Body() body: SubmitPasswordResetDto,
-  ) {
+  async submitReset(@Req() req: FastifyRequest, @Body() body: SubmitPasswordResetDto) {
     // Keyed by the token itself (opaque, high-entropy) rather than an
     // account, since we don't know which account it belongs to without
     // looking it up - and we don't want to do that DB work before rate

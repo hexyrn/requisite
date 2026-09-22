@@ -33,7 +33,13 @@ export class ReferenceController {
     const actor = (req as any).currentUser;
 
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, actor.id, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        actor.id,
+        db,
+      );
       return this.reference.createWidget(ctx, db, actor.id, body.title, body.warrantyStatus);
     });
   }
@@ -46,7 +52,13 @@ export class ReferenceController {
     const actor = (req as any).currentUser;
 
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, actor.id, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        actor.id,
+        db,
+      );
       return this.reference.submitWidget(ctx, db, actor.id, id);
     });
   }
@@ -59,7 +71,13 @@ export class ReferenceController {
     const actor = (req as any).currentUser;
 
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, actor.id, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        actor.id,
+        db,
+      );
       return this.reference.decide(ctx, db, actor.id, id, body.stepId, body.decision);
     });
   }

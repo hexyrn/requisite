@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, NotFoundException, SetMetadata } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  NotFoundException,
+  SetMetadata,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ApplicationRegistryService } from './application-registry.service';
 import { withOrgContext } from '../../db/org-context';
@@ -22,7 +28,9 @@ export class ApplicationActiveGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const appId = this.reflector.get<string | undefined>(APP_ID_KEY, context.getHandler()) ?? this.reflector.get<string | undefined>(APP_ID_KEY, context.getClass());
+    const appId =
+      this.reflector.get<string | undefined>(APP_ID_KEY, context.getHandler()) ??
+      this.reflector.get<string | undefined>(APP_ID_KEY, context.getClass());
     if (!appId) {
       // Not an app-gated route (e.g. Core's own controllers) - nothing to check.
       return true;
@@ -36,7 +44,9 @@ export class ApplicationActiveGuard implements CanActivate {
       throw new NotFoundException();
     }
 
-    const state = await withOrgContext(organisationId, (db) => this.registry.getApplicationState(db, organisationId, appId));
+    const state = await withOrgContext(organisationId, (db) =>
+      this.registry.getApplicationState(db, organisationId, appId),
+    );
     if (!state.active) {
       // 404, not 403 - never confirm the route/app exists to an unentitled caller.
       throw new NotFoundException();

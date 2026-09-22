@@ -1,4 +1,12 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
@@ -61,7 +69,9 @@ export class FileService {
     entity?: { type: string; id: string },
   ): Promise<{ fileId: string }> {
     if (buffer.length > MAX_FILE_SIZE_BYTES) {
-      throw new PayloadTooLargeException(`File exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES} bytes.`);
+      throw new PayloadTooLargeException(
+        `File exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES} bytes.`,
+      );
     }
     if (!ALLOWED_MIME_TYPES.has(declaredMimeType)) {
       throw new BadRequestException(`File type "${declaredMimeType}" is not allowed.`);
@@ -92,15 +102,34 @@ export class FileService {
   }
 
   /** Returns the file's bytes + metadata, or throws NotFound - RLS already confines this to the caller's organisation. */
-  async retrieve(db: Kysely<Database>, organisationId: string, fileId: string): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
-    const row = await db.selectFrom('files').selectAll().where('id', '=', fileId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async retrieve(
+    db: Kysely<Database>,
+    organisationId: string,
+    fileId: string,
+  ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
+    const row = await db
+      .selectFrom('files')
+      .selectAll()
+      .where('id', '=', fileId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!row) throw new NotFoundException('File not found.');
     const buffer = await this.resolvedStorage.read(row.storage_key);
     return { buffer, filename: row.original_filename, mimeType: row.mime_type };
   }
 
-  async delete(db: Kysely<Database>, organisationId: string, fileId: string, requestedBy: string): Promise<void> {
-    const row = await db.selectFrom('files').selectAll().where('id', '=', fileId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async delete(
+    db: Kysely<Database>,
+    organisationId: string,
+    fileId: string,
+    requestedBy: string,
+  ): Promise<void> {
+    const row = await db
+      .selectFrom('files')
+      .selectAll()
+      .where('id', '=', fileId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!row) throw new NotFoundException('File not found.');
     if (row.uploaded_by && row.uploaded_by !== requestedBy) {
       // P1 minimal policy: only the uploader may delete. A future

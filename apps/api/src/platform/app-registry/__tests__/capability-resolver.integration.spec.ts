@@ -15,7 +15,9 @@ const providerA: HexyrnAppManifest = {
   version: '1.0.0',
   majorVersion: 1,
   requiresCoreVersion: '^0.1.0',
-  capabilities: [{ capability: 'purchasing.cost-source.v1', provides: { serviceRef: 'ProviderAService' } }],
+  capabilities: [
+    { capability: 'purchasing.cost-source.v1', provides: { serviceRef: 'ProviderAService' } },
+  ],
 };
 
 const providerB: HexyrnAppManifest = {
@@ -24,7 +26,9 @@ const providerB: HexyrnAppManifest = {
   version: '1.0.0',
   majorVersion: 1,
   requiresCoreVersion: '^0.1.0',
-  capabilities: [{ capability: 'purchasing.cost-source.v1', provides: { serviceRef: 'ProviderBService' } }],
+  capabilities: [
+    { capability: 'purchasing.cost-source.v1', provides: { serviceRef: 'ProviderBService' } },
+  ],
 };
 
 describeIfDb('CapabilityResolverService (P1 item 3)', () => {
@@ -46,35 +50,59 @@ describeIfDb('CapabilityResolverService (P1 item 3)', () => {
   });
 
   it('ABSENT PROVIDER: resolving a capability nobody registered returns an empty list, not an error', async () => {
-    const result = await withOrgContext(orgId, (db) => resolver.resolve(db, orgId, 'nonexistent.capability.v1'), pool);
+    const result = await withOrgContext(
+      orgId,
+      (db) => resolver.resolve(db, orgId, 'nonexistent.capability.v1'),
+      pool,
+    );
     expect(result).toEqual([]);
   });
 
   it('a registered but INACTIVE (not enabled) provider is excluded from resolution', async () => {
-    const result = await withOrgContext(orgId, (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'), pool);
+    const result = await withOrgContext(
+      orgId,
+      (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'),
+      pool,
+    );
     expect(result).toEqual([]); // neither provider enabled/licensed yet
   });
 
   it('MULTIPLE PROVIDERS: once both are active, resolve() returns both, not just one', async () => {
     for (const app of [providerA, providerB]) {
       await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, app.appId), pool);
-      await withOrgContext(orgId, (db) => registry.grantLicense(db, orgId, app.appId, app.majorVersion, { signature: 'x' }), pool);
+      await withOrgContext(
+        orgId,
+        (db) => registry.grantLicense(db, orgId, app.appId, app.majorVersion, { signature: 'x' }),
+        pool,
+      );
     }
-    const result = await withOrgContext(orgId, (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'), pool);
+    const result = await withOrgContext(
+      orgId,
+      (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'),
+      pool,
+    );
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.appId).sort()).toEqual([providerA.appId, providerB.appId].sort());
   });
 
   it('ENABLED-APP AWARENESS: disabling one provider removes only that one from resolution', async () => {
     await withOrgContext(orgId, (db) => registry.disableApp(db, orgId, providerA.appId), pool);
-    const result = await withOrgContext(orgId, (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'), pool);
+    const result = await withOrgContext(
+      orgId,
+      (db) => resolver.resolve(db, orgId, 'purchasing.cost-source.v1'),
+      pool,
+    );
     expect(result).toHaveLength(1);
     expect(result[0].appId).toBe(providerB.appId);
   });
 
   it('capability resolution is per-organisation', async () => {
     const orgB = await createTestOrg(pool, 'Capability Org B');
-    const result = await withOrgContext(orgB, (db) => resolver.resolve(db, orgB, 'purchasing.cost-source.v1'), pool);
+    const result = await withOrgContext(
+      orgB,
+      (db) => resolver.resolve(db, orgB, 'purchasing.cost-source.v1'),
+      pool,
+    );
     expect(result).toEqual([]); // neither provider enabled for this org
   });
 });

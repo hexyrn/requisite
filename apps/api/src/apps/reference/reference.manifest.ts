@@ -13,7 +13,8 @@ export const REFERENCE_APP_MANIFEST: HexyrnAppManifest = {
   version: '1.0.0',
   majorVersion: 1,
   requiresCoreVersion: '^0.1.0',
-  description: 'Internal reference application exercising every P1 platform mechanism through the App SDK.',
+  description:
+    'Internal reference application exercising every P1 platform mechanism through the App SDK.',
 
   permissions: [
     { key: 'reference.widget.view', label: 'View widgets' },
@@ -22,11 +23,27 @@ export const REFERENCE_APP_MANIFEST: HexyrnAppManifest = {
     { key: 'reference.widget.approve', label: 'Approve widgets' },
   ],
 
-  navigation: [{ key: 'reference-widgets', label: 'Reference Widgets', path: '/reference/widgets', permission: 'reference.widget.view', order: 999 }],
+  navigation: [
+    {
+      key: 'reference-widgets',
+      label: 'Reference Widgets',
+      path: '/reference/widgets',
+      permission: 'reference.widget.view',
+      order: 999,
+    },
+  ],
 
-  capabilities: [{ capability: 'reference.thing.v1', provides: { serviceRef: 'ReferenceThingService' } }],
+  capabilities: [
+    { capability: 'reference.thing.v1', provides: { serviceRef: 'ReferenceThingService' } },
+  ],
 
-  eventsPublished: [{ eventType: 'reference.widget.approved', version: 1, description: 'Published when a reference widget completes its approval workflow.' }],
+  eventsPublished: [
+    {
+      eventType: 'reference.widget.approved',
+      version: 1,
+      description: 'Published when a reference widget completes its approval workflow.',
+    },
+  ],
 
   numberingSequences: [{ sequenceKey: 'widget', prefix: 'WID-', padLength: 6 }],
 
@@ -41,7 +58,12 @@ export const REFERENCE_APP_MANIFEST: HexyrnAppManifest = {
             label: 'Widget Details',
             fields: [
               { key: 'title', label: 'Title', type: 'text', required: true },
-              { key: 'warranty_status', label: 'Warranty Status', type: 'select', options: ['active', 'expired'] },
+              {
+                key: 'warranty_status',
+                label: 'Warranty Status',
+                type: 'select',
+                options: ['active', 'expired'],
+              },
             ],
           },
         ],

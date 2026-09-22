@@ -17,7 +17,10 @@ export const CORE_VERSION = '0.1.0-p1';
  * replace this function's internals without changing its signature if a
  * future need outgrows it.
  */
-export function isCoreVersionCompatible(requiresCoreVersion: string, coreVersion: string = CORE_VERSION): boolean {
+export function isCoreVersionCompatible(
+  requiresCoreVersion: string,
+  coreVersion: string = CORE_VERSION,
+): boolean {
   const parse = (v: string) => {
     const clean = v.replace(/^[\^>=]+/, '').split('-')[0];
     const [major, minor, patch] = clean.split('.').map((n) => parseInt(n, 10) || 0);
@@ -31,7 +34,10 @@ export function isCoreVersionCompatible(requiresCoreVersion: string, coreVersion
     if (req.major === 0) {
       return actual.major === 0 && actual.minor === req.minor && actual.patch >= req.patch;
     }
-    return actual.major === req.major && (actual.minor > req.minor || (actual.minor === req.minor && actual.patch >= req.patch));
+    return (
+      actual.major === req.major &&
+      (actual.minor > req.minor || (actual.minor === req.minor && actual.patch >= req.patch))
+    );
   }
 
   if (requiresCoreVersion.startsWith('>=')) {

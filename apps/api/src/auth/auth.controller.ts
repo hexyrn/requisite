@@ -182,10 +182,7 @@ export class AuthController {
    */
   @AuthenticatedOnly()
   @Post('mfa/enroll/confirm')
-  async confirmMfaEnrolment(
-    @Req() req: FastifyRequest,
-    @Body() body: MfaEnrollConfirmDto,
-  ) {
+  async confirmMfaEnrolment(@Req() req: FastifyRequest, @Body() body: MfaEnrollConfirmDto) {
     const organisationId = (req as any).currentOrganisationId;
     const user = (req as any).currentUser;
 

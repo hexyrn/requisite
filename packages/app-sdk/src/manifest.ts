@@ -101,5 +101,10 @@ export interface HexyrnAppManifest {
    */
   defaultForms?: { formKey: string; label: string; definition: Record<string, unknown> }[];
   defaultWorkflows?: { workflowKey: string; definition: Record<string, unknown> }[];
-  numberingSequences?: { sequenceKey: string; prefix: string; padLength: number; yearReset?: boolean }[];
+  numberingSequences?: {
+    sequenceKey: string;
+    prefix: string;
+    padLength: number;
+    yearReset?: boolean;
+  }[];
 }

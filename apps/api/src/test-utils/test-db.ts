@@ -54,7 +54,11 @@ export async function createTestOrg(pool: Pool, name = 'Test Org'): Promise<stri
     async (db) => {
       let installation = await db.selectFrom('installations').selectAll().executeTakeFirst();
       if (!installation) {
-        installation = await db.insertInto('installations').values({ core_version: 'test', config: {} }).returningAll().executeTakeFirstOrThrow();
+        installation = await db
+          .insertInto('installations')
+          .values({ core_version: 'test', config: {} })
+          .returningAll()
+          .executeTakeFirstOrThrow();
       }
       await db
         .insertInto('organisations')

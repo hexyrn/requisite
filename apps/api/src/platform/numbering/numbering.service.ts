@@ -24,7 +24,11 @@ export interface RegisterSequenceInput {
  */
 @Injectable()
 export class NumberingService {
-  async registerSequence(db: Kysely<Database>, organisationId: string, input: RegisterSequenceInput): Promise<void> {
+  async registerSequence(
+    db: Kysely<Database>,
+    organisationId: string,
+    input: RegisterSequenceInput,
+  ): Promise<void> {
     await db
       .insertInto('numbering_sequences')
       .values({
@@ -40,7 +44,12 @@ export class NumberingService {
   }
 
   /** Issues the next formatted number for this sequence, e.g. "REQ-000001" or "PO-2026-000001". */
-  async next(db: Kysely<Database>, organisationId: string, appId: string, sequenceKey: string): Promise<string> {
+  async next(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+    sequenceKey: string,
+  ): Promise<string> {
     const currentYear = new Date().getFullYear();
 
     // A single atomic UPDATE...RETURNING - see the class doc comment for
@@ -70,7 +79,9 @@ export class NumberingService {
 
     const row = result.rows[0];
     if (!row) {
-      throw new NotFoundException(`Numbering sequence "${sequenceKey}" is not registered for app "${appId}" in this organisation.`);
+      throw new NotFoundException(
+        `Numbering sequence "${sequenceKey}" is not registered for app "${appId}" in this organisation.`,
+      );
     }
 
     const paddedValue = String(row.current_value).padStart(row.pad_length, '0');

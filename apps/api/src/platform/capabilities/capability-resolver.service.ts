@@ -22,8 +22,16 @@ export interface CapabilityProvider {
 export class CapabilityResolverService {
   constructor(private readonly registry: ApplicationRegistryService) {}
 
-  async resolve(db: Kysely<Database>, organisationId: string, capability: string): Promise<CapabilityProvider[]> {
-    const candidates = await db.selectFrom('capability_providers').selectAll().where('capability', '=', capability).execute();
+  async resolve(
+    db: Kysely<Database>,
+    organisationId: string,
+    capability: string,
+  ): Promise<CapabilityProvider[]> {
+    const candidates = await db
+      .selectFrom('capability_providers')
+      .selectAll()
+      .where('capability', '=', capability)
+      .execute();
 
     const active: CapabilityProvider[] = [];
     for (const candidate of candidates) {

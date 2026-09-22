@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 
-export type EventHandler = (db: Kysely<Database>, organisationId: string, payload: Record<string, unknown>) => Promise<void>;
+export type EventHandler = (
+  db: Kysely<Database>,
+  organisationId: string,
+  payload: Record<string, unknown>,
+) => Promise<void>;
 
 /**
  * In-process registry mapping a consumer's `handler_ref` (declared in its

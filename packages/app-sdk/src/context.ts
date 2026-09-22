@@ -25,13 +25,23 @@ export interface HexyrnAppContext<Db = unknown> {
   };
 
   events: {
-    publish(db: Db, eventType: string, payload: Record<string, unknown>, version?: number): Promise<void>;
+    publish(
+      db: Db,
+      eventType: string,
+      payload: Record<string, unknown>,
+      version?: number,
+    ): Promise<void>;
   };
 
   customFields: {
     getDefinitions(db: Db, entityType: string): Promise<unknown[]>;
     getValues(db: Db, entityType: string, entityId: string): Promise<Record<string, unknown>>;
-    setValues(db: Db, entityType: string, entityId: string, values: Record<string, unknown>): Promise<void>;
+    setValues(
+      db: Db,
+      entityType: string,
+      entityId: string,
+      values: Record<string, unknown>,
+    ): Promise<void>;
   };
 
   numbering: {
@@ -39,7 +49,13 @@ export interface HexyrnAppContext<Db = unknown> {
   };
 
   workflow: {
-    start(db: Db, workflowKey: string, entityType: string, entityId: string, actorUserAccountId?: string): Promise<{ state: string }>;
+    start(
+      db: Db,
+      workflowKey: string,
+      entityType: string,
+      entityId: string,
+      actorUserAccountId?: string,
+    ): Promise<{ state: string }>;
     transition(
       db: Db,
       entityType: string,
@@ -79,11 +95,23 @@ export interface HexyrnAppContext<Db = unknown> {
   };
 
   files: {
-    store(db: Db, buffer: Buffer, originalFilename: string, mimeType: string, uploadedBy: string, entity?: { type: string; id: string }): Promise<{ fileId: string }>;
+    store(
+      db: Db,
+      buffer: Buffer,
+      originalFilename: string,
+      mimeType: string,
+      uploadedBy: string,
+      entity?: { type: string; id: string },
+    ): Promise<{ fileId: string }>;
   };
 
   scheduling: {
-    enqueue(db: Db, jobType: string, payload: Record<string, unknown>, runAt?: Date): Promise<{ jobId: string }>;
+    enqueue(
+      db: Db,
+      jobType: string,
+      payload: Record<string, unknown>,
+      runAt?: Date,
+    ): Promise<{ jobId: string }>;
   };
 
   terminology: {

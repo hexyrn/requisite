@@ -38,7 +38,13 @@ export class AppContextFactory {
     private readonly terminology: TerminologyService,
   ) {}
 
-  create(appId: string, organisationId: string, grantedPermissions: ReadonlySet<string>, actorUserAccountId: string, requestDb: Kysely<Database>): HexyrnAppContext<Kysely<Database>> {
+  create(
+    appId: string,
+    organisationId: string,
+    grantedPermissions: ReadonlySet<string>,
+    actorUserAccountId: string,
+    requestDb: Kysely<Database>,
+  ): HexyrnAppContext<Kysely<Database>> {
     const evaluator = new FlatRolePermissionEvaluator();
 
     return {
@@ -46,21 +52,33 @@ export class AppContextFactory {
       organisationId,
 
       permissions: {
-        check: (permission, context) => evaluator.check({ userAccountId: actorUserAccountId, organisationId, grantedPermissions }, permission, context),
+        check: (permission, context) =>
+          evaluator.check(
+            { userAccountId: actorUserAccountId, organisationId, grantedPermissions },
+            permission,
+            context,
+          ),
       },
 
       capabilities: {
-        resolve: (capability) => this.capabilityResolver.resolve(requestDb, organisationId, capability),
+        resolve: (capability) =>
+          this.capabilityResolver.resolve(requestDb, organisationId, capability),
       },
 
       events: {
-        publish: (db, eventType, payload, version) => this.eventPublisher.publish(db, organisationId, appId, eventType, payload, version).then(() => undefined),
+        publish: (db, eventType, payload, version) =>
+          this.eventPublisher
+            .publish(db, organisationId, appId, eventType, payload, version)
+            .then(() => undefined),
       },
 
       customFields: {
-        getDefinitions: (db, entityType) => this.customFields.getDefinitions(db, organisationId, entityType),
-        getValues: (db, entityType, entityId) => this.customFields.getValues(db, organisationId, entityType, entityId),
-        setValues: (db, entityType, entityId, values) => this.customFields.setValues(db, organisationId, entityType, entityId, values),
+        getDefinitions: (db, entityType) =>
+          this.customFields.getDefinitions(db, organisationId, entityType),
+        getValues: (db, entityType, entityId) =>
+          this.customFields.getValues(db, organisationId, entityType, entityId),
+        setValues: (db, entityType, entityId, values) =>
+          this.customFields.setValues(db, organisationId, entityType, entityId, values),
       },
 
       numbering: {
@@ -69,32 +87,88 @@ export class AppContextFactory {
 
       workflow: {
         start: (db, workflowKey, entityType, entityId, actorId) =>
-          this.workflow.startInstance(db, organisationId, appId, workflowKey, entityType, entityId, actorId).then((r) => ({ state: r.current_state })),
+          this.workflow
+            .startInstance(db, organisationId, appId, workflowKey, entityType, entityId, actorId)
+            .then((r) => ({ state: r.current_state })),
         transition: (db, entityType, entityId, toState, actorId) =>
-          this.workflow.transition(db, organisationId, entityType, entityId, toState, grantedPermissions, actorId).then((r) => ({ state: r.state, version: r.version })),
+          this.workflow
+            .transition(
+              db,
+              organisationId,
+              entityType,
+              entityId,
+              toState,
+              grantedPermissions,
+              actorId,
+            )
+            .then((r) => ({ state: r.state, version: r.version })),
       },
 
       approvals: {
         requestApproval: (db, definitionKey, entityType, entityId, context, requestedBy) =>
-          this.approvals.requestApproval(db, organisationId, appId, definitionKey, entityType, entityId, context, requestedBy).then((r) => ({ requestId: r.id, status: r.status })),
-        decide: (db, stepId, deciderUserAccountId, decision, comment) => this.approvals.decide(db, organisationId, stepId, deciderUserAccountId, grantedPermissions, decision, comment),
+          this.approvals
+            .requestApproval(
+              db,
+              organisationId,
+              appId,
+              definitionKey,
+              entityType,
+              entityId,
+              context,
+              requestedBy,
+            )
+            .then((r) => ({ requestId: r.id, status: r.status })),
+        decide: (db, stepId, deciderUserAccountId, decision, comment) =>
+          this.approvals.decide(
+            db,
+            organisationId,
+            stepId,
+            deciderUserAccountId,
+            grantedPermissions,
+            decision,
+            comment,
+          ),
       },
 
       notifications: {
         send: (db, recipientUserAccountId, notificationType, title, body, relatedEntity) =>
-          this.notifications.send(db, organisationId, appId, recipientUserAccountId, notificationType, title, body, relatedEntity).then(() => undefined),
+          this.notifications
+            .send(
+              db,
+              organisationId,
+              appId,
+              recipientUserAccountId,
+              notificationType,
+              title,
+              body,
+              relatedEntity,
+            )
+            .then(() => undefined),
       },
 
       files: {
-        store: (db, buffer, originalFilename, mimeType, uploadedBy, entity) => this.files.store(db, organisationId, buffer, originalFilename, mimeType, uploadedBy, entity),
+        store: (db, buffer, originalFilename, mimeType, uploadedBy, entity) =>
+          this.files.store(
+            db,
+            organisationId,
+            buffer,
+            originalFilename,
+            mimeType,
+            uploadedBy,
+            entity,
+          ),
       },
 
       scheduling: {
-        enqueue: (db, jobType, payload, runAt) => this.scheduling.enqueue(db, organisationId, appId, jobType, payload, runAt).then((jobId) => ({ jobId })),
+        enqueue: (db, jobType, payload, runAt) =>
+          this.scheduling
+            .enqueue(db, organisationId, appId, jobType, payload, runAt)
+            .then((jobId) => ({ jobId })),
       },
 
       terminology: {
-        resolve: (db, termKey, fallback) => this.terminology.resolve(db, organisationId, appId, termKey, fallback),
+        resolve: (db, termKey, fallback) =>
+          this.terminology.resolve(db, organisationId, appId, termKey, fallback),
       },
     };
   }

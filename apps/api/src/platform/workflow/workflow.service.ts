@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 
@@ -41,58 +47,136 @@ export interface WorkflowDefinitionShape {
  */
 @Injectable()
 export class WorkflowService {
-  async registerDefinition(db: Kysely<Database>, organisationId: string, appId: string, workflowKey: string, definition: WorkflowDefinitionShape): Promise<void> {
+  async registerDefinition(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+    workflowKey: string,
+    definition: WorkflowDefinitionShape,
+  ): Promise<void> {
     this.validateDefinitionShape(definition);
     await db
       .insertInto('workflow_definitions')
-      .values({ organisation_id: organisationId, app_id: appId, workflow_key: workflowKey, definition: definition as any })
-      .onConflict((oc) => oc.columns(['organisation_id', 'app_id', 'workflow_key']).doUpdateSet({ definition: definition as any, updated_at: new Date() as any }))
+      .values({
+        organisation_id: organisationId,
+        app_id: appId,
+        workflow_key: workflowKey,
+        definition: definition as any,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(['organisation_id', 'app_id', 'workflow_key'])
+          .doUpdateSet({ definition: definition as any, updated_at: new Date() as any }),
+      )
       .execute();
   }
 
-  private validateDefinitionShape(definition: unknown): asserts definition is WorkflowDefinitionShape {
+  private validateDefinitionShape(
+    definition: unknown,
+  ): asserts definition is WorkflowDefinitionShape {
     const d = definition as any;
-    if (!d || !Array.isArray(d.states) || typeof d.initialState !== 'string' || !Array.isArray(d.transitions)) {
-      throw new BadRequestException('Workflow definition must have states[], initialState, and transitions[].');
+    if (
+      !d ||
+      !Array.isArray(d.states) ||
+      typeof d.initialState !== 'string' ||
+      !Array.isArray(d.transitions)
+    ) {
+      throw new BadRequestException(
+        'Workflow definition must have states[], initialState, and transitions[].',
+      );
     }
     for (const t of d.transitions) {
-      if (typeof t.from !== 'string' || typeof t.to !== 'string' || typeof t.permission !== 'string') {
-        throw new BadRequestException('Each workflow transition must have from, to, and permission.');
+      if (
+        typeof t.from !== 'string' ||
+        typeof t.to !== 'string' ||
+        typeof t.permission !== 'string'
+      ) {
+        throw new BadRequestException(
+          'Each workflow transition must have from, to, and permission.',
+        );
       }
       if (t.actions) {
         for (const a of t.actions) {
           if (a.kind !== 'publish_event') {
-            throw new BadRequestException(`Unsupported workflow action kind "${a.kind}" - only a fixed, declarative vocabulary is allowed.`);
+            throw new BadRequestException(
+              `Unsupported workflow action kind "${a.kind}" - only a fixed, declarative vocabulary is allowed.`,
+            );
           }
         }
       }
     }
   }
 
-  async startInstance(db: Kysely<Database>, organisationId: string, appId: string, workflowKey: string, entityType: string, entityId: string, actorUserAccountId?: string) {
+  async startInstance(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+    workflowKey: string,
+    entityType: string,
+    entityId: string,
+    actorUserAccountId?: string,
+  ) {
     const definition = await this.getDefinition(db, organisationId, appId, workflowKey);
     const instance = await db
       .insertInto('workflow_instances')
-      .values({ organisation_id: organisationId, app_id: appId, workflow_key: workflowKey, entity_type: entityType, entity_id: entityId, current_state: definition.initialState })
+      .values({
+        organisation_id: organisationId,
+        app_id: appId,
+        workflow_key: workflowKey,
+        entity_type: entityType,
+        entity_id: entityId,
+        current_state: definition.initialState,
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
 
     await db
       .insertInto('workflow_history')
-      .values({ organisation_id: organisationId, instance_id: instance.id, from_state: null, to_state: definition.initialState, actor_user_account_id: actorUserAccountId ?? null })
+      .values({
+        organisation_id: organisationId,
+        instance_id: instance.id,
+        from_state: null,
+        to_state: definition.initialState,
+        actor_user_account_id: actorUserAccountId ?? null,
+      })
       .execute();
 
     return instance;
   }
 
-  async getDefinition(db: Kysely<Database>, organisationId: string, appId: string, workflowKey: string): Promise<WorkflowDefinitionShape> {
-    const row = await db.selectFrom('workflow_definitions').selectAll().where('organisation_id', '=', organisationId).where('app_id', '=', appId).where('workflow_key', '=', workflowKey).executeTakeFirst();
-    if (!row) throw new NotFoundException(`Workflow "${workflowKey}" is not registered for this organisation.`);
+  async getDefinition(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+    workflowKey: string,
+  ): Promise<WorkflowDefinitionShape> {
+    const row = await db
+      .selectFrom('workflow_definitions')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('app_id', '=', appId)
+      .where('workflow_key', '=', workflowKey)
+      .executeTakeFirst();
+    if (!row)
+      throw new NotFoundException(
+        `Workflow "${workflowKey}" is not registered for this organisation.`,
+      );
     return row.definition as unknown as WorkflowDefinitionShape;
   }
 
-  async getInstance(db: Kysely<Database>, organisationId: string, entityType: string, entityId: string) {
-    const row = await db.selectFrom('workflow_instances').selectAll().where('organisation_id', '=', organisationId).where('entity_type', '=', entityType).where('entity_id', '=', entityId).executeTakeFirst();
+  async getInstance(
+    db: Kysely<Database>,
+    organisationId: string,
+    entityType: string,
+    entityId: string,
+  ) {
+    const row = await db
+      .selectFrom('workflow_instances')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('entity_type', '=', entityType)
+      .where('entity_id', '=', entityId)
+      .executeTakeFirst();
     if (!row) throw new NotFoundException(`No workflow instance for ${entityType}/${entityId}.`);
     return row;
   }
@@ -108,14 +192,25 @@ export class WorkflowService {
     fieldContext: Record<string, unknown> = {},
   ): Promise<{ state: string; version: number }> {
     const instance = await this.getInstance(db, organisationId, entityType, entityId);
-    const definition = await this.getDefinition(db, organisationId, instance.app_id, instance.workflow_key);
+    const definition = await this.getDefinition(
+      db,
+      organisationId,
+      instance.app_id,
+      instance.workflow_key,
+    );
 
-    const transitionDef = definition.transitions.find((t) => t.from === instance.current_state && t.to === toState);
+    const transitionDef = definition.transitions.find(
+      (t) => t.from === instance.current_state && t.to === toState,
+    );
     if (!transitionDef) {
-      throw new BadRequestException(`Invalid transition: no path from "${instance.current_state}" to "${toState}".`);
+      throw new BadRequestException(
+        `Invalid transition: no path from "${instance.current_state}" to "${toState}".`,
+      );
     }
     if (!grantedPermissions.has(transitionDef.permission)) {
-      throw new ForbiddenException(`Missing required permission "${transitionDef.permission}" for this transition.`);
+      throw new ForbiddenException(
+        `Missing required permission "${transitionDef.permission}" for this transition.`,
+      );
     }
     if (transitionDef.requiredFields) {
       for (const f of transitionDef.requiredFields) {
@@ -127,7 +222,9 @@ export class WorkflowService {
     if (transitionDef.conditions) {
       for (const cond of transitionDef.conditions) {
         if (!this.evaluateCondition(cond, fieldContext)) {
-          throw new BadRequestException(`Condition not met for this transition: ${cond.field} ${cond.operator} ${String(cond.value)}.`);
+          throw new BadRequestException(
+            `Condition not met for this transition: ${cond.field} ${cond.operator} ${String(cond.value)}.`,
+          );
         }
       }
     }
@@ -141,12 +238,20 @@ export class WorkflowService {
       .executeTakeFirst();
 
     if (!updated) {
-      throw new ConflictException('This record was modified by another transition concurrently. Please refresh and try again.');
+      throw new ConflictException(
+        'This record was modified by another transition concurrently. Please refresh and try again.',
+      );
     }
 
     await db
       .insertInto('workflow_history')
-      .values({ organisation_id: organisationId, instance_id: instance.id, from_state: instance.current_state, to_state: toState, actor_user_account_id: actorUserAccountId })
+      .values({
+        organisation_id: organisationId,
+        instance_id: instance.id,
+        from_state: instance.current_state,
+        to_state: toState,
+        actor_user_account_id: actorUserAccountId,
+      })
       .execute();
 
     return { state: updated.current_state, version: updated.version };

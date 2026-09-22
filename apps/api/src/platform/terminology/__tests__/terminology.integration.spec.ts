@@ -23,23 +23,50 @@ describeIfDb('TerminologyService (P1 item 7)', () => {
   });
 
   it('falls back to the app-supplied default when no override is configured', async () => {
-    const label = await withOrgContext(orgId, (db) => terminology.resolve(db, orgId, 'com.hexyrn.requisite', 'requisition', 'Requisition'), pool);
+    const label = await withOrgContext(
+      orgId,
+      (db) => terminology.resolve(db, orgId, 'com.hexyrn.requisite', 'requisition', 'Requisition'),
+      pool,
+    );
     expect(label).toBe('Requisition');
   });
 
   it('returns the org override once configured, without changing the stable term_key', async () => {
-    await withOrgContext(orgId, (db) => terminology.setOverride(db, orgId, 'com.hexyrn.requisite', 'requisition', 'Purchase Request'), pool);
-    const label = await withOrgContext(orgId, (db) => terminology.resolve(db, orgId, 'com.hexyrn.requisite', 'requisition', 'Requisition'), pool);
+    await withOrgContext(
+      orgId,
+      (db) =>
+        terminology.setOverride(
+          db,
+          orgId,
+          'com.hexyrn.requisite',
+          'requisition',
+          'Purchase Request',
+        ),
+      pool,
+    );
+    const label = await withOrgContext(
+      orgId,
+      (db) => terminology.resolve(db, orgId, 'com.hexyrn.requisite', 'requisition', 'Requisition'),
+      pool,
+    );
     expect(label).toBe('Purchase Request');
 
     // The stable key itself never changes - callers still look it up by 'requisition'.
-    const all = await withOrgContext(orgId, (db) => terminology.getAllOverrides(db, orgId, 'com.hexyrn.requisite'), pool);
+    const all = await withOrgContext(
+      orgId,
+      (db) => terminology.getAllOverrides(db, orgId, 'com.hexyrn.requisite'),
+      pool,
+    );
     expect(all.requisition).toBe('Purchase Request');
   });
 
   it('overrides are isolated per organisation', async () => {
     const orgB = await createTestOrg(pool, 'Terminology Org B');
-    const label = await withOrgContext(orgB, (db) => terminology.resolve(db, orgB, 'com.hexyrn.requisite', 'requisition', 'Requisition'), pool);
+    const label = await withOrgContext(
+      orgB,
+      (db) => terminology.resolve(db, orgB, 'com.hexyrn.requisite', 'requisition', 'Requisition'),
+      pool,
+    );
     expect(label).toBe('Requisition'); // org B never sees org A's override
   });
 });

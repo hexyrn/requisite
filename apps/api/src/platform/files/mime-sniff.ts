@@ -18,7 +18,10 @@ const SIGNATURES: { mime: string; bytes: number[]; offset?: number }[] = [
 export function sniffMimeType(buffer: Buffer): string | null {
   for (const sig of SIGNATURES) {
     const offset = sig.offset ?? 0;
-    if (buffer.length >= offset + sig.bytes.length && sig.bytes.every((b, i) => buffer[offset + i] === b)) {
+    if (
+      buffer.length >= offset + sig.bytes.length &&
+      sig.bytes.every((b, i) => buffer[offset + i] === b)
+    ) {
       return sig.mime;
     }
   }

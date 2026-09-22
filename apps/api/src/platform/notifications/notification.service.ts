@@ -43,7 +43,12 @@ export class NotificationService {
       // in_app "delivery" is just the row existing; email is logged, not actually sent (no SMTP in P1 - documented, not silent).
       deliveryState[channel] = 'delivered';
       if (channel === 'email') {
-        logStructured({ event: 'notification.email.queued', userRef: recipientUserAccountId, entityType: 'notification_type', entityRef: notificationType });
+        logStructured({
+          event: 'notification.email.queued',
+          userRef: recipientUserAccountId,
+          entityType: 'notification_type',
+          entityRef: notificationType,
+        });
       }
     }
 
@@ -67,13 +72,27 @@ export class NotificationService {
     return row.id;
   }
 
-  async listForUser(db: Kysely<Database>, organisationId: string, userAccountId: string, unreadOnly = false) {
-    let query = db.selectFrom('notifications').selectAll().where('organisation_id', '=', organisationId).where('recipient_user_account_id', '=', userAccountId);
+  async listForUser(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+    unreadOnly = false,
+  ) {
+    let query = db
+      .selectFrom('notifications')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('recipient_user_account_id', '=', userAccountId);
     if (unreadOnly) query = query.where('read_at', 'is', null);
     return query.orderBy('created_at', 'desc').execute();
   }
 
-  async markRead(db: Kysely<Database>, organisationId: string, userAccountId: string, notificationId: string): Promise<void> {
+  async markRead(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+    notificationId: string,
+  ): Promise<void> {
     await db
       .updateTable('notifications')
       .set({ read_at: new Date() as any })
@@ -83,11 +102,28 @@ export class NotificationService {
       .execute();
   }
 
-  async setPreference(db: Kysely<Database>, organisationId: string, userAccountId: string, notificationType: string, channel: string, enabled: boolean): Promise<void> {
+  async setPreference(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+    notificationType: string,
+    channel: string,
+    enabled: boolean,
+  ): Promise<void> {
     await db
       .insertInto('notification_preferences')
-      .values({ organisation_id: organisationId, user_account_id: userAccountId, notification_type: notificationType, channel, enabled })
-      .onConflict((oc) => oc.columns(['organisation_id', 'user_account_id', 'notification_type', 'channel']).doUpdateSet({ enabled }))
+      .values({
+        organisation_id: organisationId,
+        user_account_id: userAccountId,
+        notification_type: notificationType,
+        channel,
+        enabled,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(['organisation_id', 'user_account_id', 'notification_type', 'channel'])
+          .doUpdateSet({ enabled }),
+      )
       .execute();
   }
 }
