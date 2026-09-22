@@ -18,6 +18,11 @@ import { STORAGE_PROVIDER, LocalDiskStorageProvider } from './files/storage-prov
 import { ScheduledJobService, JobHandlerRegistryService } from './scheduling/scheduled-job.service';
 import { JobRunnerService } from './scheduling/job-runner.service';
 import { AppContextFactory } from './app-context.factory';
+import { DatasetService } from './reporting/dataset.service';
+import { ReportQueryService } from './reporting/report-query.service';
+import { SavedReportService } from './reporting/saved-report.service';
+import { DashboardService } from './dashboards/dashboard.service';
+import { ExportService } from './exports/export.service';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -52,6 +57,11 @@ import { AppContextFactory } from './app-context.factory';
     JobHandlerRegistryService,
     JobRunnerService,
     AppContextFactory,
+    DatasetService,
+    ReportQueryService,
+    SavedReportService,
+    DashboardService,
+    ExportService,
   ],
   exports: [
     ApplicationRegistryService,
@@ -74,6 +84,11 @@ import { AppContextFactory } from './app-context.factory';
     JobHandlerRegistryService,
     JobRunnerService,
     AppContextFactory,
+    DatasetService,
+    ReportQueryService,
+    SavedReportService,
+    DashboardService,
+    ExportService,
   ],
 })
 export class PlatformModule {}
