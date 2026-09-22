@@ -480,6 +480,15 @@ export interface ReferenceWidgetsTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface ReferenceWidgetNotesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  widget_id: string;
+  note_text: string;
+  note_value: Generated<string>; // numeric -> string
+  created_at: Generated<Timestamp>;
+}
+
 // ---- P1: Cross-org dispatch routing (no RLS - see ADR 0005) ----
 export interface DispatchQueueTable {
   id: Generated<string>;
@@ -831,6 +840,7 @@ export interface Database {
   scheduled_jobs: ScheduledJobsTable;
   dispatch_queue: DispatchQueueTable;
   reference_widgets: ReferenceWidgetsTable;
+  reference_widget_notes: ReferenceWidgetNotesTable;
   dataset_definitions: DatasetDefinitionsTable;
   dataset_relationships: DatasetRelationshipsTable;
   saved_reports: SavedReportsTable;
