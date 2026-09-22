@@ -588,4 +588,147 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       expect(reuseRecovery.status).toBe(400);
     });
   });
+
+  describe('Administrator-assisted MFA reset (Architecture §6 / P3 item 33)', () => {
+    it('an admin holding core.users.mfa_reset can reset another user\'s MFA - target re-enrolment required, sessions revoked, audited', async () => {
+      // A fresh target user, enrolled in MFA end-to-end via the real HTTP flow.
+      await withOrgContext(
+        organisationId,
+        async (db) => {
+          const { hashPassword } = await import('../security/passwords');
+          await db
+            .insertInto('user_accounts')
+            .values({
+              organisation_id: organisationId,
+              email: 'mfa-reset-target@e2e.test',
+              password_hash: await hashPassword('mfa-reset-target-password-1'),
+              is_active: true,
+            })
+            .execute();
+        },
+        pool,
+      );
+
+      const targetAgent = request.agent(server());
+      const targetLogin = await targetAgent
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-reset-target@e2e.test', password: 'mfa-reset-target-password-1' });
+      const targetCsrf = targetLogin.body.csrfToken;
+
+      const begin = await targetAgent
+        .post('/api/v1/auth/mfa/enroll/begin')
+        .set('X-Hexyrn-CSRF', targetCsrf);
+      const { authenticator } = await import('otplib');
+      const code = authenticator.generate(begin.body.secret);
+      await targetAgent
+        .post('/api/v1/auth/mfa/enroll/confirm')
+        .set('X-Hexyrn-CSRF', targetCsrf)
+        .send({ secret: begin.body.secret, code });
+
+      const target = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('user_accounts')
+            .selectAll()
+            .where('email', '=', 'mfa-reset-target@e2e.test')
+            .executeTakeFirstOrThrow(),
+        pool,
+      );
+      expect(target.mfa_enabled).toBe(true);
+
+      // The target's session (established before the reset) should be
+      // revoked as a side effect - prove it still works right now, before
+      // the reset, as a baseline.
+      const preResetCheck = await targetAgent.get('/api/v1/organisation');
+      expect(preResetCheck.status).toBe(200);
+
+      // The owner (holds every CORE_PERMISSIONS entry, including the new
+      // USERS_MFA_RESET, via bootstrap's ALL_CORE_PERMISSIONS grant)
+      // performs the reset.
+      const adminAgent = request.agent(server());
+      const adminLogin = await adminAgent
+        .post('/api/v1/auth/login')
+        .send({ email: ownerEmail, password: ownerPassword });
+      const adminCsrf = adminLogin.body.csrfToken;
+
+      const reset = await adminAgent
+        .post(`/api/v1/auth/users/${target.id}/mfa/reset`)
+        .set('X-Hexyrn-CSRF', adminCsrf);
+      expect(reset.status).toBe(201);
+      expect(reset.body).toEqual({ reset: true });
+
+      // Same admin, same still-valid session, attempting to reset their OWN
+      // MFA through this endpoint - rejected by the self-target guard, not
+      // by the permission check (the admin genuinely holds
+      // USERS_MFA_RESET), proving the guard is a distinct, deliberate check.
+      const ownerRow = await withOrgContext(
+        organisationId,
+        (db) => db.selectFrom('user_accounts').select(['id']).where('email', '=', ownerEmail).executeTakeFirstOrThrow(),
+        pool,
+      );
+      const adminOwnReset = await adminAgent
+        .post(`/api/v1/auth/users/${ownerRow.id}/mfa/reset`)
+        .set('X-Hexyrn-CSRF', adminCsrf);
+      expect(adminOwnReset.status).toBe(400);
+
+      const afterReset = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('user_accounts')
+            .selectAll()
+            .where('id', '=', target.id)
+            .executeTakeFirstOrThrow(),
+        pool,
+      );
+      expect(afterReset.mfa_enabled).toBe(false);
+      expect(afterReset.totp_secret_encrypted).toBeNull();
+
+      const remainingCodes = await withOrgContext(
+        organisationId,
+        (db) => db.selectFrom('mfa_recovery_codes').selectAll().where('user_account_id', '=', target.id).execute(),
+        pool,
+      );
+      expect(remainingCodes).toHaveLength(0);
+
+      // The target's pre-existing session is now revoked.
+      const postResetCheck = await targetAgent.get('/api/v1/organisation');
+      expect(postResetCheck.status).toBe(401);
+
+      // The target logs back in - no longer prompted for MFA (it was reset,
+      // not preserved) - and must re-enrol before MFA is required again.
+      const targetAgent2 = request.agent(server());
+      const targetLogin2 = await targetAgent2
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-reset-target@e2e.test', password: 'mfa-reset-target-password-1' });
+      expect(targetLogin2.body.requiresMfa).toBe(false);
+
+      const events = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('audit_events')
+            .selectAll()
+            .where('event_type', '=', 'auth.mfa.admin_reset')
+            .where('entity_ref', '=', target.id)
+            .execute(),
+        pool,
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].actor_user_account_id).not.toBeNull();
+    });
+
+    it('a user without core.users.mfa_reset is rejected (403), not silently ignored', async () => {
+      const targetAgent2 = request.agent(server());
+      const login2 = await targetAgent2
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-reset-target@e2e.test', password: 'mfa-reset-target-password-1' });
+      const res = await targetAgent2
+        .post('/api/v1/auth/users/some-other-id/mfa/reset')
+        .set('X-Hexyrn-CSRF', login2.body.csrfToken)
+        .send();
+      expect(res.status).toBe(403);
+    });
+  });
 });

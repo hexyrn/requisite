@@ -12,6 +12,12 @@ export const CORE_PERMISSIONS = {
   ORG_UNITS_MANAGE: 'core.org_units.manage',
   LOCATIONS_MANAGE: 'core.locations.manage',
   AUDIT_VIEW: 'core.audit.view',
+  // P3 item 33 / Architecture §6: administrator-assisted MFA reset is
+  // DELIBERATELY a separate, more elevated permission from USERS_MANAGE,
+  // not bundled into it - an admin who can edit user profiles/roles should
+  // not automatically also be able to strip a user's second factor. Grant
+  // this narrowly.
+  USERS_MFA_RESET: 'core.users.mfa_reset',
 } as const;
 
 export type CorePermission = (typeof CORE_PERMISSIONS)[keyof typeof CORE_PERMISSIONS];

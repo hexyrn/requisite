@@ -1,11 +1,12 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Param, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
 import { InstallationRepository } from '../bootstrap/installation.repository';
 import { withOrgContext } from '../db/org-context';
 import { PublicRoute } from '../http/session-auth.guard';
-import { AuthenticatedOnly } from '../rbac/permission.guard';
+import { AuthenticatedOnly, RequirePermission } from '../rbac/permission.guard';
+import { CORE_PERMISSIONS } from '../rbac/permissions';
 import {
   encodeSessionCookie,
   decodeSessionCookie,
@@ -205,6 +206,65 @@ export class AuthController {
     });
 
     return { enabled: true, recoveryCodes };
+  }
+
+  /**
+   * Administrator-assisted MFA reset (Architecture §6 / P3 item 33): the
+   * lost-device-and-recovery-codes case, distinct from self-service login
+   * (which never bypasses MFA). Deliberately gated by USERS_MFA_RESET, a
+   * SEPARATE elevated permission from USERS_MANAGE (see permissions.ts) -
+   * being able to edit a user's profile/role does not imply being able to
+   * strip their second factor. Always audited (this is exactly the kind of
+   * sensitive, rare admin action Architecture §6 says "doing so is itself
+   * an audited, permission-gated action so it can't be used quietly").
+   *
+   * Also revokes every active session for the target user: if an account
+   * is in a state where an admin needs to intervene on its MFA, any
+   * existing session should not be trusted to continue unchallenged -
+   * matches the existing revoke-on-deactivation/revoke-on-password-reset
+   * pattern (session.service.ts).
+   *
+   * An admin cannot reset their OWN MFA through this endpoint - the
+   * self-service path (re-enrol, or use a recovery code) is enough for the
+   * admin's own account, and this closes off a trivial self-serve MFA
+   * bypass by anyone holding USERS_MFA_RESET on their own account (they
+   * would still need this permission specifically to try it, but requiring
+   * a distinct admin to act removes any ambiguity, matching the same
+   * "genuinely distinct approver" pattern already enforced for Requisite
+   * approvals).
+   */
+  @RequirePermission(CORE_PERMISSIONS.USERS_MFA_RESET)
+  @Post('users/:id/mfa/reset')
+  async adminResetMfa(@Req() req: FastifyRequest, @Param('id') targetUserId: string) {
+    const organisationId = (req as any).currentOrganisationId;
+    const actor = (req as any).currentUser;
+
+    if (targetUserId === actor.id) {
+      throw new BadRequestException(
+        'You cannot reset your own MFA through this endpoint - re-enrol or use a recovery code, or have another administrator perform this action.',
+      );
+    }
+
+    await withOrgContext(organisationId, async (db) => {
+      const target = await db
+        .selectFrom('user_accounts')
+        .select(['id'])
+        .where('id', '=', targetUserId)
+        .executeTakeFirst();
+      if (!target) throw new NotFoundException('User not found.');
+
+      await this.totp.adminResetMfa(db, targetUserId);
+      await this.sessions.revokeAllSessionsForUser(db, targetUserId);
+      await this.audit.record(db, {
+        organisationId,
+        eventType: 'auth.mfa.admin_reset',
+        actorUserAccountId: actor.id,
+        entityType: 'user_account',
+        entityRef: targetUserId,
+      });
+    });
+
+    return { reset: true };
   }
 
   @AuthenticatedOnly()

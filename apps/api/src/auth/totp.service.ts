@@ -79,6 +79,30 @@ export class TotpService {
     return this.verifyCode(secret, code);
   }
 
+  /**
+   * Administrator-assisted MFA reset (Architecture §6, P3 item 33): the
+   * lost-device-and-recovery-codes recovery path. Strips the user's
+   * enrolled TOTP secret and every recovery code, so their next login
+   * requires fresh MFA enrolment rather than a challenge - it does NOT
+   * re-enrol MFA on their behalf (only the user themselves can do that,
+   * since it requires proving possession of a new authenticator). This is
+   * a deliberately blunt, fully-reversible-by-re-enrolment action; the
+   * caller (the controller) is responsible for requiring the elevated
+   * `core.users.mfa_reset` permission and writing the audit event - this
+   * method itself has no permission/audit concerns, matching how every
+   * other Core service is written (the HTTP layer owns authorisation and
+   * audit, services own the safe data operation, Architecture's "no second
+   * authorisation universe").
+   */
+  async adminResetMfa(db: Kysely<Database>, userAccountId: string): Promise<void> {
+    await db
+      .updateTable('user_accounts')
+      .set({ mfa_enabled: false, totp_secret_encrypted: null })
+      .where('id', '=', userAccountId)
+      .execute();
+    await db.deleteFrom('mfa_recovery_codes').where('user_account_id', '=', userAccountId).execute();
+  }
+
   /** One-time recovery code use - consumes it so it cannot be reused. */
   async consumeRecoveryCode(
     db: Kysely<Database>,
