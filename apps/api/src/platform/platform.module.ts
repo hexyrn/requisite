@@ -36,6 +36,7 @@ import { IntegrationConnectionService } from './integrations/integration-connect
 import { SyncAdapterRegistryService } from './integrations/sync-adapter-registry.service';
 import { SyncHandlerRegistryService } from './integrations/sync-row-handler';
 import { SyncEngineService } from './integrations/sync-engine.service';
+import { DataPortabilityService } from './exports/data-portability.service';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -88,6 +89,7 @@ import { SyncEngineService } from './integrations/sync-engine.service';
     SyncAdapterRegistryService,
     SyncHandlerRegistryService,
     SyncEngineService,
+    DataPortabilityService,
   ],
   exports: [
     ApplicationRegistryService,
@@ -128,6 +130,7 @@ import { SyncEngineService } from './integrations/sync-engine.service';
     SyncAdapterRegistryService,
     SyncHandlerRegistryService,
     SyncEngineService,
+    DataPortabilityService,
   ],
 })
 export class PlatformModule {}
