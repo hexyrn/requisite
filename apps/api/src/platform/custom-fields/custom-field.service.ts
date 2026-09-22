@@ -60,9 +60,22 @@ const URL_RE = /^https?:\/\/\S+$/;
  * `sortExpression()`/`groupExpression()` and never writes JSONB syntax
  * itself. This is exactly the seam Architecture §2.2 specifies.
  */
+const FIELD_KEY_RE = /^[a-z][a-z0-9_]{0,63}$/;
+
 @Injectable()
 export class CustomFieldService {
   async defineField(db: Kysely<Database>, organisationId: string, input: CustomFieldDefinitionInput) {
+    // Defense in depth (P1 security review item: "custom-field injection/
+    // query issues"): `key` is embedded into a raw SQL fragment by
+    // CustomFieldQueryProvider.expression() below. Single-quote doubling
+    // there is already provably sufficient to prevent SQL injection (it's
+    // the standard SQL string-literal escape), but constraining the
+    // allowed character set here removes any need to reason about that in
+    // the first place, and rejects garbage keys before they can ever reach
+    // a query.
+    if (!FIELD_KEY_RE.test(input.key)) {
+      throw new BadRequestException('Custom field key must be lowercase alphanumeric/underscore, starting with a letter (max 64 chars).');
+    }
     return db
       .insertInto('custom_field_definitions')
       .values({
