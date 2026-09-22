@@ -85,6 +85,13 @@ export class ReportQueryService {
     subject: PermissionCheckSubject,
     query: ReportQueryDefinition,
   ): Promise<Record<string, unknown>[]> {
+    // P2 item 25 - query resource controls: cap how long a single report
+    // query may run. SET LOCAL is transaction-scoped (reverts automatically
+    // at COMMIT/ROLLBACK, same reasoning as the org-context GUC in
+    // withOrgContext), so this never leaks onto a pooled connection reused
+    // by a later, unrelated query.
+    await sql`SET LOCAL statement_timeout = '10s'`.execute(db);
+
     const dataset = await this.loadDatasetOrThrow(db, query.datasetKey);
     this.requirePermission(subject, dataset.required_permission);
 
