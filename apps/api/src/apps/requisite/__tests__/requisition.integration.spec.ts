@@ -38,7 +38,7 @@ describeIfDb('Requisite RequisitionService - create/submit/approve, edit restric
     new ScheduledJobService(),
     new TerminologyService(),
   );
-  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService());
+  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
   const requisitions = new RequisitionService(onboarding);
 
   function ctx(organisationId: string, actorId: string, permissions: string[] = []) {

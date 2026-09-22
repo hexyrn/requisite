@@ -159,6 +159,7 @@ export class PurchaseOrderService {
 
     await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'ordered', actorUserAccountId);
     await ctx.events.publish(db, 'requisite.purchase-order.created.v1', { purchaseOrderId: po.id, poNumber: po.po_number, requisitionId, supplierId: input.supplierId }, 1);
+    await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.purchase_order_created', `PO created: ${po.po_number}`, `A purchase order has been generated from your requisition "${requisition.reason}".`, { type: 'requisite_purchase_order', id: po.id });
 
     return this.getPurchaseOrder(db, ctx.organisationId, po.id);
   }

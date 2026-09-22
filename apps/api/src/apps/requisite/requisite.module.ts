@@ -7,11 +7,13 @@ import { PurchaseOrderService } from './purchase-order.service';
 import { GoodsReceiptService } from './goods-receipt.service';
 import { RfqService } from './rfq.service';
 import { RequisiteController } from './requisite.controller';
+import { DeliveryMonitoringService } from './delivery-monitoring.service';
+import { PoDocumentService } from './po-document.service';
 
 @Module({
   imports: [PlatformModule],
   controllers: [RequisiteController],
-  providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
-  exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
+  providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService, DeliveryMonitoringService, PoDocumentService],
+  exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService, DeliveryMonitoringService, PoDocumentService],
 })
 export class RequisiteAppModule {}

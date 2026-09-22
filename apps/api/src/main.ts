@@ -10,6 +10,7 @@ import { ApplicationRegistryService } from './platform/app-registry/application-
 import { registerReferenceApp } from './apps/reference/reference.manifest';
 import { registerRequisiteApp } from './apps/requisite/requisite.manifest';
 import { registerRequisiteP2Extensions } from './apps/requisite/requisite-p2-extensions';
+import { DeliveryMonitoringService, DELIVERY_MONITORING_JOB_TYPE } from './apps/requisite/delivery-monitoring.service';
 import { JobHandlerRegistryService } from './platform/scheduling/scheduled-job.service';
 import { ScheduledReportService, SCHEDULED_REPORT_JOB_TYPE } from './platform/reporting/scheduled-report.service';
 import { ConnectorRegistryService } from './platform/integrations/connector-registry.service';
@@ -121,6 +122,11 @@ async function bootstrap() {
   jobHandlers.register(SCHEDULED_REPORT_JOB_TYPE, (db, organisationId, payload) =>
     scheduledReports.runDelivery(db, organisationId, payload.scheduledReportId as string),
   );
+
+  // Requisite delivery-monitoring reminders (item 18) - same scheduling-
+  // engine reuse pattern as scheduled reports above.
+  const deliveryMonitoring = app.get(DeliveryMonitoringService);
+  jobHandlers.register(DELIVERY_MONITORING_JOB_TYPE, (db, organisationId) => deliveryMonitoring.runCheck(db, organisationId).then(() => undefined));
 
   // Registers the reference connector (P2 item 27) the same way the
   // reference app itself is registered above - a compiled-in demonstration

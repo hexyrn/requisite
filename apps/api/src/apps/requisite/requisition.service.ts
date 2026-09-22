@@ -4,6 +4,7 @@ import { HexyrnAppContext } from '@hexyrn/app-sdk';
 import { Database } from '../../db/types';
 import { RequisiteOnboardingService } from './requisite-onboarding.service';
 import { multiplyMinor, sumMinor } from './money';
+import { findUsersWithPermission } from './notification-helper';
 
 const ENTITY_TYPE = 'requisite_requisition';
 
@@ -186,6 +187,15 @@ export class RequisitionService {
 
     await ctx.events.publish(db, 'requisite.requisition.submitted.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
 
+    // Item 17 - notify everyone currently able to approve (found via the
+    // same role_permissions join RoleRepository itself uses, never a
+    // second authorisation decision - only "who to notify").
+    const approvers = await findUsersWithPermission(db, ctx.organisationId, 'requisite.requisitions.approve');
+    for (const approverId of approvers) {
+      if (approverId === actorUserAccountId) continue; // never notify a requester about their own submission as "approval required"
+      await ctx.notifications.send(db, approverId, 'requisite.approval_required', `Approval required: ${requisition.requisition_number}`, `${requisition.reason} - estimated value ${requisition.estimated_value_minor} ${requisition.currency} minor units.`, { type: 'requisite_requisition', id: requisitionId });
+    }
+
     return { requisition: await this.getRequisition(db, ctx.organisationId, requisitionId), approval };
   }
 
@@ -217,10 +227,12 @@ export class RequisitionService {
       await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'approved', actorUserAccountId);
       await db.updateTable('requisite_requisitions').set({ status: 'approved' }).where('id', '=', requisitionId).execute();
       await ctx.events.publish(db, 'requisite.requisition.approved.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
+      await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.requisition_approved', `Approved: ${requisition.requisition_number}`, `Your requisition "${requisition.reason}" has been approved.`, { type: 'requisite_requisition', id: requisitionId });
     } else if (result.requestStatus === 'rejected') {
       await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'rejected', actorUserAccountId);
       await db.updateTable('requisite_requisitions').set({ status: 'rejected' }).where('id', '=', requisitionId).execute();
       await ctx.events.publish(db, 'requisite.requisition.rejected.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
+      await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.requisition_rejected', `Rejected: ${requisition.requisition_number}`, `Your requisition "${requisition.reason}" was rejected.${reason ? ` Reason: ${reason}` : ''}`, { type: 'requisite_requisition', id: requisitionId });
     }
     return result;
   }
@@ -248,5 +260,15 @@ export class RequisitionService {
 
   async listRequisitions(db: Kysely<Database>, organisationId: string) {
     return db.selectFrom('requisite_requisitions').selectAll().where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').execute();
+  }
+
+  /** Item 16 - quotes/specifications/purchase-justification attachments, via Core Files (never a separate file store). */
+  async attachFile(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string, buffer: Buffer, filename: string, mimeType: string) {
+    await this.getRequisitionRaw(db, ctx.organisationId, requisitionId); // 404s if not found/wrong org before touching Files
+    return ctx.files.store(db, buffer, filename, mimeType, actorUserAccountId, { type: ENTITY_TYPE, id: requisitionId });
+  }
+
+  async listAttachments(db: Kysely<Database>, organisationId: string, requisitionId: string) {
+    return db.selectFrom('files').select(['id', 'original_filename', 'mime_type', 'size_bytes', 'created_at']).where('organisation_id', '=', organisationId).where('entity_type', '=', ENTITY_TYPE).where('entity_id', '=', requisitionId).execute();
   }
 }

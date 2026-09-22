@@ -133,6 +133,54 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     expect(response.status).toBe(403);
   });
 
+  it('DEDICATED ROUTES: submit -> decide (via a distinct approver, self-approval blocked) -> generate PO -> issue -> PDF document, all over real HTTP', async () => {
+    const createSupplier = await agent.post('/api/v1/requisite/suppliers').set('x-hexyrn-csrf', csrfToken).send({ name: 'Routes Test Supplier' });
+    const createReq = await agent.post('/api/v1/requisite/requisitions').set('x-hexyrn-csrf', csrfToken).send({ reason: 'Dedicated routes test', lines: [{ description: 'Widget', quantity: '3', estimatedUnitPriceMinor: '2000' }] });
+    expect(createReq.status).toBe(201);
+
+    const submitRes = await agent.post(`/api/v1/requisite/requisitions/${createReq.body.id}/submit`).set('x-hexyrn-csrf', csrfToken).send({ version: createReq.body.version });
+    expect(submitRes.status).toBe(201);
+    const requestId = submitRes.body.approval.requestId;
+    const step = await withOrgContext(organisationId, (db) => db.selectFrom('approval_steps').selectAll().where('request_id', '=', requestId).where('status', '=', 'pending').executeTakeFirstOrThrow(), pool);
+
+    // A distinct approver, logged in via their own agent - self-approval is blocked server-side.
+    const approverEmail = `routes-approver-${Date.now()}@example.com`;
+    const approverPassword = 'routes-approver-password-1';
+    await withOrgContext(
+      organisationId,
+      async (db) => {
+        const { hashPassword } = await import('../../../security/passwords');
+        const ownerRole = await db.selectFrom('roles').selectAll().where('organisation_id', '=', organisationId).where('name', '=', 'Owner').executeTakeFirstOrThrow();
+        const approverUser = await db.insertInto('user_accounts').values({ organisation_id: organisationId, email: approverEmail, password_hash: await hashPassword(approverPassword), is_active: true }).returningAll().executeTakeFirstOrThrow();
+        await db.insertInto('user_roles').values({ organisation_id: organisationId, user_account_id: approverUser.id, role_id: ownerRole.id }).execute();
+      },
+      pool,
+    );
+    const approverAgent = request.agent(server());
+    const approverLogin = await approverAgent.post('/api/v1/auth/login').send({ email: approverEmail, password: approverPassword });
+    expect(approverLogin.status).toBe(201);
+
+    const decideRes = await approverAgent.post(`/api/v1/requisite/requisitions/${createReq.body.id}/decisions`).set('x-hexyrn-csrf', approverLogin.body.csrfToken).send({ stepId: step.id, decision: 'approve' });
+    expect(decideRes.status).toBe(201);
+    expect(decideRes.body.requestStatus).toBe('approved');
+
+    const generatePoRes = await agent.post(`/api/v1/requisite/requisitions/${createReq.body.id}/purchase-orders`).set('x-hexyrn-csrf', csrfToken).send({ supplierId: createSupplier.body.id, lines: [{ description: 'Widget', quantityOrdered: '3', unitPriceMinor: '2000' }] });
+    expect(generatePoRes.status).toBe(201);
+    expect(generatePoRes.body.status).toBe('draft');
+
+    const issueRes = await agent.post(`/api/v1/requisite/purchase-orders/${generatePoRes.body.id}/issue`).set('x-hexyrn-csrf', csrfToken).send({ version: generatePoRes.body.version });
+    expect(issueRes.status).toBe(201);
+    expect(issueRes.body.status).toBe('issued');
+
+    const pdfRes = await agent.get(`/api/v1/requisite/purchase-orders/${generatePoRes.body.id}/document.pdf`).buffer(true).parse((res, callback) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => callback(null, Buffer.concat(chunks)));
+    });
+    expect(pdfRes.status).toBe(200);
+    expect((pdfRes.body as Buffer).subarray(0, 4).toString('utf8')).toBe('%PDF');
+  });
+
   it('WEBHOOKS (item 32): a purchase-order.issued event is delivered, signed, to a subscribed endpoint - end to end through real HTTP + real dispatch', async () => {
     const webhooks = app.get(WebhookService);
     const dispatcher = app.get(WebhookDispatcherService);

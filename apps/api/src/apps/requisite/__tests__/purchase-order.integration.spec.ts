@@ -40,7 +40,7 @@ describeIfDb('Requisite PurchaseOrderService - generation, issue, duplicate prev
     new ScheduledJobService(),
     new TerminologyService(),
   );
-  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService());
+  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
   const suppliers = new SupplierService(onboarding);
   const requisitions = new RequisitionService(onboarding);
   const purchaseOrders = new PurchaseOrderService(onboarding);

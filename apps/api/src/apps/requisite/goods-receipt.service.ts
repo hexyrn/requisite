@@ -113,6 +113,13 @@ export class GoodsReceiptService {
     await ctx.events.publish(db, 'requisite.goods-receipt.created.v1', { goodsReceiptId: grn.id, grnNumber: grn.grn_number, purchaseOrderId }, 1);
     await ctx.events.publish(db, 'requisite.goods-received.v1', { purchaseOrderId, goodsReceiptId: grn.id, fullyReceived }, 1);
 
+    if (po.source_requisition_id) {
+      const sourceRequisition = await db.selectFrom('requisite_requisitions').select('requester_user_account_id').where('id', '=', po.source_requisition_id).executeTakeFirst();
+      if (sourceRequisition) {
+        await ctx.notifications.send(db, sourceRequisition.requester_user_account_id, 'requisite.receipt_recorded', `Receipt recorded: ${po.po_number}`, `Goods receipt ${grn.grn_number} was recorded against your purchase order (${fullyReceived ? 'fully received' : 'partially received'}).`, { type: 'requisite_goods_receipt', id: grn.id });
+      }
+    }
+
     if (fullyReceived && po.source_requisition_id) {
       await ctx.workflow.transition(db, ENTITY_TYPE, po.source_requisition_id, 'received', actorUserAccountId);
       await db.updateTable('requisite_requisitions').set({ status: 'received' }).where('id', '=', po.source_requisition_id).execute();

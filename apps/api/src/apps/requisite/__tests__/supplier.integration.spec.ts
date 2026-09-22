@@ -39,7 +39,7 @@ describeIfDb('Requisite SupplierService - CRUD, org isolation, deactivation (ite
     new ScheduledJobService(),
     new TerminologyService(),
   );
-  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService());
+  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
   const suppliers = new SupplierService(onboarding);
 
   function ctx(organisationId: string, actorId: string, permissions: string[] = []) {

@@ -39,7 +39,7 @@ describeIfDb('Requisite RfqService - quote comparison and selection (item 9)', (
     new ScheduledJobService(),
     new TerminologyService(),
   );
-  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService());
+  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
   const suppliers = new SupplierService(onboarding);
   const rfqs = new RfqService(onboarding);
 
