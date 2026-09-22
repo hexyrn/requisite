@@ -271,4 +271,26 @@ export class RequisitionService {
   async listAttachments(db: Kysely<Database>, organisationId: string, requisitionId: string) {
     return db.selectFrom('files').select(['id', 'original_filename', 'mime_type', 'size_bytes', 'created_at']).where('organisation_id', '=', organisationId).where('entity_type', '=', ENTITY_TYPE).where('entity_id', '=', requisitionId).execute();
   }
+
+  /**
+   * Item 36 - approver UX: "relevant previous approval decisions" without
+   * hopping between admin screens. A plain RLS-protected read (never a
+   * second authorisation decision - the caller already passed
+   * @RequirePermission at the controller layer) joining
+   * approval_requests/steps/decisions for this requisition.
+   */
+  async getApprovalHistory(db: Kysely<Database>, organisationId: string, requisitionId: string) {
+    const requests = await db.selectFrom('approval_requests').selectAll().where('organisation_id', '=', organisationId).where('entity_type', '=', ENTITY_TYPE).where('entity_id', '=', requisitionId).execute();
+    const history = [];
+    for (const request of requests) {
+      const steps = await db.selectFrom('approval_steps').selectAll().where('request_id', '=', request.id).orderBy('step_index', 'asc').execute();
+      const stepsWithDecisions = [];
+      for (const step of steps) {
+        const decisions = await db.selectFrom('approval_decisions').selectAll().where('step_id', '=', step.id).orderBy('decided_at', 'asc').execute();
+        stepsWithDecisions.push({ ...step, decisions });
+      }
+      history.push({ ...request, steps: stepsWithDecisions });
+    }
+    return history;
+  }
 }

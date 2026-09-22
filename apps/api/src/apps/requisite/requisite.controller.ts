@@ -80,6 +80,37 @@ export class RequisiteController {
     });
   }
 
+  /** Item 36 - approver UX: approval history, viewable without hopping to an admin screen. */
+  @RequirePermission('requisite.requisitions.view')
+  @Get('requisitions/:id/approval-history')
+  async getApprovalHistory(@Req() req: FastifyRequest, @Param('id') id: string) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.requisitions.getApprovalHistory(db, organisationId, id));
+  }
+
+  /**
+   * Item 16/35 - attachment upload. v1 accepts base64-encoded content in
+   * the JSON body rather than multipart form data (no multipart parser is
+   * wired into the Fastify adapter yet) - a documented simplification, not
+   * a silent limitation; see docs/decisions/REQUISITE-V1-DEVIATIONS.md.
+   */
+  @RequirePermission('requisite.requisitions.edit')
+  @Post('requisitions/:id/attachments')
+  async attachFile(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { filename: string; mimeType: string; contentBase64: string }) {
+    const { organisationId, subject } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => {
+      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      return this.requisitions.attachFile(ctx, db, subject.userAccountId, id, Buffer.from(body.contentBase64, 'base64'), body.filename, body.mimeType);
+    });
+  }
+
+  @RequirePermission('requisite.requisitions.view')
+  @Get('requisitions/:id/attachments')
+  async listAttachments(@Req() req: FastifyRequest, @Param('id') id: string) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.requisitions.listAttachments(db, organisationId, id));
+  }
+
   @RequirePermission('requisite.requisitions.submit')
   @Post('requisitions/:id/submit')
   async submitRequisition(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { version: number }) {

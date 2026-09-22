@@ -133,6 +133,22 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     expect(response.status).toBe(403);
   });
 
+  it('UX SURFACE (items 35/36): a requisition can receive a file attachment and expose its (empty) approval history over real HTTP', async () => {
+    const createReq = await agent.post('/api/v1/requisite/requisitions').set('x-hexyrn-csrf', csrfToken).send({ reason: 'UX surface test', lines: [{ description: 'X', quantity: '1', estimatedUnitPriceMinor: '100' }] });
+    expect(createReq.status).toBe(201);
+
+    const attach = await agent.post(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`).set('x-hexyrn-csrf', csrfToken).send({ filename: 'spec.pdf', mimeType: 'application/pdf', contentBase64: Buffer.from('%PDF-1.4 fake').toString('base64') });
+    expect(attach.status).toBe(201);
+
+    const list = await agent.get(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`);
+    expect(list.status).toBe(200);
+    expect(list.body.some((f: any) => f.original_filename === 'spec.pdf')).toBe(true);
+
+    const history = await agent.get(`/api/v1/requisite/requisitions/${createReq.body.id}/approval-history`);
+    expect(history.status).toBe(200);
+    expect(history.body).toEqual([]); // not yet submitted - no approval requests exist
+  });
+
   it('DEDICATED ROUTES: submit -> decide (via a distinct approver, self-approval blocked) -> generate PO -> issue -> PDF document, all over real HTTP', async () => {
     const createSupplier = await agent.post('/api/v1/requisite/suppliers').set('x-hexyrn-csrf', csrfToken).send({ name: 'Routes Test Supplier' });
     const createReq = await agent.post('/api/v1/requisite/requisitions').set('x-hexyrn-csrf', csrfToken).send({ reason: 'Dedicated routes test', lines: [{ description: 'Widget', quantity: '3', estimatedUnitPriceMinor: '2000' }] });

@@ -91,3 +91,34 @@ correctly leaves to the application layer.
   `currency` column) but the service layer does not yet perform any
   currency conversion; v1 assumes same-currency comparison, matching the
   brief's "design for multi-currency even if v1 UI optimises for one."
+- **Attachment upload uses base64-in-JSON, not multipart/form-data** - no
+  multipart parser is wired into the Fastify adapter yet. A documented v1
+  simplification, not a silent limitation.
+
+## Items 34-36 (Navigation/UX) - API surface confirmation
+
+No React UI was built for Requisite v1 (out of scope for this backend
+phase); the brief asked that the API surface at minimum be confirmed to
+support the described UX flows, proven as follows:
+
+- **Item 34 (navigation)**: `REQUISITE_APP_MANIFEST.navigation` declares
+  exactly the seven sections named (Home, Requisitions, Purchase Orders,
+  Goods Receipts, Suppliers, Quotes/RFQs, Reports), each permission-gated.
+- **Item 35 (requisition creation flow)**: `POST .../requisitions` (reason
+  + lines, returns a computed `estimated_value_minor`) -> `POST
+  .../requisitions/:id/attachments` (optional quote/spec) -> `POST
+  .../requisitions/:id/submit` - proven as one continuous real-HTTP
+  sequence in the e2e suite.
+- **Item 36 (approver UX)**: `GET .../requisitions/:id` returns requester,
+  lines, total, supplier preference, and cost reference in one call;
+  `GET .../requisitions/:id/approval-history` returns prior decisions
+  (decider, decision, comment) without a second admin screen; `GET
+  .../requisitions/:id/attachments` returns quotes/specs; the decision
+  itself is `POST .../requisitions/:id/decisions`. All four routes proven
+  over real HTTP.
+
+Architecture terminology (capability, event bus, dataset registry,
+workflow instance) never appears in any Requisite HTTP response - request/
+response bodies use plain domain fields (`status`, `requisition_number`,
+`estimated_value_minor`, etc.), matching item 34's requirement even
+without a UI to visually confirm it in.

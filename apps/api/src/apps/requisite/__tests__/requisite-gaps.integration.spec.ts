@@ -163,4 +163,19 @@ describeIfDb('Requisite gap closure: custom fields, notifications, files, delive
     const orgB = await createTestOrg(pool, 'Requisite Gap PDF Isolation Org B');
     await expect(withOrgContext(orgB, (db) => poDocuments.generatePdf(db, orgB, po.id, 'Org B'), pool)).rejects.toThrow(/not found/i);
   });
+
+  it('APPROVER UX (item 36): approval history is retrievable, showing the decision and who made it, without a second admin screen', async () => {
+    const requester = await makeUser(orgA);
+    const approver = await makeUser(orgA);
+    const req = await withOrgContext(orgA, (db) => requisitions.createRequisition(ctx(orgA, requester, ['requisite.requisitions.submit'])(db), db, requester, { reason: 'Approval history test', lines: [{ description: 'X', quantity: '1', estimatedUnitPriceMinor: '100' }] }), pool);
+    const { approval } = await withOrgContext(orgA, (db) => requisitions.submitRequisition(ctx(orgA, requester, ['requisite.requisitions.submit'])(db), db, requester, req.id, req.version), pool);
+    const step = await withOrgContext(orgA, (db) => db.selectFrom('approval_steps').selectAll().where('request_id', '=', approval.requestId).where('status', '=', 'pending').executeTakeFirstOrThrow(), pool);
+    await withOrgContext(orgA, (db) => requisitions.decide(ctx(orgA, approver, ['requisite.requisitions.approve'])(db), db, approver, req.id, step.id, 'approve', 'Looks good'), pool);
+
+    const history = await withOrgContext(orgA, (db) => requisitions.getApprovalHistory(db, orgA, req.id), pool);
+    expect(history).toHaveLength(1);
+    expect(history[0].steps[0].decisions[0].decided_by).toBe(approver);
+    expect(history[0].steps[0].decisions[0].decision).toBe('approve');
+    expect(history[0].steps[0].decisions[0].comment).toBe('Looks good');
+  });
 });
