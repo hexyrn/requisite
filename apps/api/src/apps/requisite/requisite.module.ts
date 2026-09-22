@@ -5,10 +5,11 @@ import { SupplierService } from './supplier.service';
 import { RequisitionService } from './requisition.service';
 import { PurchaseOrderService } from './purchase-order.service';
 import { GoodsReceiptService } from './goods-receipt.service';
+import { RfqService } from './rfq.service';
 
 @Module({
   imports: [PlatformModule],
-  providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService],
-  exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService],
+  providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
+  exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
 })
 export class RequisiteAppModule {}
