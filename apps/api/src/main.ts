@@ -10,6 +10,10 @@ import { ApplicationRegistryService } from './platform/app-registry/application-
 import { registerReferenceApp } from './apps/reference/reference.manifest';
 import { JobHandlerRegistryService } from './platform/scheduling/scheduled-job.service';
 import { ScheduledReportService, SCHEDULED_REPORT_JOB_TYPE } from './platform/reporting/scheduled-report.service';
+import { ConnectorRegistryService } from './platform/integrations/connector-registry.service';
+import { SyncAdapterRegistryService } from './platform/integrations/sync-adapter-registry.service';
+import { SyncHandlerRegistryService } from './platform/integrations/sync-row-handler';
+import { registerReferenceConnector } from './apps/reference/reference-connector';
 
 async function bootstrap() {
   const adapter = new FastifyAdapter({ trustProxy: parseTrustedProxies() });
@@ -98,6 +102,11 @@ async function bootstrap() {
   jobHandlers.register(SCHEDULED_REPORT_JOB_TYPE, (db, organisationId, payload) =>
     scheduledReports.runDelivery(db, organisationId, payload.scheduledReportId as string),
   );
+
+  // Registers the reference connector (P2 item 27) the same way the
+  // reference app itself is registered above - a compiled-in demonstration
+  // of the Integration Framework/Sync Engine end to end.
+  await registerReferenceConnector(app.get(ConnectorRegistryService), app.get(SyncAdapterRegistryService), app.get(SyncHandlerRegistryService));
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');

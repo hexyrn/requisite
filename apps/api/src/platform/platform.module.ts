@@ -32,6 +32,11 @@ import { ScheduledReportService } from './reporting/scheduled-report.service';
 import { SearchService } from './search/search.service';
 import { ImportService } from './import/import.service';
 import { ImportHandlerRegistryService } from './import/import-row-handler';
+import { ConnectorRegistryService } from './integrations/connector-registry.service';
+import { IntegrationConnectionService } from './integrations/integration-connection.service';
+import { SyncAdapterRegistryService } from './integrations/sync-adapter-registry.service';
+import { SyncHandlerRegistryService } from './integrations/sync-row-handler';
+import { SyncEngineService } from './integrations/sync-engine.service';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -80,6 +85,11 @@ import { ImportHandlerRegistryService } from './import/import-row-handler';
     SearchService,
     ImportService,
     ImportHandlerRegistryService,
+    ConnectorRegistryService,
+    IntegrationConnectionService,
+    SyncAdapterRegistryService,
+    SyncHandlerRegistryService,
+    SyncEngineService,
   ],
   exports: [
     ApplicationRegistryService,
@@ -116,6 +126,11 @@ import { ImportHandlerRegistryService } from './import/import-row-handler';
     SearchService,
     ImportService,
     ImportHandlerRegistryService,
+    ConnectorRegistryService,
+    IntegrationConnectionService,
+    SyncAdapterRegistryService,
+    SyncHandlerRegistryService,
+    SyncEngineService,
   ],
 })
 export class PlatformModule {}
