@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
+import { toJsonbParam } from '../../db/jsonb-param';
 
 export interface ChecklistQuestionDefinition {
   key: string;
@@ -57,8 +58,8 @@ export class ChecklistService {
 
     await db
       .insertInto('checklist_responses')
-      .values({ organisation_id: organisationId, instance_id: instanceId, question_key: questionKey, value: value as any, answered_by: answeredBy, resulting_issue_ref: resultingIssueRef ?? null })
-      .onConflict((oc) => oc.columns(['instance_id', 'question_key']).doUpdateSet({ value: value as any, answered_by: answeredBy, resulting_issue_ref: resultingIssueRef ?? null, answered_at: new Date() as any }))
+      .values({ organisation_id: organisationId, instance_id: instanceId, question_key: questionKey, value: toJsonbParam(value) as any, answered_by: answeredBy, resulting_issue_ref: resultingIssueRef ?? null })
+      .onConflict((oc) => oc.columns(['instance_id', 'question_key']).doUpdateSet({ value: toJsonbParam(value) as any, answered_by: answeredBy, resulting_issue_ref: resultingIssueRef ?? null, answered_at: new Date() as any }))
       .execute();
   }
 

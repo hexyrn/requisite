@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Kysely, sql } from 'kysely';
 import { Database } from '../../db/types';
+import { toJsonbParam } from '../../db/jsonb-param';
 
 export type CustomFieldType =
   | 'short_text'
@@ -48,21 +49,6 @@ export interface CustomFieldDefinitionInput {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/\S+$/;
 
-/**
- * `pg` special-cases a bare JS array bound parameter as a native Postgres
- * ARRAY literal (e.g. `{a,b,c}`), even when the target column is `jsonb` -
- * this is correct for a real array-typed column (like `invitations.role_ids
- * UUID[]`) but wrong for a jsonb column, where a top-level array value must
- * be sent as JSON text (`["a","b","c"]`) instead. A plain object bound
- * parameter is NOT affected (pg serializes it to JSON correctly either way),
- * so this helper is only needed for values that might be a bare array.
- * Found empirically: `custom_field_definitions.select_options` (jsonb)
- * threw "invalid input syntax for type json" until values were run through
- * this helper before binding.
- */
-function toJsonbParam(value: unknown): unknown {
-  return Array.isArray(value) ? JSON.stringify(value) : value;
-}
 
 /**
  * Custom field engine. Architecture §2, P1 item 5. JSONB is the canonical
