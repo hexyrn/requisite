@@ -29,6 +29,23 @@ export function NewRequisitionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
+  function onFileSelected(file: File | undefined) {
+    setFileError(null);
+    if (!file) {
+      setPendingFile(null);
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setFileError('This file is too large (maximum 25MB).');
+      return;
+    }
+    setPendingFile(file);
+  }
 
   const estimatedTotalMinor = lines.reduce((sum, line) => {
     const qty = Number(line.quantity) || 0;
@@ -68,6 +85,14 @@ export function NewRequisitionPage() {
         costObjectReference: costObjectReference || undefined,
         lines: lines.map(({ key: _key, ...rest }) => rest),
       });
+      if (pendingFile) {
+        // Best-effort: the requisition itself is already saved even if
+        // the attachment upload fails - never lose the requisition data
+        // because of a file problem.
+        await requisiteApi.attachFile(created.id, pendingFile).catch((err) => {
+          setFileError(err instanceof Error ? err.message : 'The requisition was saved, but the attachment could not be uploaded.');
+        });
+      }
       navigate(`/requisite/requisitions/${created.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save this requisition. Please try again.');
@@ -114,6 +139,23 @@ export function NewRequisitionPage() {
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb', textAlign: 'right', fontSize: 16 }}>
           Estimated total: <strong><Money minorUnits={estimatedTotalMinor} /></strong>
         </div>
+      </Card>
+
+      <Card>
+        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Supporting documents (optional)</h2>
+        <label htmlFor="requisition-attachment" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+          Attach a quote or specification
+        </label>
+        <input id="requisition-attachment" type="file" onChange={(e) => onFileSelected(e.target.files?.[0])} />
+        {pendingFile && (
+          <div style={{ marginTop: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{pendingFile.name}</span>
+            <Button type="button" variant="secondary" onClick={() => onFileSelected(undefined)}>
+              Remove
+            </Button>
+          </div>
+        )}
+        {fileError && <div role="alert" style={{ color: '#991b1b', marginTop: 8, fontSize: 13 }}>{fileError}</div>}
       </Card>
 
       {validationError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{validationError}</div>}

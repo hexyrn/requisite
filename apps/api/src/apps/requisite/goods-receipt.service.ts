@@ -140,7 +140,17 @@ export class GoodsReceiptService {
   }
 
   async listGoodsReceiptsForPo(db: Kysely<Database>, organisationId: string, purchaseOrderId: string) {
-    return db.selectFrom('requisite_goods_receipts').selectAll().where('organisation_id', '=', organisationId).where('purchase_order_id', '=', purchaseOrderId).orderBy('received_at', 'asc').execute();
+    const receipts = await db.selectFrom('requisite_goods_receipts').selectAll().where('organisation_id', '=', organisationId).where('purchase_order_id', '=', purchaseOrderId).orderBy('received_at', 'asc').execute();
+    // Attach each receipt's own lines - the UI's history view (item 13)
+    // shows "GRN, Date, Receiver, Delivery Note, Lines/Quantities" per
+    // receipt, so the list endpoint needs the same shape getGoodsReceipt()
+    // already returns for a single receipt, not a bare header row.
+    const withLines = [];
+    for (const receipt of receipts) {
+      const lines = await db.selectFrom('requisite_goods_receipt_lines').selectAll().where('goods_receipt_id', '=', receipt.id).execute();
+      withLines.push({ ...receipt, lines });
+    }
+    return withLines;
   }
 
   /** Outstanding (ordered - received) quantity per PO line - drives delivery-monitoring reminders (item 18). */

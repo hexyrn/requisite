@@ -12,3 +12,9 @@ apps/api/node_modules/
 .vscode/
 bootstrap-token.txt
 storage/
+
+# E2E generated artifacts (item 29) - regenerated per run by apps/api/scripts/e2e-seed.ts
+e2e/fixtures/seed-output.json
+e2e/test-results/
+e2e/playwright-report/
+

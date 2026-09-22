@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PageHeader, Card, Button, StatusBadge, Money, Input } from '@hexyrn/design-system';
-import { requisiteApi, PurchaseOrder } from '../api/requisite';
+import { requisiteApi, PurchaseOrder, GoodsReceipt } from '../api/requisite';
 import { statusLabel, statusTone } from './status';
 
 /**
@@ -20,12 +20,14 @@ export function PurchaseOrderDetailPage() {
   const [busy, setBusy] = useState(false);
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({});
   const [deliveryNoteRef, setDeliveryNoteRef] = useState('');
+  const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const order = await requisiteApi.getPurchaseOrder(id);
+      const [order, poReceipts] = await Promise.all([requisiteApi.getPurchaseOrder(id), requisiteApi.listGoodsReceiptsForPo(id)]);
       setPo(order);
+      setReceipts(poReceipts);
       const defaults: Record<string, string> = {};
       for (const line of order.lines) {
         const outstanding = Number(line.quantity_ordered) - Number(line.quantity_received);
@@ -158,6 +160,34 @@ export function PurchaseOrderDetailPage() {
               {po.status === 'partially_received' ? 'Record Remaining Delivery' : 'Record Goods Receipt'}
             </Button>
           </div>
+        )}
+      </Card>
+
+      <Card>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Goods Receipt History</h2>
+        {receipts.length === 0 ? (
+          <p style={{ color: '#6b7280', fontSize: 14 }}>No deliveries have been recorded against this order.</p>
+        ) : (
+          <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '4px 8px' }}>GRN</th>
+                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Date</th>
+                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Delivery Note</th>
+                <th style={{ textAlign: 'right', padding: '4px 8px' }}>Lines</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipts.map((r) => (
+                <tr key={r.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '4px 8px' }}>{r.grn_number}</td>
+                  <td style={{ padding: '4px 8px' }}>{new Date(r.received_at).toLocaleString()}</td>
+                  <td style={{ padding: '4px 8px' }}>{r.delivery_note_reference ?? '—'}</td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>{r.lines?.length ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </Card>
 

@@ -13,6 +13,9 @@ import { RequisitionDetailPage } from './requisite/RequisitionDetailPage';
 import { PurchaseOrderListPage } from './requisite/PurchaseOrderListPage';
 import { PurchaseOrderDetailPage } from './requisite/PurchaseOrderDetailPage';
 import { SupplierListPage } from './requisite/SupplierListPage';
+import { GoodsReceiptListPage } from './requisite/GoodsReceiptListPage';
+import { RfqListPage } from './requisite/RfqListPage';
+import { ReportsPage } from './requisite/ReportsPage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -30,6 +33,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="purchase-orders" element={<PurchaseOrderListPage />} />
             <Route path="purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
             <Route path="suppliers" element={<SupplierListPage />} />
+            <Route path="goods-receipts" element={<GoodsReceiptListPage />} />
+            <Route path="rfqs" element={<RfqListPage />} />
+            <Route path="reports" element={<ReportsPage />} />
           </Route>
           <Route index element={<Navigate to="/requisite" replace />} />
         </Route>

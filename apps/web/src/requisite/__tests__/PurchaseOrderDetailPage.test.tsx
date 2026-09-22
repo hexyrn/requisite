@@ -5,7 +5,7 @@ import { PurchaseOrderDetailPage } from '../PurchaseOrderDetailPage';
 import { requisiteApi } from '../../api/requisite';
 
 vi.mock('../../api/requisite', () => ({
-  requisiteApi: { getPurchaseOrder: vi.fn(), issuePurchaseOrder: vi.fn(), recordGoodsReceipt: vi.fn() },
+  requisiteApi: { getPurchaseOrder: vi.fn(), issuePurchaseOrder: vi.fn(), recordGoodsReceipt: vi.fn(), listGoodsReceiptsForPo: vi.fn() },
 }));
 
 const ISSUED_PO = {
@@ -38,6 +38,22 @@ describe('PurchaseOrderDetailPage (items 11/12 - goods receipt with over-receipt
   beforeEach(() => {
     vi.mocked(requisiteApi.getPurchaseOrder).mockReset().mockResolvedValue(ISSUED_PO as any);
     vi.mocked(requisiteApi.recordGoodsReceipt).mockReset();
+    vi.mocked(requisiteApi.listGoodsReceiptsForPo).mockReset().mockResolvedValue([]);
+  });
+
+  it('GOODS RECEIPT HISTORY (item 13): shows an intentional message when no deliveries have been recorded', async () => {
+    renderPage();
+    expect(await screen.findByText('No deliveries have been recorded against this order.')).toBeInTheDocument();
+  });
+
+  it('GOODS RECEIPT HISTORY: lists each receipt as a distinct historical record, never merged', async () => {
+    vi.mocked(requisiteApi.listGoodsReceiptsForPo).mockResolvedValue([
+      { id: 'g1', grn_number: 'GRN-000001', purchase_order_id: 'po-1', received_at: '2026-01-01T00:00:00Z', delivery_note_reference: 'DN-1', lines: [{ id: 'l1', purchase_order_line_id: 'line-1', quantity_received: '60' }] },
+      { id: 'g2', grn_number: 'GRN-000002', purchase_order_id: 'po-1', received_at: '2026-01-02T00:00:00Z', delivery_note_reference: 'DN-2', lines: [{ id: 'l2', purchase_order_line_id: 'line-1', quantity_received: '40' }] },
+    ] as any);
+    renderPage();
+    expect(await screen.findByText('GRN-000001')).toBeInTheDocument();
+    expect(screen.getByText('GRN-000002')).toBeInTheDocument();
   });
 
   it('OUTSTANDING QUANTITY: defaults Receive Now to the full outstanding amount', async () => {

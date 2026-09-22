@@ -22,6 +22,7 @@ import { PersonService } from './organisations/person.service';
 import { SessionAuthGuard } from './http/session-auth.guard';
 import { PermissionGuard } from './rbac/permission.guard';
 import { HealthController } from './health/health.controller';
+import { AppStateController } from './platform/app-registry/app-state.controller';
 import { PlatformModule } from './platform/platform.module';
 import { ApplicationActiveGuard } from './platform/app-registry/application-active.guard';
 import { ReferenceAppModule } from './apps/reference/reference.module';
@@ -36,6 +37,7 @@ import { RequisiteAppModule } from './apps/requisite/requisite.module';
     InvitationController,
     OrganisationController,
     HealthController,
+    AppStateController,
   ],
   providers: [
     AuditService,

@@ -1,4 +1,4 @@
-import { request } from './client';
+import { request, uploadFile } from './client';
 
 export interface Supplier {
   id: string;
@@ -104,8 +104,7 @@ export const requisiteApi = {
   cancelRequisition: (id: string) => request<Requisition>(`/requisite/requisitions/${id}/cancel`, { method: 'POST' }),
   getApprovalHistory: (id: string) => request<ApprovalHistoryEntry[]>(`/requisite/requisitions/${id}/approval-history`),
   listAttachments: (id: string) => request<Array<{ id: string; original_filename: string; mime_type: string; size_bytes: string }>>(`/requisite/requisitions/${id}/attachments`),
-  attachFile: (id: string, filename: string, mimeType: string, contentBase64: string) =>
-    request(`/requisite/requisitions/${id}/attachments`, { method: 'POST', body: JSON.stringify({ filename, mimeType, contentBase64 }) }),
+  attachFile: (id: string, file: File) => uploadFile(`/requisite/requisitions/${id}/attachments`, file),
 
   generatePurchaseOrder: (requisitionId: string, input: { supplierId: string; lines: Array<{ description: string; quantityOrdered: string; unitPriceMinor: string }> }) =>
     request<PurchaseOrder>(`/requisite/requisitions/${requisitionId}/purchase-orders`, { method: 'POST', body: JSON.stringify(input) }),
@@ -114,6 +113,7 @@ export const requisiteApi = {
   issuePurchaseOrder: (id: string, version: number) => request<PurchaseOrder>(`/requisite/purchase-orders/${id}/issue`, { method: 'POST', body: JSON.stringify({ version }) }),
 
   getGoodsReceipt: (id: string) => request<GoodsReceipt>(`/requisite/goods-receipts/${id}`),
+  listGoodsReceiptsForPo: (purchaseOrderId: string) => request<GoodsReceipt[]>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`),
   recordGoodsReceipt: (purchaseOrderId: string, input: { lines: Array<{ purchaseOrderLineId: string; quantityReceived: string }>; deliveryNoteReference?: string }) =>
     request<GoodsReceipt>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`, { method: 'POST', body: JSON.stringify(input) }),
 };

@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { InstallationService } from './bootstrap/installation.service';
 import { ApplicationRegistryService } from './platform/app-registry/application-registry.service';
@@ -31,6 +32,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   await app.register(fastifyCookie as any);
+  // Core multipart file upload (P2 item 16 -> Requisite UI item 17): the
+  // same 25MB/MIME-sniffing limits FileService already enforces apply
+  // regardless of upload transport - this plugin only gets bytes off the
+  // wire, it does not weaken any existing security control.
+  await app.register(fastifyMultipart as any, { limits: { fileSize: 25 * 1024 * 1024 } });
 
   // Input validation layer - P1 item 15 (addresses the P0 DTO/validation
   // debt). Every controller's @Body()/@Query()/@Param() DTO is now run

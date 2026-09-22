@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, Post, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Param, Post, Req, Res } from '@nestjs/common';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { withOrgContext } from '../../db/org-context';
 import { RequirePermission } from '../../rbac/permission.guard';
@@ -89,18 +89,27 @@ export class RequisiteController {
   }
 
   /**
-   * Item 16/35 - attachment upload. v1 accepts base64-encoded content in
-   * the JSON body rather than multipart form data (no multipart parser is
-   * wired into the Fastify adapter yet) - a documented simplification, not
-   * a silent limitation; see docs/decisions/REQUISITE-V1-DEVIATIONS.md.
+   * Item 16/17 - real multipart attachment upload, via Core's global
+   * @fastify/multipart registration (main.ts). Replaces the earlier
+   * base64-JSON workaround entirely - see
+   * docs/decisions/REQUISITE-V1-DEVIATIONS.md for why that was a
+   * documented v1 simplification, not a permanent design. `request.file()`
+   * streams the upload into memory up to the SAME 25MB limit
+   * FileService.store() itself enforces (the multipart plugin's own limit
+   * is a first line of defense, not a replacement for FileService's own
+   * size/MIME-sniffing checks, which still run unconditionally on the
+   * resulting buffer).
    */
   @RequirePermission('requisite.requisitions.edit')
   @Post('requisitions/:id/attachments')
-  async attachFile(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { filename: string; mimeType: string; contentBase64: string }) {
+  async attachFile(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId, subject } = this.ctx(req);
+    const uploaded = await (req as any).file();
+    if (!uploaded) throw new BadRequestException('No file was uploaded.');
+    const buffer: Buffer = await uploaded.toBuffer();
     return withOrgContext(organisationId, (db) => {
       const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
-      return this.requisitions.attachFile(ctx, db, subject.userAccountId, id, Buffer.from(body.contentBase64, 'base64'), body.filename, body.mimeType);
+      return this.requisitions.attachFile(ctx, db, subject.userAccountId, id, buffer, uploaded.filename, uploaded.mimetype);
     });
   }
 
@@ -194,6 +203,14 @@ export class RequisiteController {
   async getGoodsReceipt(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
     return withOrgContext(organisationId, (db) => this.goodsReceipts.getGoodsReceipt(db, organisationId, id));
+  }
+
+  /** Item 13 - the PO detail screen shows every receipt against it, each remaining a distinct immutable record. */
+  @RequirePermission('requisite.goods-receipts.view')
+  @Get('purchase-orders/:id/goods-receipts')
+  async listGoodsReceiptsForPo(@Req() req: FastifyRequest, @Param('id') purchaseOrderId: string) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.goodsReceipts.listGoodsReceiptsForPo(db, organisationId, purchaseOrderId));
   }
 
   @RequirePermission('requisite.goods-receipts.create')

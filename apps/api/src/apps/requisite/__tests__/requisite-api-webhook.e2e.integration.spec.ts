@@ -7,6 +7,7 @@
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import request from 'supertest';
 import { Pool } from 'pg';
 import { AppModule } from '../../../app.module';
@@ -59,6 +60,7 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(WEBHOOK_SENDER).useValue(fakeSender).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     await app.register(fastifyCookie as any);
+    await app.register(fastifyMultipart as any, { limits: { fileSize: 25 * 1024 * 1024 } });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
@@ -101,6 +103,12 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     await pool.end();
   });
 
+  it('LICENCE STATE (item 21): an org admin can see Requisite is installed/enabled/licensed/active without hitting the app-active 404 gate', async () => {
+    const res = await agent.get(`/api/v1/apps/${REQUISITE_APP_MANIFEST.appId}/state`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ appId: REQUISITE_APP_MANIFEST.appId, installed: true, enabled: true, licensed: true, compatible: true, active: true });
+  });
+
   it('PUBLIC API (item 30/31): a session-authenticated request can create and list suppliers over real HTTP', async () => {
     const create = await agent.post('/api/v1/requisite/suppliers').set('x-hexyrn-csrf', csrfToken).send({ name: 'HTTP Test Supplier' });
     expect(create.status).toBe(201);
@@ -133,16 +141,29 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     expect(response.status).toBe(403);
   });
 
-  it('UX SURFACE (items 35/36): a requisition can receive a file attachment and expose its (empty) approval history over real HTTP', async () => {
+  it('UX SURFACE + REAL MULTIPART (items 16/17/35/36): a requisition can receive a genuine multipart file upload (not base64-JSON) and expose its (empty) approval history over real HTTP', async () => {
     const createReq = await agent.post('/api/v1/requisite/requisitions').set('x-hexyrn-csrf', csrfToken).send({ reason: 'UX surface test', lines: [{ description: 'X', quantity: '1', estimatedUnitPriceMinor: '100' }] });
     expect(createReq.status).toBe(201);
 
-    const attach = await agent.post(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`).set('x-hexyrn-csrf', csrfToken).send({ filename: 'spec.pdf', mimeType: 'application/pdf', contentBase64: Buffer.from('%PDF-1.4 fake').toString('base64') });
+    const attach = await agent
+      .post(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`)
+      .set('x-hexyrn-csrf', csrfToken)
+      .attach('file', Buffer.from('%PDF-1.4 fake quote content'), { filename: 'spec.pdf', contentType: 'application/pdf' });
     expect(attach.status).toBe(201);
 
     const list = await agent.get(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`);
     expect(list.status).toBe(200);
     expect(list.body.some((f: any) => f.original_filename === 'spec.pdf')).toBe(true);
+
+    // MIME sniffing still applies unconditionally - a file claiming to be
+    // a PDF but not actually starting with the PDF magic bytes is
+    // rejected exactly as it would be for a non-multipart upload (item 17:
+    // "do not weaken existing MIME sniffing/security controls").
+    const badMime = await agent
+      .post(`/api/v1/requisite/requisitions/${createReq.body.id}/attachments`)
+      .set('x-hexyrn-csrf', csrfToken)
+      .attach('file', Buffer.from('this is not actually a PDF'), { filename: 'fake.pdf', contentType: 'application/pdf' });
+    expect(badMime.status).toBe(400);
 
     const history = await agent.get(`/api/v1/requisite/requisitions/${createReq.body.id}/approval-history`);
     expect(history.status).toBe(200);
