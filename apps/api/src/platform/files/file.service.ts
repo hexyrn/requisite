@@ -1,8 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
-import { StorageProvider, LocalDiskStorageProvider } from './storage-provider';
+import { StorageProvider, LocalDiskStorageProvider, STORAGE_PROVIDER } from './storage-provider';
 import { mimeTypeMatchesContent } from './mime-sniff';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
@@ -32,7 +32,20 @@ const ALLOWED_MIME_TYPES = new Set([
  */
 @Injectable()
 export class FileService {
-  constructor(private readonly storage: StorageProvider = new LocalDiskStorageProvider()) {}
+  private readonly resolvedStorage: StorageProvider;
+
+  constructor(@Optional() @Inject(STORAGE_PROVIDER) storage?: StorageProvider) {
+    // Nest cannot resolve an interface-typed constructor parameter by
+    // itself (interfaces don't exist at runtime, so its emitted metadata
+    // type is just `Object`) - found empirically when FileService was
+    // wired into PlatformModule ("Nest can't resolve dependencies of the
+    // FileService"). Fixed with an explicit DI token (STORAGE_PROVIDER,
+    // provided in PlatformModule) instead of relying on a plain
+    // constructor default, which only works when the class is
+    // instantiated directly with `new` (as the P1 file tests do) and not
+    // when Nest's injector builds it.
+    this.resolvedStorage = storage ?? new LocalDiskStorageProvider();
+  }
 
   private generateStorageKey(): string {
     return randomBytes(32).toString('hex');
@@ -58,7 +71,7 @@ export class FileService {
     }
 
     const storageKey = this.generateStorageKey();
-    await this.storage.write(storageKey, buffer);
+    await this.resolvedStorage.write(storageKey, buffer);
 
     const row = await db
       .insertInto('files')
@@ -82,7 +95,7 @@ export class FileService {
   async retrieve(db: Kysely<Database>, organisationId: string, fileId: string): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
     const row = await db.selectFrom('files').selectAll().where('id', '=', fileId).where('organisation_id', '=', organisationId).executeTakeFirst();
     if (!row) throw new NotFoundException('File not found.');
-    const buffer = await this.storage.read(row.storage_key);
+    const buffer = await this.resolvedStorage.read(row.storage_key);
     return { buffer, filename: row.original_filename, mimeType: row.mime_type };
   }
 
@@ -95,7 +108,7 @@ export class FileService {
       // without changing the method's shape.
       throw new ForbiddenException('Only the uploader may delete this file.');
     }
-    await this.storage.delete(row.storage_key);
+    await this.resolvedStorage.delete(row.storage_key);
     await db.deleteFrom('files').where('id', '=', fileId).execute();
   }
 }

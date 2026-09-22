@@ -22,8 +22,12 @@ import { PersonService } from './organisations/person.service';
 import { SessionAuthGuard } from './http/session-auth.guard';
 import { PermissionGuard } from './rbac/permission.guard';
 import { HealthController } from './health/health.controller';
+import { PlatformModule } from './platform/platform.module';
+import { ApplicationActiveGuard } from './platform/app-registry/application-active.guard';
+import { ReferenceAppModule } from './apps/reference/reference.module';
 
 @Module({
+  imports: [PlatformModule, ReferenceAppModule],
   controllers: [
     BootstrapController,
     AuthController,
@@ -47,8 +51,10 @@ import { HealthController } from './health/health.controller';
     OrgUnitService,
     LocationService,
     PersonService,
-    // Order matters: session resolution must run before permission checks.
+    // Order matters: session resolution -> app-active state (404, never
+    // reveal that a route exists behind an inactive app) -> permission checks.
     { provide: APP_GUARD, useClass: SessionAuthGuard },
+    { provide: APP_GUARD, useClass: ApplicationActiveGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
   ],
 })

@@ -13,6 +13,9 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
 }
 
+/** DI token - see the note in FileService's constructor for why an explicit token is required. */
+export const STORAGE_PROVIDER = Symbol('STORAGE_PROVIDER');
+
 export class LocalDiskStorageProvider implements StorageProvider {
   private readonly root: string;
 

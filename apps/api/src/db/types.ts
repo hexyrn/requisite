@@ -470,6 +470,16 @@ export interface FilesTable {
   created_at: Generated<Timestamp>;
 }
 
+// ---- P1: reference app's own domain table ----
+export interface ReferenceWidgetsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  widget_number: string;
+  title: string;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+}
+
 // ---- P1: Cross-org dispatch routing (no RLS - see ADR 0005) ----
 export interface DispatchQueueTable {
   id: Generated<string>;
@@ -543,4 +553,5 @@ export interface Database {
   files: FilesTable;
   scheduled_jobs: ScheduledJobsTable;
   dispatch_queue: DispatchQueueTable;
+  reference_widgets: ReferenceWidgetsTable;
 }

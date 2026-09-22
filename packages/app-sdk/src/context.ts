@@ -39,6 +39,7 @@ export interface HexyrnAppContext<Db = unknown> {
   };
 
   workflow: {
+    start(db: Db, workflowKey: string, entityType: string, entityId: string, actorUserAccountId?: string): Promise<{ state: string }>;
     transition(
       db: Db,
       entityType: string,
@@ -57,6 +58,13 @@ export interface HexyrnAppContext<Db = unknown> {
       context: Record<string, unknown>,
       requestedBy: string,
     ): Promise<{ requestId: string; status: string }>;
+    decide(
+      db: Db,
+      stepId: string,
+      deciderUserAccountId: string,
+      decision: 'approve' | 'reject',
+      comment?: string,
+    ): Promise<{ requestStatus: string; stepStatus: string }>;
   };
 
   notifications: {
