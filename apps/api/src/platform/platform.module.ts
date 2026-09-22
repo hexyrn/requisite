@@ -28,6 +28,10 @@ import { ApiKeyAuthGuard } from './api-access/api-key-auth.guard';
 import { EventSchemaService } from './events/event-schema.service';
 import { WebhookService } from './webhooks/webhook.service';
 import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service';
+import { ScheduledReportService } from './reporting/scheduled-report.service';
+import { SearchService } from './search/search.service';
+import { ImportService } from './import/import.service';
+import { ImportHandlerRegistryService } from './import/import-row-handler';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -72,6 +76,10 @@ import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service'
     EventSchemaService,
     WebhookService,
     WebhookDispatcherService,
+    ScheduledReportService,
+    SearchService,
+    ImportService,
+    ImportHandlerRegistryService,
   ],
   exports: [
     ApplicationRegistryService,
@@ -104,6 +112,10 @@ import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service'
     EventSchemaService,
     WebhookService,
     WebhookDispatcherService,
+    ScheduledReportService,
+    SearchService,
+    ImportService,
+    ImportHandlerRegistryService,
   ],
 })
 export class PlatformModule {}

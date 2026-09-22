@@ -8,6 +8,8 @@ import { AppModule } from './app.module';
 import { InstallationService } from './bootstrap/installation.service';
 import { ApplicationRegistryService } from './platform/app-registry/application-registry.service';
 import { registerReferenceApp } from './apps/reference/reference.manifest';
+import { JobHandlerRegistryService } from './platform/scheduling/scheduled-job.service';
+import { ScheduledReportService, SCHEDULED_REPORT_JOB_TYPE } from './platform/reporting/scheduled-report.service';
 
 async function bootstrap() {
   const adapter = new FastifyAdapter({ trustProxy: parseTrustedProxies() });
@@ -86,6 +88,16 @@ async function bootstrap() {
   // docs/decisions and docs/BUILD_YOUR_FIRST_APP.md.
   const registry = app.get(ApplicationRegistryService);
   await registerReferenceApp(registry);
+
+  // Wires the Scheduled Reports (P2 item 8) job handler into the SAME P1
+  // job-handler registry every other background job type uses - see
+  // scheduled-report.service.ts's doc comment for why this reuses the
+  // existing scheduling engine instead of a second one.
+  const jobHandlers = app.get(JobHandlerRegistryService);
+  const scheduledReports = app.get(ScheduledReportService);
+  jobHandlers.register(SCHEDULED_REPORT_JOB_TYPE, (db, organisationId, payload) =>
+    scheduledReports.runDelivery(db, organisationId, payload.scheduledReportId as string),
+  );
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
