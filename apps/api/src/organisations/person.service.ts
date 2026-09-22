@@ -32,11 +32,19 @@ export class PersonService {
   }
 
   async list(db: Kysely<Database>, organisationId: string) {
-    return db.selectFrom('people').selectAll().where('organisation_id', '=', organisationId).execute();
+    return db
+      .selectFrom('people')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .execute();
   }
 
   /** Links a Person to a User Account (P0 item 11 - separate entities, optional FK). */
   async linkUserAccount(db: Kysely<Database>, personId: string, userAccountId: string) {
-    await db.updateTable('user_accounts').set({ person_id: personId }).where('id', '=', userAccountId).execute();
+    await db
+      .updateTable('user_accounts')
+      .set({ person_id: personId })
+      .where('id', '=', userAccountId)
+      .execute();
   }
 }

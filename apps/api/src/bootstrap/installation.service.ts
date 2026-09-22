@@ -77,7 +77,9 @@ export class InstallationService {
       },
     });
     // eslint-disable-next-line no-console
-    console.log(`\n=== HEXYRN CORE FIRST-RUN SETUP TOKEN ===\n${token}\n==========================================\n`);
+    console.log(
+      `\n=== HEXYRN CORE FIRST-RUN SETUP TOKEN ===\n${token}\n==========================================\n`,
+    );
     try {
       const path = join(process.cwd(), 'bootstrap-token.txt');
       writeFileSync(path, token + '\n', { mode: 0o600 });

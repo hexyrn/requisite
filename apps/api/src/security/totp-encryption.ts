@@ -38,7 +38,9 @@ export function encryptTotpSecret(plainSecret: string): string {
   const cipher = createCipheriv(ALGO, key, iv);
   const ciphertext = Buffer.concat([cipher.update(plainSecret, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
-  return [iv.toString('base64'), authTag.toString('base64'), ciphertext.toString('base64')].join('.');
+  return [iv.toString('base64'), authTag.toString('base64'), ciphertext.toString('base64')].join(
+    '.',
+  );
 }
 
 export function decryptTotpSecret(stored: string): string {

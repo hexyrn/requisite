@@ -54,9 +54,15 @@ export function enforceRateLimit(
   ipKey: string,
 ): void {
   if (limiters.byIp && !limiters.byIp.consume(ipKey)) {
-    throw new HttpException('Too many requests. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    throw new HttpException(
+      'Too many requests. Please try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
   if (limiters.byAccount && accountKey && !limiters.byAccount.consume(accountKey)) {
-    throw new HttpException('Too many requests. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    throw new HttpException(
+      'Too many requests. Please try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 }

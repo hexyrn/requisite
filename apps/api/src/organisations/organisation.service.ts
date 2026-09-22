@@ -18,7 +18,11 @@ export interface UpdateOrganisationInput {
 @Injectable()
 export class OrganisationService {
   async get(db: Kysely<Database>, organisationId: string) {
-    const row = await db.selectFrom('organisations').selectAll().where('id', '=', organisationId).executeTakeFirst();
+    const row = await db
+      .selectFrom('organisations')
+      .selectAll()
+      .where('id', '=', organisationId)
+      .executeTakeFirst();
     if (!row) throw new NotFoundException('Organisation not found.');
     return row;
   }
@@ -29,7 +33,8 @@ export class OrganisationService {
     if (input.defaultCurrency !== undefined) updates.default_currency = input.defaultCurrency;
     if (input.timezone !== undefined) updates.timezone = input.timezone;
     if (input.locale !== undefined) updates.locale = input.locale;
-    if (input.financialYearStartMonth !== undefined) updates.financial_year_start_month = input.financialYearStartMonth;
+    if (input.financialYearStartMonth !== undefined)
+      updates.financial_year_start_month = input.financialYearStartMonth;
     if (input.address !== undefined) updates.address = input.address;
     if (input.contact !== undefined) updates.contact = input.contact;
     if (input.preferences !== undefined) updates.preferences = input.preferences;

@@ -24,7 +24,12 @@ describe('logStructured', () => {
   it('redacts context keys that look sensitive, structurally not conventionally', () => {
     logStructured({
       event: 'login.failed',
-      context: { password: 'hunter2', totpSecret: 'abc', authorizationHeader: 'Bearer xyz', attempt: 3 },
+      context: {
+        password: 'hunter2',
+        totpSecret: 'abc',
+        authorizationHeader: 'Bearer xyz',
+        attempt: 3,
+      },
     });
     const parsed = JSON.parse(output[0]);
     expect(parsed.context.password).toBe('[REDACTED]');

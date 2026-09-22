@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, SetMetadata, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  SetMetadata,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FlatRolePermissionEvaluator } from './permission-evaluator';
 import { PUBLIC_ROUTE_KEY } from '../http/session-auth.guard';
@@ -24,14 +31,22 @@ export class PermissionGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const isPublic = this.reflector.get<boolean | undefined>(PUBLIC_ROUTE_KEY, context.getHandler());
+    const isPublic = this.reflector.get<boolean | undefined>(
+      PUBLIC_ROUTE_KEY,
+      context.getHandler(),
+    );
     if (isPublic) return true;
 
-    const authenticatedOnly = this.reflector.get<boolean | undefined>(AUTHENTICATED_ONLY_KEY, context.getHandler());
+    const authenticatedOnly = this.reflector.get<boolean | undefined>(
+      AUTHENTICATED_ONLY_KEY,
+      context.getHandler(),
+    );
     const required = this.reflector.get<string | undefined>(PERMISSION_KEY, context.getHandler());
 
     if (!required && !authenticatedOnly) {
-      throw new ForbiddenException('Route has no declared permission requirement - denied by default.');
+      throw new ForbiddenException(
+        'Route has no declared permission requirement - denied by default.',
+      );
     }
 
     const request = context.switchToHttp().getRequest();

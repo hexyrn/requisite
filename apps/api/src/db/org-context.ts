@@ -53,7 +53,9 @@ function singleConnectionPool(client: PoolClient): Pool {
 
 export class OrgContextRequiredError extends Error {
   constructor() {
-    super('withOrgContext requires a non-empty organisationId - there is no code path that runs without one.');
+    super(
+      'withOrgContext requires a non-empty organisationId - there is no code path that runs without one.',
+    );
     this.name = 'OrgContextRequiredError';
   }
 }
@@ -110,7 +112,9 @@ export async function withOrgContext<T>(
       // it is exactly equivalent to SET LOCAL (transaction-scoped, reverts
       // on COMMIT/ROLLBACK) - this is the correct, injection-safe way to set
       // a parameterized GUC per Postgres's own documentation.
-      await client.query("SELECT set_config('app.current_organisation_id', $1, true)", [organisationId]);
+      await client.query("SELECT set_config('app.current_organisation_id', $1, true)", [
+        organisationId,
+      ]);
     } catch (err) {
       // Treat inability to set org context as a hard failure - never proceed
       // without it (fail closed).

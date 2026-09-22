@@ -52,11 +52,15 @@ describeIfDb('Bootstrap: secure one-time setup token (P0 item 6)', () => {
     ).rejects.toThrow(/invalid, already used, or expired/i);
 
     // And a second organisation must NOT have been created by the reuse attempt.
-    await withOrgContext(completed.organisationId, async (db) => {
-      const orgs = await db.selectFrom('organisations').selectAll().execute();
-      expect(orgs).toHaveLength(1);
-      expect(orgs[0].name).toBe('Acme Co');
-    }, pool);
+    await withOrgContext(
+      completed.organisationId,
+      async (db) => {
+        const orgs = await db.selectFrom('organisations').selectAll().execute();
+        expect(orgs).toHaveLength(1);
+        expect(orgs[0].name).toBe('Acme Co');
+      },
+      pool,
+    );
   });
 
   it('a second ensureInstallation() call does not generate a new token (idempotent on already-bootstrapped installs)', async () => {

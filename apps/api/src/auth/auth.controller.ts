@@ -6,11 +6,19 @@ import { InstallationRepository } from '../bootstrap/installation.repository';
 import { withOrgContext } from '../db/org-context';
 import { PublicRoute } from '../http/session-auth.guard';
 import { AuthenticatedOnly } from '../rbac/permission.guard';
-import { encodeSessionCookie, decodeSessionCookie, SESSION_COOKIE_NAME } from '../http/session-cookie';
+import {
+  encodeSessionCookie,
+  decodeSessionCookie,
+  SESSION_COOKIE_NAME,
+} from '../http/session-cookie';
 import { SessionService } from '../sessions/session.service';
 import { UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
-import { enforceRateLimit, loginRateLimiters, mfaVerifyRateLimiters } from '../security/rate-limits';
+import {
+  enforceRateLimit,
+  loginRateLimiters,
+  mfaVerifyRateLimiters,
+} from '../security/rate-limits';
 
 function cookieOptions() {
   return {
@@ -54,7 +62,9 @@ export class AuthController {
     // comment on that method. Only NOW do we decide what to tell the caller.
     if (!outcome.ok) {
       if (outcome.reason === 'locked') {
-        throw new ForbiddenException('Account is temporarily locked due to repeated failed sign-in attempts.');
+        throw new ForbiddenException(
+          'Account is temporarily locked due to repeated failed sign-in attempts.',
+        );
       }
       if (outcome.reason === 'inactive') {
         throw new ForbiddenException('Account is deactivated.');
@@ -64,7 +74,11 @@ export class AuthController {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    res.setCookie(SESSION_COOKIE_NAME, encodeSessionCookie(organisationId, outcome.session.id), cookieOptions());
+    res.setCookie(
+      SESSION_COOKIE_NAME,
+      encodeSessionCookie(organisationId, outcome.session.id),
+      cookieOptions(),
+    );
 
     return {
       requiresMfa: outcome.requiresMfa,
@@ -120,10 +134,20 @@ export class AuthController {
         });
       }
 
-      return this.sessions.rotateSession(db, organisationId, pending.userAccountId, true, pending.id);
+      return this.sessions.rotateSession(
+        db,
+        organisationId,
+        pending.userAccountId,
+        true,
+        pending.id,
+      );
     });
 
-    res.setCookie(SESSION_COOKIE_NAME, encodeSessionCookie(organisationId, newSession.id), cookieOptions());
+    res.setCookie(
+      SESSION_COOKIE_NAME,
+      encodeSessionCookie(organisationId, newSession.id),
+      cookieOptions(),
+    );
     return { verified: true, csrfToken: newSession.csrfToken };
   }
 
@@ -157,12 +181,21 @@ export class AuthController {
    */
   @AuthenticatedOnly()
   @Post('mfa/enroll/confirm')
-  async confirmMfaEnrolment(@Req() req: FastifyRequest, @Body() body: { secret: string; code: string }) {
+  async confirmMfaEnrolment(
+    @Req() req: FastifyRequest,
+    @Body() body: { secret: string; code: string },
+  ) {
     const organisationId = (req as any).currentOrganisationId;
     const user = (req as any).currentUser;
 
     const recoveryCodes = await withOrgContext(organisationId, async (db) => {
-      const codes = await this.totp.completeEnrolment(db, user.id, body.secret, body.code, organisationId);
+      const codes = await this.totp.completeEnrolment(
+        db,
+        user.id,
+        body.secret,
+        body.code,
+        organisationId,
+      );
       await this.audit.record(db, {
         organisationId,
         eventType: 'auth.mfa.enrolled',
@@ -182,7 +215,9 @@ export class AuthController {
     const organisationId = (req as any).currentOrganisationId;
     const session = (req as any).currentSession;
     if (organisationId && session) {
-      await withOrgContext(organisationId, (db) => this.auth.logout(db, organisationId, session.id, session.userAccountId));
+      await withOrgContext(organisationId, (db) =>
+        this.auth.logout(db, organisationId, session.id, session.userAccountId),
+      );
     }
     res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
     return { ok: true };

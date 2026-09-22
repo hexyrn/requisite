@@ -14,7 +14,9 @@ export function AuthenticatedShell() {
     api
       .getOrganisation()
       .then((data) => setOrg(data as OrgSummary))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load organisation.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load organisation.'),
+      );
   }, []);
 
   async function onLogout() {

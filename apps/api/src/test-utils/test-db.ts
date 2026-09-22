@@ -30,7 +30,9 @@ export async function resetTestDatabase(pool: Pool): Promise<void> {
 
 export async function applyMigrations(pool: Pool): Promise<void> {
   const dir = join(__dirname, '..', 'db', 'migrations');
-  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
   for (const file of files) {
     const sql = readFileSync(join(dir, file), 'utf8');
     await pool.query(sql);

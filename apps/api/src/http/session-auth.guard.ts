@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, SetMetadata } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+  SetMetadata,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { withOrgContext } from '../db/org-context';
 import { SessionService } from '../sessions/session.service';
@@ -24,7 +30,10 @@ export class SessionAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.get<boolean | undefined>(PUBLIC_ROUTE_KEY, context.getHandler());
+    const isPublic = this.reflector.get<boolean | undefined>(
+      PUBLIC_ROUTE_KEY,
+      context.getHandler(),
+    );
     const request = context.switchToHttp().getRequest();
 
     const cookieHeader = request.cookies?.[SESSION_COOKIE_NAME];

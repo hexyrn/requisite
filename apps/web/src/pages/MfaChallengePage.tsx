@@ -29,7 +29,15 @@ export function MfaChallengePage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5' }}>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f0f2f5',
+      }}
+    >
       <Card style={{ width: 360 }}>
         <h1 style={{ fontSize: 20, marginBottom: 8 }}>Two-factor verification</h1>
         <p style={{ fontSize: 13, color: '#555', marginBottom: 16 }}>

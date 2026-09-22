@@ -20,6 +20,8 @@ export class OrganisationController {
   @Patch()
   async update(@Req() req: FastifyRequest, @Body() body: UpdateOrganisationInput) {
     const organisationId = (req as any).currentOrganisationId;
-    return withOrgContext(organisationId, (db) => this.organisations.update(db, organisationId, body));
+    return withOrgContext(organisationId, (db) =>
+      this.organisations.update(db, organisationId, body),
+    );
   }
 }

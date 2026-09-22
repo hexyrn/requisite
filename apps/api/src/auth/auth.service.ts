@@ -106,7 +106,12 @@ export class AuthService {
     return { ok: true, userAccountId: user.id, requiresMfa: user.mfa_enabled, session };
   }
 
-  async logout(db: Kysely<Database>, organisationId: string, sessionId: string, userAccountId: string): Promise<void> {
+  async logout(
+    db: Kysely<Database>,
+    organisationId: string,
+    sessionId: string,
+    userAccountId: string,
+  ): Promise<void> {
     await this.sessions.revokeSession(db, sessionId);
     await this.audit.record(db, {
       organisationId,
@@ -122,8 +127,17 @@ export class AuthService {
    * user, in the same transaction, per Architecture §6 ("this is the exact
    * behaviour §49 requires being tested").
    */
-  async deactivateAccount(db: Kysely<Database>, organisationId: string, userAccountId: string, actorUserAccountId: string): Promise<void> {
-    await db.updateTable('user_accounts').set({ is_active: false }).where('id', '=', userAccountId).execute();
+  async deactivateAccount(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+    actorUserAccountId: string,
+  ): Promise<void> {
+    await db
+      .updateTable('user_accounts')
+      .set({ is_active: false })
+      .where('id', '=', userAccountId)
+      .execute();
     await this.sessions.revokeAllSessionsForUser(db, userAccountId);
     await this.audit.record(db, {
       organisationId,
@@ -134,8 +148,17 @@ export class AuthService {
     });
   }
 
-  async activateAccount(db: Kysely<Database>, organisationId: string, userAccountId: string, actorUserAccountId: string): Promise<void> {
-    await db.updateTable('user_accounts').set({ is_active: true }).where('id', '=', userAccountId).execute();
+  async activateAccount(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+    actorUserAccountId: string,
+  ): Promise<void> {
+    await db
+      .updateTable('user_accounts')
+      .set({ is_active: true })
+      .where('id', '=', userAccountId)
+      .execute();
     await this.audit.record(db, {
       organisationId,
       eventType: 'auth.account.activated',
@@ -152,13 +175,21 @@ export class AuthService {
     newPassword: string,
   ): Promise<SessionRecord> {
     const passwordHash = await hashPassword(newPassword);
-    await db.updateTable('user_accounts').set({ password_hash: passwordHash }).where('id', '=', userAccountId).execute();
+    await db
+      .updateTable('user_accounts')
+      .set({ password_hash: passwordHash })
+      .where('id', '=', userAccountId)
+      .execute();
     // Password change rotates the session id (Architecture §6) and revokes all others.
     await this.sessions.revokeAllSessionsForUser(db, userAccountId);
     return this.sessions.createSession(db, organisationId, userAccountId, true);
   }
 
-  private async registerFailedAttempt(db: Kysely<Database>, userAccountId: string, currentCount: number): Promise<void> {
+  private async registerFailedAttempt(
+    db: Kysely<Database>,
+    userAccountId: string,
+    currentCount: number,
+  ): Promise<void> {
     const nextCount = currentCount + 1;
     const shouldLock = nextCount >= MAX_FAILED_ATTEMPTS;
     await db

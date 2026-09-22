@@ -12,7 +12,11 @@ const RESET_TOKEN_TTL_MS = 1000 * 60 * 60; // 1 hour
 export class PasswordResetService {
   constructor(private readonly sessions: SessionService) {}
 
-  async requestReset(db: Kysely<Database>, organisationId: string, userAccountId: string): Promise<string> {
+  async requestReset(
+    db: Kysely<Database>,
+    organisationId: string,
+    userAccountId: string,
+  ): Promise<string> {
     const plaintextToken = generateSecureToken(32);
     await db
       .insertInto('password_reset_tokens')

@@ -112,7 +112,11 @@ export class BootstrapService {
 
         await db
           .insertInto('user_roles')
-          .values({ organisation_id: organisation.id, user_account_id: owner.id, role_id: ownerRole.id })
+          .values({
+            organisation_id: organisation.id,
+            user_account_id: owner.id,
+            role_id: ownerRole.id,
+          })
           .execute();
 
         await this.audit.record(db, {

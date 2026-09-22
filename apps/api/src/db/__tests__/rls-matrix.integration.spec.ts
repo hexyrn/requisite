@@ -95,7 +95,10 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgA,
       async (db) => {
-        await db.insertInto('organisational_units').values({ organisation_id: orgA, name: 'A-Unit', unit_type: 'dept' }).execute();
+        await db
+          .insertInto('organisational_units')
+          .values({ organisation_id: orgA, name: 'A-Unit', unit_type: 'dept' })
+          .execute();
         const rows = await db.selectFrom('organisational_units').selectAll().execute();
         expect(rows.every((r) => r.organisation_id === orgA)).toBe(true);
       },
@@ -106,7 +109,13 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgB,
       async (db) => {
-        const ctx = await db.selectNoFrom((eb) => eb.fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)]).as('ctx')).executeTakeFirst();
+        const ctx = await db
+          .selectNoFrom((eb) =>
+            eb
+              .fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)])
+              .as('ctx'),
+          )
+          .executeTakeFirst();
         expect(ctx?.ctx).toBe(orgB);
         const rows = await db.selectFrom('organisational_units').selectAll().execute();
         expect(rows.every((r) => r.organisation_id === orgB)).toBe(true);
@@ -117,7 +126,10 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('§8 baseline: rejects any query issued outside an org-context transaction (fail-closed)', async () => {
-    const rows = await withNoOrgContext((db) => db.selectFrom('organisational_units').selectAll().execute(), adminPool);
+    const rows = await withNoOrgContext(
+      (db) => db.selectFrom('organisational_units').selectAll().execute(),
+      adminPool,
+    );
     expect(rows.length).toBe(0);
   });
 
@@ -132,7 +144,11 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgA,
       async (db) => {
-        const rows = await db.selectFrom('locations').selectAll().where('name', '=', 'A-HQ').execute();
+        const rows = await db
+          .selectFrom('locations')
+          .selectAll()
+          .where('name', '=', 'A-HQ')
+          .execute();
         expect(rows).toHaveLength(1);
         expect(rows[0].organisation_id).toBe(orgA);
       },
@@ -141,7 +157,11 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgB,
       async (db) => {
-        const rows = await db.selectFrom('locations').selectAll().where('name', '=', 'A-HQ').execute();
+        const rows = await db
+          .selectFrom('locations')
+          .selectAll()
+          .where('name', '=', 'A-HQ')
+          .execute();
         expect(rows).toHaveLength(0);
       },
       adminPool,
@@ -153,7 +173,10 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
       withOrgContext(
         orgA,
         async (db) => {
-          await db.insertInto('locations').values({ organisation_id: orgA, name: 'RollbackMe' }).execute();
+          await db
+            .insertInto('locations')
+            .values({ organisation_id: orgA, name: 'RollbackMe' })
+            .execute();
           throw new Error('simulated business-rule failure');
         },
         adminPool,
@@ -163,7 +186,11 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgA,
       async (db) => {
-        const rows = await db.selectFrom('locations').selectAll().where('name', '=', 'RollbackMe').execute();
+        const rows = await db
+          .selectFrom('locations')
+          .selectAll()
+          .where('name', '=', 'RollbackMe')
+          .execute();
         expect(rows).toHaveLength(0);
       },
       adminPool,
@@ -173,7 +200,13 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgB,
       async (db) => {
-        const ctx = await db.selectNoFrom((eb) => eb.fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)]).as('ctx')).executeTakeFirst();
+        const ctx = await db
+          .selectNoFrom((eb) =>
+            eb
+              .fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)])
+              .as('ctx'),
+          )
+          .executeTakeFirst();
         expect(ctx?.ctx).toBe(orgB);
       },
       adminPool,
@@ -185,7 +218,10 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
       withOrgContext(
         orgA,
         async (db) => {
-          await db.insertInto('locations').values({ organisation_id: orgA, name: 'ExceptionMe' }).execute();
+          await db
+            .insertInto('locations')
+            .values({ organisation_id: orgA, name: 'ExceptionMe' })
+            .execute();
           // Simulate an unexpected bug, not a handled business exception.
           (null as any).boom();
         },
@@ -196,7 +232,11 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
     await withOrgContext(
       orgA,
       async (db) => {
-        const rows = await db.selectFrom('locations').selectAll().where('name', '=', 'ExceptionMe').execute();
+        const rows = await db
+          .selectFrom('locations')
+          .selectAll()
+          .where('name', '=', 'ExceptionMe')
+          .execute();
         expect(rows).toHaveLength(0);
       },
       adminPool,
@@ -214,7 +254,9 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('4. database/connection error: a connection of uncertain state is destroyed, not returned to the pool', async () => {
-    const isolatedPool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 2 }));
+    const isolatedPool = attachPoolErrorHandler(
+      new Pool({ connectionString: TEST_DATABASE_URL, max: 2 }),
+    );
     try {
       await expect(
         withOrgContext(
@@ -245,7 +287,9 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('5. concurrent requests for different organisations never cross-contaminate (stress, small pool)', async () => {
-    const smallPool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));
+    const smallPool = attachPoolErrorHandler(
+      new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }),
+    );
     try {
       const tasks = Array.from({ length: 30 }, (_, i) => {
         const org = i % 2 === 0 ? orgA : orgB;
@@ -272,7 +316,13 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
       return innerService(db);
     }
     async function innerService(db: Parameters<Parameters<typeof withOrgContext>[1]>[0]) {
-      const ctx = await db.selectNoFrom((eb) => eb.fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)]).as('ctx')).executeTakeFirst();
+      const ctx = await db
+        .selectNoFrom((eb) =>
+          eb
+            .fn<string>('current_setting', [eb.val('app.current_organisation_id'), eb.val(true)])
+            .as('ctx'),
+        )
+        .executeTakeFirst();
       return ctx?.ctx;
     }
 
@@ -281,7 +331,11 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('withOrgContext has no overload omitting organisationId - rejects empty/undefined at runtime', async () => {
-    await expect(withOrgContext('' as any, async () => undefined, adminPool)).rejects.toThrow(OrgContextRequiredError);
-    await expect(withOrgContext(undefined as any, async () => undefined, adminPool)).rejects.toThrow(OrgContextRequiredError);
+    await expect(withOrgContext('' as any, async () => undefined, adminPool)).rejects.toThrow(
+      OrgContextRequiredError,
+    );
+    await expect(
+      withOrgContext(undefined as any, async () => undefined, adminPool),
+    ).rejects.toThrow(OrgContextRequiredError);
   });
 });

@@ -63,9 +63,7 @@ async function main() {
 
     // eslint-disable-next-line no-console
     console.log(
-      appliedCount === 0
-        ? 'No pending migrations.'
-        : `Applied ${appliedCount} migration(s).`,
+      appliedCount === 0 ? 'No pending migrations.' : `Applied ${appliedCount} migration(s).`,
     );
   } finally {
     await pool.end();

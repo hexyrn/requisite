@@ -53,14 +53,22 @@ export class TotpService {
     for (let i = 0; i < RECOVERY_CODE_COUNT; i++) {
       const code = generateNumericRecoveryCode();
       plaintextCodes.push(code);
-      rows.push({ organisation_id: organisationId, user_account_id: userAccountId, code_hash: hashToken(code) });
+      rows.push({
+        organisation_id: organisationId,
+        user_account_id: userAccountId,
+        code_hash: hashToken(code),
+      });
     }
     await db.insertInto('mfa_recovery_codes').values(rows).execute();
 
     return plaintextCodes; // Displayed once to the user - never persisted in plaintext.
   }
 
-  async verifyChallenge(db: Kysely<Database>, userAccountId: string, code: string): Promise<boolean> {
+  async verifyChallenge(
+    db: Kysely<Database>,
+    userAccountId: string,
+    code: string,
+  ): Promise<boolean> {
     const user = await db
       .selectFrom('user_accounts')
       .select(['totp_secret_encrypted'])
@@ -72,7 +80,11 @@ export class TotpService {
   }
 
   /** One-time recovery code use - consumes it so it cannot be reused. */
-  async consumeRecoveryCode(db: Kysely<Database>, userAccountId: string, code: string): Promise<boolean> {
+  async consumeRecoveryCode(
+    db: Kysely<Database>,
+    userAccountId: string,
+    code: string,
+  ): Promise<boolean> {
     const codeHash = hashToken(code);
     const row = await db
       .updateTable('mfa_recovery_codes')

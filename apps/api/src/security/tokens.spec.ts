@@ -1,4 +1,9 @@
-import { generateSecureToken, hashToken, verifyTokenHash, generateNumericRecoveryCode } from './tokens';
+import {
+  generateSecureToken,
+  hashToken,
+  verifyTokenHash,
+  generateNumericRecoveryCode,
+} from './tokens';
 
 describe('tokens', () => {
   it('generates high-entropy, non-repeating tokens', () => {

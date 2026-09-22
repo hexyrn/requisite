@@ -61,7 +61,10 @@ export class SessionService {
     return this.createSession(db, organisationId, userAccountId, mfaVerified);
   }
 
-  async getActiveSession(db: Kysely<Database>, sessionId: string): Promise<SessionRecord | undefined> {
+  async getActiveSession(
+    db: Kysely<Database>,
+    sessionId: string,
+  ): Promise<SessionRecord | undefined> {
     const row = await db
       .selectFrom('sessions')
       .selectAll()

@@ -12,7 +12,9 @@ export function encodeSessionCookie(organisationId: string, sessionId: string): 
   return `${organisationId}.${sessionId}`;
 }
 
-export function decodeSessionCookie(value: string | undefined): { organisationId: string; sessionId: string } | null {
+export function decodeSessionCookie(
+  value: string | undefined,
+): { organisationId: string; sessionId: string } | null {
   if (!value) return null;
   const [organisationId, sessionId] = value.split('.');
   if (!organisationId || !sessionId) return null;

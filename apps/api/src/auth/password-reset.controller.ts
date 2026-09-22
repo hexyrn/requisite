@@ -4,7 +4,11 @@ import { PasswordResetService } from './password-reset.service';
 import { InstallationRepository } from '../bootstrap/installation.repository';
 import { withOrgContext } from '../db/org-context';
 import { PublicRoute } from '../http/session-auth.guard';
-import { enforceRateLimit, passwordResetRequestRateLimiters, passwordResetSubmitRateLimiters } from '../security/rate-limits';
+import {
+  enforceRateLimit,
+  passwordResetRequestRateLimiters,
+  passwordResetSubmitRateLimiters,
+} from '../security/rate-limits';
 import { logStructured } from '../logging/logger';
 
 @Controller('api/v1/auth/password-reset')
@@ -59,7 +63,10 @@ export class PasswordResetController {
 
   @PublicRoute()
   @Post('submit')
-  async submitReset(@Req() req: FastifyRequest, @Body() body: { token: string; newPassword: string }) {
+  async submitReset(
+    @Req() req: FastifyRequest,
+    @Body() body: { token: string; newPassword: string },
+  ) {
     // Keyed by the token itself (opaque, high-entropy) rather than an
     // account, since we don't know which account it belongs to without
     // looking it up - and we don't want to do that DB work before rate
@@ -67,7 +74,9 @@ export class PasswordResetController {
     enforceRateLimit(passwordResetSubmitRateLimiters, body.token, req.ip);
 
     const organisationId = await this.installations.getPrimaryOrganisationId();
-    await withOrgContext(organisationId, (db) => this.passwordReset.completeReset(db, organisationId, body.token, body.newPassword));
+    await withOrgContext(organisationId, (db) =>
+      this.passwordReset.completeReset(db, organisationId, body.token, body.newPassword),
+    );
     return { ok: true };
   }
 }

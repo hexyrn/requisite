@@ -9,7 +9,14 @@ export interface PageLayoutProps {
 
 export function PageLayout({ title, orgName, nav, children }: PageLayoutProps) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
       <header
         style={{
           display: 'flex',

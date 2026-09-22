@@ -54,14 +54,26 @@ export class InvitationController {
             .where('organisation_id', '=', organisationId)
             .where('role_id', '=', roleId)
             .execute();
-          const exceedsActorPermissions = rolePermissions.some((rp) => !actorPermissions.has(rp.permission_key));
+          const exceedsActorPermissions = rolePermissions.some(
+            (rp) => !actorPermissions.has(rp.permission_key),
+          );
           if (exceedsActorPermissions) {
-            throw new ForbiddenException('Cannot invite a user into a role that grants permissions you do not hold.');
+            throw new ForbiddenException(
+              'Cannot invite a user into a role that grants permissions you do not hold.',
+            );
           }
         }
       }
 
-      return this.invitations.createInvitation(db, organisationId, actor.id, body.email, roleIds, false, baseUrl);
+      return this.invitations.createInvitation(
+        db,
+        organisationId,
+        actor.id,
+        body.email,
+        roleIds,
+        false,
+        baseUrl,
+      );
     });
   }
 
@@ -70,6 +82,8 @@ export class InvitationController {
   async accept(@Req() req: FastifyRequest, @Body() body: { token: string; password: string }) {
     enforceRateLimit(invitationAcceptRateLimiters, body.token, req.ip);
     const organisationId = await this.installations.getPrimaryOrganisationId();
-    return withOrgContext(organisationId, (db) => this.invitations.acceptInvitation(db, organisationId, body.token, body.password));
+    return withOrgContext(organisationId, (db) =>
+      this.invitations.acceptInvitation(db, organisationId, body.token, body.password),
+    );
   }
 }
