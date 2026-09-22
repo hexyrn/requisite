@@ -85,7 +85,13 @@ export class SessionAuthGuard implements CanActivate {
 
     // Synchronizer-token CSRF check for state-changing cookie-authenticated
     // requests - Architecture §6. Defense-in-depth on top of SameSite=Lax.
-    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
+    // Public routes (login, bootstrap) are exempt even when a still-valid
+    // session cookie happens to be present (e.g. a user with an existing
+    // session opens /login again): the client-side form for a @PublicRoute()
+    // has no CSRF token to send yet, and re-authenticating with the correct
+    // password is itself proof of intent, so gating it on a token the page
+    // never had would just produce a confusing dead end.
+    const mutating = !isPublic && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
     if (mutating) {
       const header = request.headers['x-hexyrn-csrf'];
       if (!header || header !== resolved.session.csrfToken) {

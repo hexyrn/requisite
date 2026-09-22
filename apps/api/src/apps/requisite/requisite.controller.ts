@@ -9,6 +9,7 @@ import { RequisitionService } from './requisition.service';
 import { PurchaseOrderService } from './purchase-order.service';
 import { GoodsReceiptService } from './goods-receipt.service';
 import { PoDocumentService } from './po-document.service';
+import { RfqService } from './rfq.service';
 import { REQUISITE_APP_MANIFEST } from './requisite.manifest';
 
 const APP_ID = REQUISITE_APP_MANIFEST.appId;
@@ -30,6 +31,7 @@ export class RequisiteController {
     private readonly purchaseOrders: PurchaseOrderService,
     private readonly goodsReceipts: GoodsReceiptService,
     private readonly poDocuments: PoDocumentService,
+    private readonly rfqs: RfqService,
     private readonly contextFactory: AppContextFactory,
   ) {}
 
@@ -221,5 +223,52 @@ export class RequisiteController {
       const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
       return this.goodsReceipts.recordReceipt(ctx, db, subject.userAccountId, purchaseOrderId, body);
     });
+  }
+
+  // --- RFQ / Quote comparison (item 9) ---
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Get('rfqs')
+  async listRfqs(@Req() req: FastifyRequest) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.rfqs.listRfqs(db, organisationId));
+  }
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Get('rfqs/:id')
+  async getRfq(@Req() req: FastifyRequest, @Param('id') id: string) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.rfqs.getRfq(db, organisationId, id));
+  }
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Post('rfqs')
+  async createRfq(@Req() req: FastifyRequest, @Body() body: { requisitionId?: string }) {
+    const { organisationId, subject } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => {
+      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      return this.rfqs.createRfq(ctx, db, subject.userAccountId, body.requisitionId);
+    });
+  }
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Post('rfqs/:id/quotes')
+  async recordQuote(@Req() req: FastifyRequest, @Param('id') rfqId: string, @Body() body: any) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.rfqs.recordQuote(db, organisationId, rfqId, body));
+  }
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Post('rfqs/:id/quotes/:quoteId/select')
+  async selectQuote(@Req() req: FastifyRequest, @Param('id') rfqId: string, @Param('quoteId') quoteId: string, @Body() body: { reason?: string }) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.rfqs.selectQuote(db, organisationId, rfqId, quoteId, body?.reason));
+  }
+
+  @RequirePermission('requisite.rfqs.manage')
+  @Post('rfqs/:id/quotes/:quoteId/reject')
+  async rejectQuote(@Req() req: FastifyRequest, @Param('quoteId') quoteId: string) {
+    const { organisationId } = this.ctx(req);
+    return withOrgContext(organisationId, (db) => this.rfqs.rejectQuote(db, organisationId, quoteId));
   }
 }

@@ -88,6 +88,40 @@ export interface ApprovalHistoryEntry {
   }>;
 }
 
+export interface Rfq {
+  id: string;
+  rfq_number: string;
+  status: string;
+  requisition_id: string | null;
+  created_at: string;
+}
+
+export interface Quote {
+  id: string;
+  rfq_id: string;
+  supplier_id: string;
+  supplier_name: string;
+  quote_reference: string | null;
+  quote_date: string | null;
+  expiry_date: string | null;
+  currency: string;
+  carriage_minor: string;
+  total_minor: string;
+  status: string;
+  selection_reason: string | null;
+  notes: string | null;
+}
+
+export interface RfqDetail extends Rfq {
+  quotes: Quote[];
+}
+
+export interface QuoteLineInput {
+  description: string;
+  quantity: string;
+  unitPriceMinor: string;
+}
+
 export const requisiteApi = {
   listSuppliers: () => request<Supplier[]>('/requisite/suppliers'),
   createSupplier: (input: { name: string; email?: string; phone?: string }) =>
@@ -116,4 +150,14 @@ export const requisiteApi = {
   listGoodsReceiptsForPo: (purchaseOrderId: string) => request<GoodsReceipt[]>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`),
   recordGoodsReceipt: (purchaseOrderId: string, input: { lines: Array<{ purchaseOrderLineId: string; quantityReceived: string }>; deliveryNoteReference?: string }) =>
     request<GoodsReceipt>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`, { method: 'POST', body: JSON.stringify(input) }),
+
+  listRfqs: () => request<Rfq[]>('/requisite/rfqs'),
+  getRfq: (id: string) => request<RfqDetail>(`/requisite/rfqs/${id}`),
+  createRfq: () => request<Rfq>('/requisite/rfqs', { method: 'POST', body: JSON.stringify({}) }),
+  recordQuote: (rfqId: string, input: { supplierId: string; quoteReference?: string; expiryDate?: string; carriageMinor?: string; lines: QuoteLineInput[] }) =>
+    request<Quote>(`/requisite/rfqs/${rfqId}/quotes`, { method: 'POST', body: JSON.stringify(input) }),
+  selectQuote: (rfqId: string, quoteId: string, reason?: string) =>
+    request<Quote>(`/requisite/rfqs/${rfqId}/quotes/${quoteId}/select`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  rejectQuote: (rfqId: string, quoteId: string) =>
+    request<Quote>(`/requisite/rfqs/${rfqId}/quotes/${quoteId}/reject`, { method: 'POST' }),
 };

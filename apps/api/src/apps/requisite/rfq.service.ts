@@ -41,6 +41,17 @@ export class RfqService {
     return db.insertInto('requisite_rfqs').values({ organisation_id: ctx.organisationId, rfq_number: rfqNumber, requisition_id: requisitionId ?? null, created_by: actorUserAccountId }).returningAll().executeTakeFirstOrThrow();
   }
 
+  async listRfqs(db: Kysely<Database>, organisationId: string) {
+    return db.selectFrom('requisite_rfqs').selectAll().where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').execute();
+  }
+
+  async getRfq(db: Kysely<Database>, organisationId: string, rfqId: string) {
+    const rfq = await db.selectFrom('requisite_rfqs').selectAll().where('id', '=', rfqId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    if (!rfq) throw new NotFoundException('RFQ not found.');
+    const quotes = await this.listQuotesForRfq(db, organisationId, rfqId);
+    return { ...rfq, quotes };
+  }
+
   async recordQuote(db: Kysely<Database>, organisationId: string, rfqId: string, input: RecordQuoteInput) {
     if (input.lines.length === 0) throw new BadRequestException('A quotation must have at least one line.');
     const rfq = await db.selectFrom('requisite_rfqs').selectAll().where('id', '=', rfqId).where('organisation_id', '=', organisationId).executeTakeFirst();
@@ -90,9 +101,30 @@ export class RfqService {
     return quote;
   }
 
-  /** Comparison view (item 9) - a plain sorted read, never an auto-decision. */
+  /** Comparison view (item 9) - a plain sorted read, never an auto-decision. Includes the supplier name so the comparison screen doesn't need a second lookup per row. */
   async listQuotesForRfq(db: Kysely<Database>, organisationId: string, rfqId: string) {
-    return db.selectFrom('requisite_quotes').selectAll().where('organisation_id', '=', organisationId).where('rfq_id', '=', rfqId).orderBy('total_minor', 'asc').execute();
+    return db
+      .selectFrom('requisite_quotes')
+      .innerJoin('requisite_suppliers', 'requisite_suppliers.id', 'requisite_quotes.supplier_id')
+      .select([
+        'requisite_quotes.id',
+        'requisite_quotes.rfq_id',
+        'requisite_quotes.supplier_id',
+        'requisite_suppliers.name as supplier_name',
+        'requisite_quotes.quote_reference',
+        'requisite_quotes.quote_date',
+        'requisite_quotes.expiry_date',
+        'requisite_quotes.currency',
+        'requisite_quotes.carriage_minor',
+        'requisite_quotes.total_minor',
+        'requisite_quotes.status',
+        'requisite_quotes.selection_reason',
+        'requisite_quotes.notes',
+      ])
+      .where('requisite_quotes.organisation_id', '=', organisationId)
+      .where('requisite_quotes.rfq_id', '=', rfqId)
+      .orderBy('requisite_quotes.total_minor', 'asc')
+      .execute();
   }
 
   /** Explicit human selection - demotes any previously-selected quote on this RFQ back to 'received' so at most one quote is ever 'selected'. */

@@ -22,6 +22,13 @@ import { WebhookService } from '../../../platform/webhooks/webhook.service';
 import { WebhookDispatcherService } from '../../../platform/webhooks/webhook-dispatcher.service';
 import { WEBHOOK_SENDER, WebhookSender, WebhookDeliveryResult } from '../../../platform/webhooks/webhook-sender';
 import { REQUISITE_APP_MANIFEST } from '../requisite.manifest';
+import { registerRequisiteP2Extensions } from '../requisite-p2-extensions';
+import { DatasetService } from '../../../platform/reporting/dataset.service';
+import { SavedReportService } from '../../../platform/reporting/saved-report.service';
+import { DashboardService } from '../../../platform/dashboards/dashboard.service';
+import { SearchService } from '../../../platform/search/search.service';
+import { ImportService } from '../../../platform/import/import.service';
+import { ImportHandlerRegistryService } from '../../../platform/import/import-row-handler';
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
@@ -80,6 +87,7 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     await withOrgContext(organisationId, (db) => registry.enableApp(db, organisationId, REQUISITE_APP_MANIFEST.appId), pool);
     const license = await createTestLicense(REQUISITE_APP_MANIFEST.appId, organisationId, REQUISITE_APP_MANIFEST.majorVersion);
     await withOrgContext(organisationId, (db) => registry.grantLicense(db, organisationId, REQUISITE_APP_MANIFEST.appId, REQUISITE_APP_MANIFEST.majorVersion, license as any), pool);
+    await registerRequisiteP2Extensions(app.get(DatasetService), app.get(SavedReportService), app.get(DashboardService), app.get(SearchService), app.get(ImportService), app.get(ImportHandlerRegistryService), pool);
 
     await withOrgContext(
       organisationId,
@@ -168,6 +176,38 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     const history = await agent.get(`/api/v1/requisite/requisitions/${createReq.body.id}/approval-history`);
     expect(history.status).toBe(200);
     expect(history.body).toEqual([]); // not yet submitted - no approval requests exist
+  });
+
+  it('REPORTS (item 15): Requisite report templates are listable and runnable through Core\'s generic reports interface', async () => {
+    const templates = await agent.get('/api/v1/reports/templates?appId=com.hexyrn.requisite');
+    expect(templates.status).toBe(200);
+    expect(templates.body.some((t: any) => t.template_key === 'requisite.open_purchase_orders')).toBe(true);
+
+    const result = await agent.post('/api/v1/reports/execute').set('x-hexyrn-csrf', csrfToken).send({ templateKey: 'requisite.purchasing_by_supplier' });
+    expect(result.status).toBe(201);
+    expect(Array.isArray(result.body.rows)).toBe(true);
+  });
+
+  it('RFQ ROUTES (item 9): create RFQ, record two quotes, compare, select one - real HTTP', async () => {
+    const supplierA = await agent.post('/api/v1/requisite/suppliers').set('x-hexyrn-csrf', csrfToken).send({ name: 'RFQ Route Supplier A' });
+    const supplierB = await agent.post('/api/v1/requisite/suppliers').set('x-hexyrn-csrf', csrfToken).send({ name: 'RFQ Route Supplier B' });
+
+    const rfq = await agent.post('/api/v1/requisite/rfqs').set('x-hexyrn-csrf', csrfToken).send({});
+    expect(rfq.status).toBe(201);
+
+    const quoteA = await agent.post(`/api/v1/requisite/rfqs/${rfq.body.id}/quotes`).set('x-hexyrn-csrf', csrfToken).send({ supplierId: supplierA.body.id, lines: [{ description: 'Item', quantity: '10', unitPriceMinor: '1000' }] });
+    expect(quoteA.status).toBe(201);
+    const quoteB = await agent.post(`/api/v1/requisite/rfqs/${rfq.body.id}/quotes`).set('x-hexyrn-csrf', csrfToken).send({ supplierId: supplierB.body.id, lines: [{ description: 'Item', quantity: '10', unitPriceMinor: '500' }] });
+    expect(quoteB.status).toBe(201);
+
+    const detail = await agent.get(`/api/v1/requisite/rfqs/${rfq.body.id}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.quotes).toHaveLength(2);
+    expect(detail.body.quotes[0].supplier_name).toBe('RFQ Route Supplier B'); // cheapest first
+
+    const select = await agent.post(`/api/v1/requisite/rfqs/${rfq.body.id}/quotes/${quoteB.body.id}/select`).set('x-hexyrn-csrf', csrfToken).send({ reason: 'Cheapest' });
+    expect(select.status).toBe(201);
+    expect(select.body.status).toBe('selected');
   });
 
   it('DEDICATED ROUTES: submit -> decide (via a distinct approver, self-approval blocked) -> generate PO -> issue -> PDF document, all over real HTTP', async () => {

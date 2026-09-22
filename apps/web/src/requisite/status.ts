@@ -20,6 +20,8 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
   issued: 'Issued',
   completed: 'Completed',
+  open: 'Open',
+  selected: 'Selected',
 };
 
 const STATUS_TONES: Record<string, StatusTone> = {
@@ -35,6 +37,8 @@ const STATUS_TONES: Record<string, StatusTone> = {
   cancelled: 'danger',
   issued: 'info',
   completed: 'success',
+  open: 'info',
+  selected: 'success',
 };
 
 export function statusLabel(status: string): string {

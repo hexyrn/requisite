@@ -37,7 +37,7 @@ export async function registerRequisiteP2Extensions(
       sourceRef: 'requisite_suppliers',
       isExportable: true,
       fields: [
-        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
+        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true, isMeasure: true, allowedAggregations: ['count'] },
         { key: 'supplier_number', label: 'Supplier Number', fieldType: 'string', isDimension: true, filterable: true, sortable: true },
         { key: 'name', label: 'Name', fieldType: 'string', isDimension: true, filterable: true, sortable: true, searchable: true },
         { key: 'status', label: 'Status', fieldType: 'string', isDimension: true, filterable: true, groupable: true },
@@ -56,7 +56,7 @@ export async function registerRequisiteP2Extensions(
       sourceRef: 'requisite_requisitions',
       isExportable: true,
       fields: [
-        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
+        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true, isMeasure: true, allowedAggregations: ['count'] },
         { key: 'requisition_number', label: 'Requisition Number', fieldType: 'string', isDimension: true, filterable: true, sortable: true },
         { key: 'status', label: 'Status', fieldType: 'string', isDimension: true, filterable: true, groupable: true, sortable: true },
         { key: 'category', label: 'Category', fieldType: 'string', isDimension: true, filterable: true, groupable: true },
@@ -80,7 +80,7 @@ export async function registerRequisiteP2Extensions(
       sourceRef: 'requisite_purchase_orders',
       isExportable: true,
       fields: [
-        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
+        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true, isMeasure: true, allowedAggregations: ['count'] },
         { key: 'po_number', label: 'PO Number', fieldType: 'string', isDimension: true, filterable: true, sortable: true },
         { key: 'status', label: 'Status', fieldType: 'string', isDimension: true, filterable: true, groupable: true, sortable: true },
         { key: 'supplier_id', label: 'Supplier', fieldType: 'string', isDimension: true, filterable: true, groupable: true },
@@ -105,7 +105,7 @@ export async function registerRequisiteP2Extensions(
       sourceRef: 'requisite_goods_receipts',
       isExportable: true,
       fields: [
-        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
+        { key: 'id', label: 'ID', fieldType: 'string', isDimension: true, isMeasure: true, allowedAggregations: ['count'] },
         { key: 'grn_number', label: 'GRN Number', fieldType: 'string', isDimension: true, filterable: true, sortable: true },
         { key: 'purchase_order_id', label: 'Purchase Order', fieldType: 'string', isDimension: true, filterable: true, groupable: true },
         { key: 'received_at', label: 'Received At', fieldType: 'string', isDimension: true, sortable: true },

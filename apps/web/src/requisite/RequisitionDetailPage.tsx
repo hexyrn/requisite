@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { PageHeader, Card, Button, StatusBadge, Money } from '@hexyrn/design-system';
 import { requisiteApi, Requisition, ApprovalHistoryEntry, Supplier } from '../api/requisite';
@@ -22,6 +22,19 @@ export function RequisitionDetailPage() {
   const [busy, setBusy] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const actionErrorRef = useRef<HTMLDivElement>(null);
+
+  // Accessibility: the decision/submit/PO actions all live in cards further
+  // down the page than this shared error banner. A screen reader hears it
+  // immediately via role="alert", but a sighted keyboard/mouse user whose
+  // attention is on the Reject button (say) would otherwise never see it
+  // appear off-screen above. Move focus and scroll to it whenever it's set.
+  useEffect(() => {
+    if (actionError) {
+      actionErrorRef.current?.focus();
+      actionErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [actionError]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -114,7 +127,11 @@ export function RequisitionDetailPage() {
         }
       />
 
-      {actionError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{actionError}</div>}
+      {actionError && (
+        <div ref={actionErrorRef} role="alert" tabIndex={-1} style={{ color: '#991b1b', marginBottom: 12, outline: 'none' }}>
+          {actionError}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Summary</h2>

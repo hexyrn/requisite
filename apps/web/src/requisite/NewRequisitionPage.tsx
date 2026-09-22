@@ -122,7 +122,7 @@ export function NewRequisitionPage() {
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>What are you purchasing?</h2>
         {lines.map((line, idx) => (
-          <div key={line.key} style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+          <div key={line.key} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
             <Input label={idx === 0 ? 'Description' : undefined} aria-label="Line description" value={line.description} onChange={(e) => updateLine(line.key, { description: e.target.value })} />
             <Input label={idx === 0 ? 'Quantity' : undefined} aria-label="Quantity" type="number" min="0" value={line.quantity} onChange={(e) => updateLine(line.key, { quantity: e.target.value })} />
             <Input label={idx === 0 ? 'Unit' : undefined} aria-label="Unit" value={line.unit ?? ''} onChange={(e) => updateLine(line.key, { unit: e.target.value })} />
