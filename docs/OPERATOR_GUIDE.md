@@ -108,12 +108,19 @@ narrower documentation follow-up.
 
 ## 5. Backups
 
-Full mechanism: `apps/api/src/platform/backup/backup.service.ts` (createBackup,
-verifyBackupIntegrity, applyRetentionPolicy, restoreBackup). **No
-Administration UI exists yet** - the backend service is complete and
-tested, but there is currently no HTTP endpoint or admin screen wired to
-it (unlike SMTP/licence/health, which do have HTTP surfaces this phase).
-This is the next piece of operator-facing work, not yet done.
+`Administration -> System -> Backup` (`apps/api/src/platform/backup/backup.controller.ts`):
+
+- `POST /api/v1/backup` - Backup Now. Writes to `HEXYRN_BACKUP_DIR`
+  (default `./backups`) under a timestamped subdirectory.
+- `GET /api/v1/backup` - list every backup with its integrity status
+  (last successful backup / backup health at a glance).
+- `GET /api/v1/backup/:id` - full integrity/manifest detail for one backup.
+- `POST /api/v1/backup/:id/restore` - the destructive restore, requires
+  `{"confirmed": true}` in the request body or is refused outright.
+
+There is no scheduling/retention admin screen yet - `applyRetentionPolicy()`
+exists and is tested but is not yet wired to a recurring job; run backups
+on a cron/scheduled task pointed at `POST /api/v1/backup` until it is.
 
 What a backup includes: a `pg_dump` of the database (custom format), the
 uploaded-files directory, and a `manifest.json` recording Core version,
@@ -141,18 +148,29 @@ same reason as §5.
 
 ## 7. Updates
 
-Mechanism: `apps/api/src/platform/update/update.service.ts`. An offline
-update package is a signed release manifest (reusing the release-signing
-system, §10) plus the package artifact. `applyUpdate()` runs, in strict
-order, refusing to proceed past any failed step: verify package
-authenticity+integrity -> check version compatibility (no downgrades via
-this path - restore a pre-update backup instead) -> disk space preflight
--> backup preflight (auto-backing-up if configured) -> enter maintenance
-mode -> run migrations -> post-update health check -> exit maintenance
-mode. A migration or health-check failure correctly leaves the
-installation IN maintenance mode rather than exiting into a possibly
-broken state. No internet connection is required anywhere in this flow.
-**No Administration UI or CLI wraps this yet** - same status as backups.
+`Administration -> System -> Updates` (`apps/api/src/platform/update/update.controller.ts`):
+
+- `POST /api/v1/update/check` - point at a locally-placed offline update
+  package + its signed manifest (`{packagePath, manifest}`); verifies
+  authenticity, compatibility, and disk space WITHOUT applying anything,
+  returning `readyToApply`.
+- `POST /api/v1/update/apply` - the real sequence, requires
+  `{"confirmed": true}`: verify package authenticity+integrity -> check
+  version compatibility (no downgrades via this path - restore a
+  pre-update backup instead) -> disk space preflight -> backup preflight
+  (auto-backing-up unless `requireBackup: false` is passed) -> enter
+  maintenance mode -> run REAL database migrations -> REAL post-update
+  health check -> exit maintenance mode. A migration or health-check
+  failure correctly leaves the installation IN maintenance mode rather
+  than exiting into a possibly broken state - restore a pre-update backup
+  to recover. No internet connection is required anywhere in this flow.
+
+**Maintenance mode caveat, stated plainly**: `apply` sets and clears a
+real, queryable flag (`installations.config.maintenanceMode`), but no
+request-blocking middleware in this codebase currently rejects ordinary
+traffic while it is set - the flag exists for a reverse proxy or future
+middleware to act on, but does not yet itself stop traffic. Tracked as
+follow-up, not silently assumed complete.
 
 ## 8. Licence administration
 
@@ -202,10 +220,12 @@ bare boolean. No secrets are ever included in either response.
 ## 13. Support bundles
 
 `Administration -> System -> Support Bundle`
-(`SupportBundleService` - not yet wired to an HTTP endpoint, tracked as
-remaining work alongside backup/update UIs). Explicitly admin-initiated,
-previewable before generation, never auto-uploaded. Two independent
-redaction layers (key-based + free-text scrubbing) - see the module's own
+(`GET /api/v1/support-bundle/preview` to see categories before generating,
+`POST /api/v1/support-bundle` to generate). Explicitly admin-initiated,
+previewable before generation, never auto-uploaded - the response is
+returned directly to the requesting admin, nothing in this codebase makes
+an outbound call with it. Two independent redaction layers (key-based +
+free-text scrubbing) - see the module's own
 extensive canary-secret test suite for what's proven never to leak.
 
 ## 14. Troubleshooting
@@ -243,9 +263,11 @@ written.
 
 ## 17. Known documentation gaps (stated plainly, not hidden)
 
-- No Administration UI for backup/restore/update/support-bundle yet (the
-  backend services are complete and tested; only SMTP/licence/health have
-  HTTP surfaces + this guide's screens so far).
+- Backup/restore/update/support-bundle now have HTTP admin endpoints
+  (§5-7, §13), but no dedicated frontend admin SCREEN yet (they are
+  callable API endpoints, not yet buttons in the web UI) - no scheduling/
+  retention admin screen for backups, and maintenance mode is a real flag
+  that no middleware enforces yet (§7).
 - No concrete reverse-proxy config examples (nginx/Caddy/Traefik).
 - No uninstall/disaster-recovery runbook.
 - Windows installation section is a placeholder pending the installer

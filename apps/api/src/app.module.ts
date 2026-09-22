@@ -28,6 +28,10 @@ import { SmtpController } from './platform/smtp/smtp.controller';
 import { SmtpConfigService } from './platform/smtp/smtp-config.service';
 import { HealthDiagnosticsController } from './platform/health/health-diagnostics.controller';
 import { HealthDiagnosticsService } from './platform/health/health-diagnostics.service';
+import { BackupController } from './platform/backup/backup.controller';
+import { UpdateController } from './platform/update/update.controller';
+import { SupportBundleController } from './platform/support-bundle/support-bundle.controller';
+import { SupportBundleService } from './platform/support-bundle/support-bundle.service';
 import { PlatformModule } from './platform/platform.module';
 import { ApplicationActiveGuard } from './platform/app-registry/application-active.guard';
 import { ReferenceAppModule } from './apps/reference/reference.module';
@@ -46,11 +50,15 @@ import { RequisiteAppModule } from './apps/requisite/requisite.module';
     ReportsController,
     SmtpController,
     HealthDiagnosticsController,
+    BackupController,
+    UpdateController,
+    SupportBundleController,
   ],
   providers: [
     AuditService,
     SmtpConfigService,
     HealthDiagnosticsService,
+    SupportBundleService,
     SessionService,
     RoleRepository,
     AuthService,
