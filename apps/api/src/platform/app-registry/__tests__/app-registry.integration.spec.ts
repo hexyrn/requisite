@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { setUpTestDatabase, createTestOrg } from '../../../test-utils/test-db';
+import { setUpTestDatabase, createTestOrg, createTestLicense } from '../../../test-utils/test-db';
 import { withOrgContext } from '../../../db/org-context';
 import { attachPoolErrorHandler } from '../../../db/pool';
 import { ApplicationRegistryService } from '../application-registry.service';
@@ -81,13 +81,11 @@ describeIfDb(
     });
 
     it('enabled + licensed + compatible => active', async () => {
+      const license = await createTestLicense(manifest.appId, orgId, manifest.majorVersion);
       await withOrgContext(
         orgId,
         (db) =>
-          registry.grantLicense(db, orgId, manifest.appId, manifest.majorVersion, {
-            signature: 'test-signature',
-            issuedTo: orgId,
-          }),
+          registry.grantLicense(db, orgId, manifest.appId, manifest.majorVersion, license as any),
         pool,
       );
       const state = await withOrgContext(
@@ -125,6 +123,11 @@ describeIfDb(
         (db) => registry.enableApp(db, orgId, incompatibleManifest.appId),
         pool,
       );
+      const incompatibleLicense = await createTestLicense(
+        incompatibleManifest.appId,
+        orgId,
+        incompatibleManifest.majorVersion,
+      );
       await withOrgContext(
         orgId,
         (db) =>
@@ -133,7 +136,7 @@ describeIfDb(
             orgId,
             incompatibleManifest.appId,
             incompatibleManifest.majorVersion,
-            { signature: 'x' },
+            incompatibleLicense as any,
           ),
         pool,
       );

@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { setUpTestDatabase, createTestOrg } from '../../../test-utils/test-db';
+import { setUpTestDatabase, createTestOrg, createTestLicense } from '../../../test-utils/test-db';
 import { withOrgContext } from '../../../db/org-context';
 import { attachPoolErrorHandler } from '../../../db/pool';
 import { ApplicationRegistryService } from '../../app-registry/application-registry.service';
@@ -42,9 +42,10 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     await registry.registerApp(producerApp, pool);
     await registry.registerApp(consumerApp, pool);
     await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, consumerApp.appId), pool);
+    const consumerLicense = await createTestLicense(consumerApp.appId, orgId, 1);
     await withOrgContext(
       orgId,
-      (db) => registry.grantLicense(db, orgId, consumerApp.appId, 1, { signature: 'x' }),
+      (db) => registry.grantLicense(db, orgId, consumerApp.appId, 1, consumerLicense as any),
       pool,
     );
   }, 60000);
@@ -101,9 +102,10 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     };
     await registry.registerApp(flakyConsumer, pool);
     await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, flakyConsumer.appId), pool);
+    const flakyLicense = await createTestLicense(flakyConsumer.appId, orgId, 1);
     await withOrgContext(
       orgId,
-      (db) => registry.grantLicense(db, orgId, flakyConsumer.appId, 1, { signature: 'x' }),
+      (db) => registry.grantLicense(db, orgId, flakyConsumer.appId, 1, flakyLicense as any),
       pool,
     );
 
@@ -127,9 +129,10 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     const orgB = await createTestOrg(pool, 'Events Org B');
     await registry.registerApp(consumerApp, pool);
     await withOrgContext(orgB, (db) => registry.enableApp(db, orgB, consumerApp.appId), pool);
+    const consumerLicenseB = await createTestLicense(consumerApp.appId, orgB, 1);
     await withOrgContext(
       orgB,
-      (db) => registry.grantLicense(db, orgB, consumerApp.appId, 1, { signature: 'x' }),
+      (db) => registry.grantLicense(db, orgB, consumerApp.appId, 1, consumerLicenseB as any),
       pool,
     );
 
@@ -148,9 +151,10 @@ describeIfDb('Event outbox: publication, retry, consumer failure, org context (P
     await registry.registerApp(trackerApp, pool);
     for (const org of [orgId, orgB]) {
       await withOrgContext(org, (db) => registry.enableApp(db, org, trackerApp.appId), pool);
+      const trackerLicense = await createTestLicense(trackerApp.appId, org, 1);
       await withOrgContext(
         org,
-        (db) => registry.grantLicense(db, org, trackerApp.appId, 1, { signature: 'x' }),
+        (db) => registry.grantLicense(db, org, trackerApp.appId, 1, trackerLicense as any),
         pool,
       );
     }

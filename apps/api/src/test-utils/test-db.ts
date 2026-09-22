@@ -78,3 +78,16 @@ export async function createTestOrg(pool: Pool, name = 'Test Org'): Promise<stri
   );
   return orgId;
 }
+
+/** Real, validly-signed test license (P2 item 21) - uses the TEST keypair (src/platform/licensing/keys.ts), never a fake payload. */
+export async function createTestLicense(
+  appId: string,
+  organisationId: string,
+  majorVersion = 1,
+  supportExpiresAt: string | null = null,
+) {
+  const { LicenseSigner } = await import('../platform/licensing/license-signer');
+  const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../platform/licensing/keys');
+  const signer = new LicenseSigner(TEST_LICENSE_PRIVATE_KEY_PEM);
+  return signer.issue({ appId, organisationId, majorVersion, supportExpiresAt });
+}

@@ -1,8 +1,16 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely, sql } from 'kysely';
 import { Database } from '../../db/types';
 import { DatasetFieldDefinition, Aggregation } from './dataset.service';
-import { FlatRolePermissionEvaluator, PermissionCheckSubject } from '../../rbac/permission-evaluator';
+import {
+  FlatRolePermissionEvaluator,
+  PermissionCheckSubject,
+} from '../../rbac/permission-evaluator';
 
 export interface QueryFilter {
   field: string;
@@ -72,7 +80,11 @@ const MAX_JOIN_DEPTH = 1; // one relationship hop in P2
 export class ReportQueryService {
   private readonly evaluator = new FlatRolePermissionEvaluator();
 
-  async execute(db: Kysely<Database>, subject: PermissionCheckSubject, query: ReportQueryDefinition): Promise<Record<string, unknown>[]> {
+  async execute(
+    db: Kysely<Database>,
+    subject: PermissionCheckSubject,
+    query: ReportQueryDefinition,
+  ): Promise<Record<string, unknown>[]> {
     const dataset = await this.loadDatasetOrThrow(db, query.datasetKey);
     this.requirePermission(subject, dataset.required_permission);
 
@@ -88,7 +100,10 @@ export class ReportQueryService {
 
     let builder = (db as any).selectFrom(dataset.source_ref);
 
-    const selectedFields = query.aggregations && query.aggregations.length > 0 ? (query.groupBy ?? []) : (query.fields ?? fields.map((f) => f.key));
+    const selectedFields =
+      query.aggregations && query.aggregations.length > 0
+        ? (query.groupBy ?? [])
+        : (query.fields ?? fields.map((f) => f.key));
     for (const key of selectedFields) {
       const field = this.requireDeclaredField(fieldByKey, key, subject);
       builder = builder.select(sql.ref(field.key).as(field.key));
@@ -97,12 +112,15 @@ export class ReportQueryService {
     for (const agg of query.aggregations ?? []) {
       const field = this.requireDeclaredField(fieldByKey, agg.field, subject);
       this.requireAllowedAggregation(field, agg.fn);
-      builder = builder.select(this.aggregateExpr(agg.fn, field.key).as(agg.alias ?? `${agg.fn}_${field.key}`));
+      builder = builder.select(
+        this.aggregateExpr(agg.fn, field.key).as(agg.alias ?? `${agg.fn}_${field.key}`),
+      );
     }
 
     for (const filter of query.filters ?? []) {
       const field = this.requireDeclaredField(fieldByKey, filter.field, subject);
-      if (!field.filterable) throw new BadRequestException(`Field "${filter.field}" is not filterable.`);
+      if (!field.filterable)
+        throw new BadRequestException(`Field "${filter.field}" is not filterable.`);
       builder = this.applyFilter(builder, field, filter);
     }
 
@@ -164,23 +182,35 @@ export class ReportQueryService {
     const toFields = toDataset.fields as unknown as DatasetFieldDefinition[];
     const toFieldByKey = new Map(toFields.map((f) => [f.key, f]));
 
-    if (relationship.cardinality === 'one-to-many' && join.aggregations && join.aggregations.length > 0) {
+    if (
+      relationship.cardinality === 'one-to-many' &&
+      join.aggregations &&
+      join.aggregations.length > 0
+    ) {
       // FAN-OUT SAFE PATH: pre-aggregate the many side, grouped by the join
       // field, in a derived subquery - then join that (already-aggregated,
       // one-row-per-key) result to the "one" side. The "one" side's own
       // rows are never duplicated because the subquery has already
       // collapsed the many side to one row per join key before any join happens.
-      let subquery = (db as any).selectFrom(toDataset.source_ref).select(sql.ref(relationship.to_field).as('__join_key'));
+      let subquery = (db as any)
+        .selectFrom(toDataset.source_ref)
+        .select(sql.ref(relationship.to_field).as('__join_key'));
       for (const agg of join.aggregations) {
         const field = this.requireDeclaredField(toFieldByKey, agg.field, subject);
         this.requireAllowedAggregation(field, agg.fn);
-        subquery = subquery.select(this.aggregateExpr(agg.fn, field.key).as(agg.alias ?? `${agg.fn}_${field.key}`));
+        subquery = subquery.select(
+          this.aggregateExpr(agg.fn, field.key).as(agg.alias ?? `${agg.fn}_${field.key}`),
+        );
       }
       subquery = subquery.groupBy(relationship.to_field);
 
       let builder = (db as any)
         .selectFrom(fromDataset.source_ref)
-        .leftJoin(subquery.as('joined'), `joined.__join_key`, `${fromDataset.source_ref}.${relationship.from_field}`);
+        .leftJoin(
+          subquery.as('joined'),
+          `joined.__join_key`,
+          `${fromDataset.source_ref}.${relationship.from_field}`,
+        );
 
       const selectFields = query.fields ?? [relationship.from_field];
       for (const key of selectFields) {
@@ -194,7 +224,8 @@ export class ReportQueryService {
 
       for (const filter of query.filters ?? []) {
         const field = this.requireDeclaredField(fromFieldByKey, filter.field, subject);
-        if (!field.filterable) throw new BadRequestException(`Field "${filter.field}" is not filterable.`);
+        if (!field.filterable)
+          throw new BadRequestException(`Field "${filter.field}" is not filterable.`);
         builder = this.applyFilter(builder, field, filter, fromDataset.source_ref);
       }
 
@@ -205,7 +236,11 @@ export class ReportQueryService {
     // Simple (non-aggregating, or not one-to-many) join - safe to join directly.
     let builder = (db as any)
       .selectFrom(fromDataset.source_ref)
-      .innerJoin(toDataset.source_ref, `${toDataset.source_ref}.${relationship.to_field}`, `${fromDataset.source_ref}.${relationship.from_field}`);
+      .innerJoin(
+        toDataset.source_ref,
+        `${toDataset.source_ref}.${relationship.to_field}`,
+        `${fromDataset.source_ref}.${relationship.from_field}`,
+      );
 
     const fromSelect = query.fields ?? [relationship.from_field];
     for (const key of fromSelect) {
@@ -214,7 +249,9 @@ export class ReportQueryService {
     }
     for (const key of join.fields ?? []) {
       const field = this.requireDeclaredField(toFieldByKey, key, subject);
-      builder = builder.select(sql.ref(`${toDataset.source_ref}.${field.key}`).as(`joined_${field.key}`));
+      builder = builder.select(
+        sql.ref(`${toDataset.source_ref}.${field.key}`).as(`joined_${field.key}`),
+      );
     }
 
     builder = builder.limit(limit).offset(offset);
@@ -222,7 +259,11 @@ export class ReportQueryService {
   }
 
   private async loadDatasetOrThrow(db: Kysely<Database>, datasetKey: string) {
-    const dataset = await db.selectFrom('dataset_definitions').selectAll().where('dataset_key', '=', datasetKey).executeTakeFirst();
+    const dataset = await db
+      .selectFrom('dataset_definitions')
+      .selectAll()
+      .where('dataset_key', '=', datasetKey)
+      .executeTakeFirst();
     if (!dataset) throw new NotFoundException(`Dataset "${datasetKey}" is not registered.`);
     return dataset;
   }
@@ -233,7 +274,11 @@ export class ReportQueryService {
     }
   }
 
-  private requireDeclaredField(fieldByKey: Map<string, DatasetFieldDefinition>, key: string, subject: PermissionCheckSubject): DatasetFieldDefinition {
+  private requireDeclaredField(
+    fieldByKey: Map<string, DatasetFieldDefinition>,
+    key: string,
+    subject: PermissionCheckSubject,
+  ): DatasetFieldDefinition {
     const field = fieldByKey.get(key);
     if (!field) throw new BadRequestException(`Field "${key}" is not part of this dataset.`);
     if (field.requiredPermission && !this.evaluator.check(subject, field.requiredPermission)) {
@@ -263,7 +308,12 @@ export class ReportQueryService {
     }
   }
 
-  private applyFilter(builder: any, field: DatasetFieldDefinition, filter: QueryFilter, tablePrefix?: string) {
+  private applyFilter(
+    builder: any,
+    field: DatasetFieldDefinition,
+    filter: QueryFilter,
+    tablePrefix?: string,
+  ) {
     const ref = tablePrefix ? `${tablePrefix}.${field.key}` : field.key;
     switch (filter.operator) {
       case '=':

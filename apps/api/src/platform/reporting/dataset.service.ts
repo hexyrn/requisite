@@ -50,7 +50,9 @@ export interface DatasetDefinitionInput {
 export class DatasetService {
   async registerDataset(input: DatasetDefinitionInput, pool: Pool = getPool()): Promise<void> {
     if (!/^[a-z0-9_]+\.[a-z0-9_-]+$/.test(input.datasetKey)) {
-      throw new BadRequestException('datasetKey must be "<app-namespace>.<name>", lowercase alphanumeric/underscore/hyphen.');
+      throw new BadRequestException(
+        'datasetKey must be "<app-namespace>.<name>", lowercase alphanumeric/underscore/hyphen.',
+      );
     }
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     try {
@@ -98,25 +100,52 @@ export class DatasetService {
     // installed) - Architecture §5: "the registering app's own
     // registration call fails safe / is skipped at boot."
     const [from, to] = await Promise.all([
-      db.selectFrom('dataset_definitions').select('dataset_key').where('dataset_key', '=', fromDataset).executeTakeFirst(),
-      db.selectFrom('dataset_definitions').select('dataset_key').where('dataset_key', '=', toDataset).executeTakeFirst(),
+      db
+        .selectFrom('dataset_definitions')
+        .select('dataset_key')
+        .where('dataset_key', '=', fromDataset)
+        .executeTakeFirst(),
+      db
+        .selectFrom('dataset_definitions')
+        .select('dataset_key')
+        .where('dataset_key', '=', toDataset)
+        .executeTakeFirst(),
     ]);
     if (!from || !to) return;
 
     await db
       .insertInto('dataset_relationships')
-      .values({ from_dataset: fromDataset, from_field: fromField, to_dataset: toDataset, to_field: toField, cardinality, label })
-      .onConflict((oc) => oc.columns(['from_dataset', 'from_field', 'to_dataset', 'to_field']).doUpdateSet({ cardinality, label }))
+      .values({
+        from_dataset: fromDataset,
+        from_field: fromField,
+        to_dataset: toDataset,
+        to_field: toField,
+        cardinality,
+        label,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(['from_dataset', 'from_field', 'to_dataset', 'to_field'])
+          .doUpdateSet({ cardinality, label }),
+      )
       .execute();
   }
 
   async getDataset(db: Kysely<Database>, datasetKey: string) {
-    return db.selectFrom('dataset_definitions').selectAll().where('dataset_key', '=', datasetKey).executeTakeFirst();
+    return db
+      .selectFrom('dataset_definitions')
+      .selectAll()
+      .where('dataset_key', '=', datasetKey)
+      .executeTakeFirst();
   }
 
   /** Only relationships where BOTH datasets are currently registered - Architecture §5's "fails safe / disappears" requirement. */
   async getAvailableRelationships(db: Kysely<Database>, fromDataset: string) {
-    return db.selectFrom('dataset_relationships').selectAll().where('from_dataset', '=', fromDataset).execute();
+    return db
+      .selectFrom('dataset_relationships')
+      .selectAll()
+      .where('from_dataset', '=', fromDataset)
+      .execute();
   }
 
   async listDatasets(db: Kysely<Database>) {

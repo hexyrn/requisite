@@ -15,7 +15,7 @@ import fastifyCookie from '@fastify/cookie';
 import request from 'supertest';
 import { Pool } from 'pg';
 import { AppModule } from '../../../app.module';
-import { setUpTestDatabase } from '../../../test-utils/test-db';
+import { setUpTestDatabase, createTestLicense } from '../../../test-utils/test-db';
 import { attachPoolErrorHandler, setPool } from '../../../db/pool';
 import { withOrgContext } from '../../../db/org-context';
 import { InstallationService } from '../../../bootstrap/installation.service';
@@ -87,6 +87,11 @@ describeIfDb(
         (db) => registry.enableApp(db, organisationId, REFERENCE_APP_MANIFEST.appId),
         pool,
       );
+      const referenceAppLicense = await createTestLicense(
+        REFERENCE_APP_MANIFEST.appId,
+        organisationId,
+        REFERENCE_APP_MANIFEST.majorVersion,
+      );
       await withOrgContext(
         organisationId,
         (db) =>
@@ -95,7 +100,7 @@ describeIfDb(
             organisationId,
             REFERENCE_APP_MANIFEST.appId,
             REFERENCE_APP_MANIFEST.majorVersion,
-            { signature: 'test' },
+            referenceAppLicense as any,
           ),
         pool,
       );
@@ -312,9 +317,17 @@ describeIfDb(
         (db) => registry.enableApp(db, organisationId, consumerApp.appId),
         pool,
       );
+      const consumerAppLicense = await createTestLicense(consumerApp.appId, organisationId, 1);
       await withOrgContext(
         organisationId,
-        (db) => registry.grantLicense(db, organisationId, consumerApp.appId, 1, { signature: 'x' }),
+        (db) =>
+          registry.grantLicense(
+            db,
+            organisationId,
+            consumerApp.appId,
+            1,
+            consumerAppLicense as any,
+          ),
         pool,
       );
 

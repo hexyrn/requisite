@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Pool } from 'pg';
 import { PostgresDialect } from 'kysely';
@@ -6,6 +6,8 @@ import { Database } from '../../db/types';
 import { getPool } from '../../db/pool';
 import { HexyrnAppManifest } from '@hexyrn/app-sdk';
 import { isCoreVersionCompatible } from '../core-version';
+import { LicenseVerifier } from '../licensing/license-verifier';
+import { SignedLicense } from '../licensing/license-payload';
 
 export interface ApplicationState {
   appId: string;
@@ -27,6 +29,8 @@ export interface ApplicationState {
  */
 @Injectable()
 export class ApplicationRegistryService {
+  private readonly licenseVerifier = new LicenseVerifier();
+
   /**
    * Registers (or updates) an app's manifest at the installation level.
    * Called at boot for every compiled-in app (Architecture §3 v1 packaging:
@@ -126,6 +130,16 @@ export class ApplicationRegistryService {
       .execute();
   }
 
+  /**
+   * Genuine Ed25519 signature verification - P2 item 21, resolves ADR
+   * 0004's P1 stub. `licensePayload` must be a real `SignedLicense`
+   * (licenseId, appId, organisationId, majorVersion, issuedAt,
+   * supportExpiresAt, signature); this method verifies the signature
+   * against the locally-configured public key (see licensing/keys.ts) and
+   * cross-checks appId/organisationId/majorVersion against what's being
+   * granted - an invalid signature, a tampered payload, or a payload for
+   * the wrong app/org/version is rejected outright, never recorded.
+   */
   async grantLicense(
     db: Kysely<Database>,
     organisationId: string,
@@ -133,13 +147,27 @@ export class ApplicationRegistryService {
     licensedMajorVersion: number,
     licensePayload: Record<string, unknown>,
   ): Promise<void> {
-    // SIMPLIFIED verification for P1 - see docs/decisions/0004-app-licensing-simplification.md.
-    // Real asymmetric-signature verification is not implemented; this only
-    // checks the payload has the expected shape before recording it as
-    // "signature_valid_at = now()".
-    if (!licensePayload || typeof licensePayload !== 'object') {
-      throw new Error('Invalid license payload');
+    const license = licensePayload as unknown as SignedLicense;
+    if (
+      !license ||
+      typeof license !== 'object' ||
+      typeof license.signature !== 'string' ||
+      typeof license.licenseId !== 'string'
+    ) {
+      throw new BadRequestException('License payload is not a valid signed license.');
     }
+
+    const result = this.licenseVerifier.verify(license, {
+      appId,
+      organisationId,
+      majorVersion: licensedMajorVersion,
+    });
+    if (!result.valid) {
+      throw new BadRequestException(`License rejected: ${result.reason}`);
+    }
+
+    const supportExpiresAt = license.supportExpiresAt ? new Date(license.supportExpiresAt) : null;
+
     await db
       .insertInto('application_licenses')
       .values({
@@ -148,11 +176,13 @@ export class ApplicationRegistryService {
         licensed_major_version: licensedMajorVersion,
         license_payload: licensePayload as any,
         signature_valid_at: new Date(),
+        support_expires_at: supportExpiresAt as any,
       })
       .onConflict((oc) =>
         oc.columns(['organisation_id', 'app_id', 'licensed_major_version']).doUpdateSet({
           license_payload: licensePayload as any,
           signature_valid_at: new Date(),
+          support_expires_at: supportExpiresAt as any,
         }),
       )
       .execute();

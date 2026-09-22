@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { setUpTestDatabase, createTestOrg } from '../../../test-utils/test-db';
+import { setUpTestDatabase, createTestOrg, createTestLicense } from '../../../test-utils/test-db';
 import { withOrgContext } from '../../../db/org-context';
 import { attachPoolErrorHandler } from '../../../db/pool';
 import { ApplicationRegistryService } from '../application-registry.service';
@@ -70,9 +70,10 @@ describeIfDb('CapabilityResolverService (P1 item 3)', () => {
   it('MULTIPLE PROVIDERS: once both are active, resolve() returns both, not just one', async () => {
     for (const app of [providerA, providerB]) {
       await withOrgContext(orgId, (db) => registry.enableApp(db, orgId, app.appId), pool);
+      const license = await createTestLicense(app.appId, orgId, app.majorVersion);
       await withOrgContext(
         orgId,
-        (db) => registry.grantLicense(db, orgId, app.appId, app.majorVersion, { signature: 'x' }),
+        (db) => registry.grantLicense(db, orgId, app.appId, app.majorVersion, license as any),
         pool,
       );
     }
