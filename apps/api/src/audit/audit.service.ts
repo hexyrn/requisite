@@ -11,7 +11,10 @@ export type AuditEventType =
   | 'rbac.role.changed'
   | 'rbac.user_role.changed'
   | 'config.changed'
-  | 'bootstrap.completed';
+  | 'bootstrap.completed'
+  | 'auth.mfa.enrolled'
+  | 'auth.mfa.recovery_code_used'
+  | 'auth.rate_limited';
 
 export interface AuditEventInput {
   organisationId: string;

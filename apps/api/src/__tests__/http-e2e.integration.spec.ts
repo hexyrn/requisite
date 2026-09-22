@@ -299,4 +299,77 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       expect(afterRes.status).toBe(200);
     });
   });
+
+  describe('MFA enrolment (P0 item 16, full end-to-end flow)', () => {
+    it('generate secret -> proof of possession -> recovery codes -> secret never re-exposed -> audited', async () => {
+      await withOrgContext(organisationId, async (db) => {
+        const { hashPassword } = await import('../security/passwords');
+        await db
+          .insertInto('user_accounts')
+          .values({ organisation_id: organisationId, email: 'enrol-e2e@e2e.test', password_hash: await hashPassword('enrol-e2e-password-1'), is_active: true })
+          .execute();
+      }, pool);
+
+      const agent = request.agent(server());
+      const login = await agent.post('/api/v1/auth/login').send({ email: 'enrol-e2e@e2e.test', password: 'enrol-e2e-password-1' });
+      expect(login.status).toBe(201);
+      expect(login.body.requiresMfa).toBe(false); // not enrolled yet
+      const csrfToken = login.body.csrfToken;
+
+      // Step 1: begin - returns a secret, nothing persisted yet.
+      const begin = await agent.post('/api/v1/auth/mfa/enroll/begin').set('X-Hexyrn-CSRF', csrfToken);
+      expect(begin.status).toBe(201);
+      expect(begin.body.secret).toBeDefined();
+      expect(begin.body.otpauthUrl).toContain('otpauth://totp/');
+
+      const user = await withOrgContext(organisationId, (db) => db.selectFrom('user_accounts').selectAll().where('email', '=', 'enrol-e2e@e2e.test').executeTakeFirstOrThrow(), pool);
+      expect(user.mfa_enabled).toBe(false);
+      expect(user.totp_secret_encrypted).toBeNull();
+
+      // Wrong code must NOT enable MFA.
+      const badConfirm = await agent.post('/api/v1/auth/mfa/enroll/confirm').set('X-Hexyrn-CSRF', csrfToken).send({ secret: begin.body.secret, code: '000000' });
+      expect(badConfirm.status).toBe(400);
+
+      // Step 2: confirm with a real proof-of-possession code.
+      const { authenticator } = await import('otplib');
+      const code = authenticator.generate(begin.body.secret);
+      const confirm = await agent.post('/api/v1/auth/mfa/enroll/confirm').set('X-Hexyrn-CSRF', csrfToken).send({ secret: begin.body.secret, code });
+      expect(confirm.status).toBe(201);
+      expect(confirm.body.enabled).toBe(true);
+      expect(confirm.body.recoveryCodes).toHaveLength(10);
+      confirm.body.recoveryCodes.forEach((c: string) => expect(c).toMatch(/^\d{10}$/));
+
+      // Now genuinely enabled, encrypted at rest, and the secret is not stored in plaintext anywhere.
+      const after = await withOrgContext(organisationId, (db) => db.selectFrom('user_accounts').selectAll().where('email', '=', 'enrol-e2e@e2e.test').executeTakeFirstOrThrow(), pool);
+      expect(after.mfa_enabled).toBe(true);
+      expect(after.totp_secret_encrypted).not.toBeNull();
+      expect(after.totp_secret_encrypted).not.toContain(begin.body.secret);
+
+      // Recovery codes are hashed at rest, never stored in plaintext.
+      const recoveryRows = await withOrgContext(organisationId, (db) => db.selectFrom('mfa_recovery_codes').selectAll().where('user_account_id', '=', user.id).execute(), pool);
+      expect(recoveryRows).toHaveLength(10);
+      for (const row of recoveryRows) {
+        expect(confirm.body.recoveryCodes).not.toContain(row.code_hash);
+      }
+
+      // Audited.
+      const events = await withOrgContext(organisationId, (db) => db.selectFrom('audit_events').selectAll().where('event_type', '=', 'auth.mfa.enrolled').where('actor_user_account_id', '=', user.id).execute(), pool);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+
+      // Subsequent login now requires MFA, and a recovery code works exactly once.
+      const agent2 = request.agent(server());
+      const login2 = await agent2.post('/api/v1/auth/login').send({ email: 'enrol-e2e@e2e.test', password: 'enrol-e2e-password-1' });
+      expect(login2.body.requiresMfa).toBe(true);
+
+      const recoveryCode = confirm.body.recoveryCodes[0];
+      const useRecovery = await agent2.post('/api/v1/auth/mfa/verify').set('X-Hexyrn-CSRF', login2.body.csrfToken).send({ code: recoveryCode });
+      expect(useRecovery.status).toBe(201);
+
+      // The same recovery code cannot be used twice.
+      const agent3 = request.agent(server());
+      const login3 = await agent3.post('/api/v1/auth/login').send({ email: 'enrol-e2e@e2e.test', password: 'enrol-e2e-password-1' });
+      const reuseRecovery = await agent3.post('/api/v1/auth/mfa/verify').set('X-Hexyrn-CSRF', login3.body.csrfToken).send({ code: recoveryCode });
+      expect(reuseRecovery.status).toBe(400);
+    });
+  });
 });
