@@ -165,6 +165,328 @@ export interface AuditEventsTable {
   created_at: Generated<Timestamp>;
 }
 
+// ---- P1: Application Registry (§3) ----
+export interface InstalledApplicationsTable {
+  app_id: string;
+  display_name: string;
+  version: string;
+  major_version: number;
+  requires_core_version: string;
+  description: string | null;
+  manifest: Generated<Record<string, unknown>>;
+  installed_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AppEnablementsTable {
+  organisation_id: string;
+  app_id: string;
+  enabled: Generated<boolean>;
+  enabled_at: Timestamp | null;
+  disabled_at: Timestamp | null;
+}
+
+export interface ApplicationLicensesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  licensed_major_version: number;
+  license_payload: Record<string, unknown>;
+  signature_valid_at: Timestamp;
+  support_expires_at: Timestamp | null;
+}
+
+// ---- P1: Capability Registry (§4) ----
+export interface CapabilityProvidersTable {
+  id: Generated<string>;
+  capability: string;
+  app_id: string;
+  service_ref: string;
+}
+
+// ---- P1: Event Outbox ----
+export interface EventOutboxTable {
+  id: Generated<string>;
+  organisation_id: string;
+  event_type: string;
+  event_version: Generated<number>;
+  producer_app_id: string;
+  payload: Generated<Record<string, unknown>>;
+  created_at: Generated<Timestamp>;
+  dispatched_at: Timestamp | null;
+}
+
+export interface EventConsumerRegistrationsTable {
+  id: Generated<string>;
+  event_type: string;
+  consumer_app_id: string;
+  handler_ref: string;
+}
+
+export interface EventDeliveriesTable {
+  id: Generated<string>;
+  event_id: string;
+  organisation_id: string;
+  consumer_app_id: string;
+  status: Generated<string>;
+  attempt_count: Generated<number>;
+  last_error: string | null;
+  delivered_at: Timestamp | null;
+  updated_at: Generated<Timestamp>;
+}
+
+// ---- P1: Custom Fields (§2) ----
+export interface CustomFieldDefinitionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  entity_type: string;
+  key: string;
+  label: string;
+  help_text: string | null;
+  field_type: string;
+  is_required: Generated<boolean>;
+  default_value: unknown | null;
+  validation: Record<string, unknown> | null;
+  visibility: Generated<string>;
+  ordering: Generated<number>;
+  field_group: string | null;
+  is_searchable: Generated<boolean>;
+  is_filterable: Generated<boolean>;
+  is_sortable: Generated<boolean>;
+  is_reportable: Generated<boolean>;
+  is_exportable: Generated<boolean>;
+  classification: Generated<string>;
+  select_options: unknown | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface CustomFieldValuesTable {
+  organisation_id: string;
+  entity_type: string;
+  entity_id: string;
+  values: Generated<Record<string, unknown>>;
+  updated_at: Generated<Timestamp>;
+}
+
+// ---- P1: Forms ----
+export interface FormDefinitionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  form_key: string;
+  label: string;
+  definition: Record<string, unknown>;
+  is_customized: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+// ---- P1: Terminology ----
+export interface TerminologyOverridesTable {
+  organisation_id: string;
+  app_id: string;
+  term_key: string;
+  display_value: string;
+  updated_at: Generated<Timestamp>;
+}
+
+// ---- P1: Numbering ----
+export interface NumberingSequencesTable {
+  organisation_id: string;
+  app_id: string;
+  sequence_key: string;
+  prefix: Generated<string>;
+  pad_length: Generated<number>;
+  year_reset: Generated<boolean>;
+  current_value: Generated<string>; // bigint comes back as string from pg
+  last_reset_year: number | null;
+  created_at: Generated<Timestamp>;
+}
+
+// ---- P1: Workflow ----
+export interface WorkflowDefinitionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  workflow_key: string;
+  definition: Record<string, unknown>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface WorkflowInstancesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  workflow_key: string;
+  entity_type: string;
+  entity_id: string;
+  current_state: string;
+  version: Generated<number>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface WorkflowHistoryTable {
+  id: Generated<string>;
+  organisation_id: string;
+  instance_id: string;
+  from_state: string | null;
+  to_state: string;
+  actor_user_account_id: string | null;
+  occurred_at: Generated<Timestamp>;
+  metadata: Generated<Record<string, unknown>>;
+}
+
+// ---- P1: Approval ----
+export interface ApprovalDefinitionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  definition_key: string;
+  definition: Record<string, unknown>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ApprovalRequestsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  definition_key: string;
+  entity_type: string;
+  entity_id: string;
+  context: Generated<Record<string, unknown>>;
+  status: Generated<string>;
+  requested_by: string | null;
+  created_at: Generated<Timestamp>;
+  completed_at: Timestamp | null;
+}
+
+export interface ApprovalStepsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  request_id: string;
+  step_index: number;
+  mode: string;
+  approver_permission: string;
+  status: Generated<string>;
+}
+
+export interface ApprovalDecisionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  step_id: string;
+  decided_by: string;
+  decision: string;
+  comment: string | null;
+  decided_at: Generated<Timestamp>;
+  on_behalf_of: string | null;
+}
+
+export interface ApprovalDelegationsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  delegator_user_id: string;
+  delegate_user_id: string;
+  starts_at: Generated<Timestamp>;
+  ends_at: Timestamp | null;
+}
+
+// ---- P1: Checklists ----
+export interface ChecklistTemplatesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  template_key: string;
+  label: string;
+  definition: Record<string, unknown>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ChecklistInstancesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  template_id: string;
+  entity_type: string;
+  entity_id: string;
+  status: Generated<string>;
+  started_by: string | null;
+  started_at: Generated<Timestamp>;
+  completed_at: Timestamp | null;
+  score: number | null;
+}
+
+export interface ChecklistResponsesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  instance_id: string;
+  question_key: string;
+  value: unknown;
+  resulting_issue_ref: string | null;
+  answered_by: string | null;
+  answered_at: Generated<Timestamp>;
+}
+
+// ---- P1: Notifications ----
+export interface NotificationsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  recipient_user_account_id: string;
+  notification_type: string;
+  title: string;
+  body: string;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  channels: Generated<string[]>;
+  delivery_state: Generated<Record<string, unknown>>;
+  read_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface NotificationPreferencesTable {
+  organisation_id: string;
+  user_account_id: string;
+  notification_type: string;
+  channel: string;
+  enabled: Generated<boolean>;
+}
+
+// ---- P1: Files ----
+export interface FilesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  storage_key: string;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: string; // bigint -> string
+  entity_type: string | null;
+  entity_id: string | null;
+  uploaded_by: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+// ---- P1: Scheduling ----
+export interface ScheduledJobsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  app_id: string;
+  job_type: string;
+  payload: Generated<Record<string, unknown>>;
+  run_at: Generated<Timestamp>;
+  status: Generated<string>;
+  attempts: Generated<number>;
+  max_attempts: Generated<number>;
+  last_error: string | null;
+  recurring_interval_seconds: number | null;
+  created_at: Generated<Timestamp>;
+  completed_at: Timestamp | null;
+}
+
 export interface Database {
   installations: InstallationsTable;
   bootstrap_tokens: BootstrapTokensTable;
@@ -182,4 +504,31 @@ export interface Database {
   role_permissions: RolePermissionsTable;
   user_roles: UserRolesTable;
   audit_events: AuditEventsTable;
+  installed_applications: InstalledApplicationsTable;
+  app_enablements: AppEnablementsTable;
+  application_licenses: ApplicationLicensesTable;
+  capability_providers: CapabilityProvidersTable;
+  event_outbox: EventOutboxTable;
+  event_consumer_registrations: EventConsumerRegistrationsTable;
+  event_deliveries: EventDeliveriesTable;
+  custom_field_definitions: CustomFieldDefinitionsTable;
+  custom_field_values: CustomFieldValuesTable;
+  form_definitions: FormDefinitionsTable;
+  terminology_overrides: TerminologyOverridesTable;
+  numbering_sequences: NumberingSequencesTable;
+  workflow_definitions: WorkflowDefinitionsTable;
+  workflow_instances: WorkflowInstancesTable;
+  workflow_history: WorkflowHistoryTable;
+  approval_definitions: ApprovalDefinitionsTable;
+  approval_requests: ApprovalRequestsTable;
+  approval_steps: ApprovalStepsTable;
+  approval_decisions: ApprovalDecisionsTable;
+  approval_delegations: ApprovalDelegationsTable;
+  checklist_templates: ChecklistTemplatesTable;
+  checklist_instances: ChecklistInstancesTable;
+  checklist_responses: ChecklistResponsesTable;
+  notifications: NotificationsTable;
+  notification_preferences: NotificationPreferencesTable;
+  files: FilesTable;
+  scheduled_jobs: ScheduledJobsTable;
 }
