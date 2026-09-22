@@ -196,6 +196,21 @@ export class RequisitionService {
       // "approve a cancelled requisition."
       throw new ForbiddenException('This requisition has been cancelled and can no longer be decided on.');
     }
+    // Item 7/41 security review finding: Core's ApprovalService itself has
+    // no concept of "requester" - it only checks that the decider holds
+    // the step's approverPermission, so a requester who also happens to
+    // hold the approve permission COULD otherwise approve their own
+    // requisition merely by having that permission, which the brief
+    // explicitly calls out as required-not-default behaviour ("no
+    // self-approval merely by being able to edit the requisition unless
+    // the configured policy explicitly permits it"). This is enforced at
+    // the APPLICATION layer (not a Core change) since self-approval
+    // policy is domain-specific, not a platform primitive - v1's default
+    // is a hard rule (no exception mechanism yet; see
+    // docs/decisions/REQUISITE-V1-DEVIATIONS.md).
+    if (actorUserAccountId === requisition.requester_user_account_id) {
+      throw new ForbiddenException('You cannot approve or reject your own requisition.');
+    }
     const result = await ctx.approvals.decide(db, stepId, actorUserAccountId, decision, reason);
 
     if (result.requestStatus === 'approved') {

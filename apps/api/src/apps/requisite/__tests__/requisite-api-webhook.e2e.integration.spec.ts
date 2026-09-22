@@ -144,7 +144,7 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
     expect(reqRes.status).toBe(201);
     const requisitionId = reqRes.body.id;
 
-    // Submit + approve via services directly (Owner already holds submit AND approve permission in this test org, so this models a single-approver small business).
+    // Submit + approve via services directly, using two distinct users (self-approval is rejected server-side).
     const { RequisitionService } = await import('../requisition.service');
     const { PurchaseOrderService } = await import('../purchase-order.service');
     const { AppContextFactory } = await import('../../../platform/app-context.factory');
@@ -154,6 +154,8 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
 
     const ownerUser = await withOrgContext(organisationId, (db) => db.selectFrom('user_accounts').selectAll().where('email', '=', ownerEmail).executeTakeFirstOrThrow(), pool);
     const allPerms = new Set((REQUISITE_APP_MANIFEST.permissions ?? []).map((p) => p.key));
+    // A distinct approver - self-approval is rejected server-side (item 7/41).
+    const approverUser = await withOrgContext(organisationId, (db) => db.insertInto('user_accounts').values({ organisation_id: organisationId, email: `webhook-approver-${Date.now()}@example.com`, password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(), pool);
 
     const reqRow = await withOrgContext(organisationId, (db) => requisitions.getRequisitionRaw(db, organisationId, requisitionId), pool);
     const { approval } = await withOrgContext(
@@ -162,7 +164,7 @@ describeIfDb('Requisite Public API + Webhooks - real end-to-end proof (items 30/
       pool,
     );
     const step = await withOrgContext(organisationId, (db) => db.selectFrom('approval_steps').selectAll().where('request_id', '=', approval.requestId).where('status', '=', 'pending').executeTakeFirstOrThrow(), pool);
-    await withOrgContext(organisationId, (db) => requisitions.decide(contextFactory.create(REQUISITE_APP_MANIFEST.appId, organisationId, allPerms, ownerUser.id, db), db, ownerUser.id, requisitionId, step.id, 'approve'), pool);
+    await withOrgContext(organisationId, (db) => requisitions.decide(contextFactory.create(REQUISITE_APP_MANIFEST.appId, organisationId, allPerms, approverUser.id, db), db, approverUser.id, requisitionId, step.id, 'approve'), pool);
 
     const po = await withOrgContext(
       organisationId,

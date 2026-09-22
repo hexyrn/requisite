@@ -134,6 +134,20 @@ describeIfDb('Requisite RequisitionService - create/submit/approve, edit restric
     await expect(withOrgContext(orgA, (db) => requisitions.decide(ctx(orgA, approver, ['requisite.requisitions.approve'])(db), db, approver, req.id, pendingStep.id, 'approve'), pool)).rejects.toThrow(/cancelled/i);
   });
 
+  it('SELF-APPROVAL PREVENTION (item 7/41 security review): a requester who also holds the approve permission cannot approve their own requisition', async () => {
+    const requester = await makeUser(orgA);
+    const req = await withOrgContext(orgA, (db) => requisitions.createRequisition(ctx(orgA, requester, ['requisite.requisitions.submit', 'requisite.requisitions.approve'])(db), db, requester, { reason: 'Self approval test', lines: sampleLines }), pool);
+    const { approval } = await withOrgContext(orgA, (db) => requisitions.submitRequisition(ctx(orgA, requester, ['requisite.requisitions.submit'])(db), db, requester, req.id, req.version), pool);
+    const pendingStep = await withOrgContext(orgA, (db) => db.selectFrom('approval_steps').selectAll().where('request_id', '=', approval.requestId).where('status', '=', 'pending').executeTakeFirstOrThrow(), pool);
+
+    await expect(withOrgContext(orgA, (db) => requisitions.decide(ctx(orgA, requester, ['requisite.requisitions.approve'])(db), db, requester, req.id, pendingStep.id, 'approve'), pool)).rejects.toThrow(/cannot approve or reject your own requisition/i);
+
+    // A different approver can still legitimately decide it.
+    const approver = await makeUser(orgA);
+    const decision = await withOrgContext(orgA, (db) => requisitions.decide(ctx(orgA, approver, ['requisite.requisitions.approve'])(db), db, approver, req.id, pendingStep.id, 'approve'), pool);
+    expect(decision.requestStatus).toBe('approved');
+  });
+
   it('ORGANISATION ISOLATION: a requisition in org A is invisible from org B', async () => {
     const orgB = await createTestOrg(pool, 'Requisite Isolation Org B');
     const requester = await makeUser(orgA);
