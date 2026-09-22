@@ -25,10 +25,28 @@ export function sniffMimeType(buffer: Buffer): string | null {
   return null;
 }
 
-/** True if the declared MIME type is plausible given the actual file bytes (or the type isn't one we sniff, in which case we don't second-guess it). */
+const SNIFFABLE_MIMES = new Set(SIGNATURES.map((s) => s.mime));
+
+/**
+ * True if the declared MIME type is plausible given the actual file bytes.
+ *
+ * IMPORTANT distinction (found via testing - the original version of this
+ * function only compared "what got sniffed" against "what was declared,"
+ * which meant content matching NO known signature at all was treated as
+ * automatically plausible - so a plain-text file claiming to be
+ * `image/png` sailed through, since sniffing it returned null and null was
+ * treated as "not a type we check"): if the DECLARED type is one we know
+ * how to sniff, the content MUST match that specific signature - sniffing
+ * to null is a mismatch, not a pass. Only when the declared type isn't one
+ * we have a signature for at all (e.g. text/plain, text/csv) do we skip
+ * the check and defer entirely to the MIME allowlist.
+ */
 export function mimeTypeMatchesContent(declaredMime: string, buffer: Buffer): boolean {
+  const isOfficeDoc = declaredMime.includes('officedocument');
+  if (!SNIFFABLE_MIMES.has(declaredMime) && !isOfficeDoc) {
+    return true; // not a type we sniff - allow, still subject to the MIME allowlist
+  }
   const sniffed = sniffMimeType(buffer);
-  if (!sniffed) return true; // not a type we sniff - allow, still subject to the MIME allowlist
-  if (sniffed === 'application/zip' && (declaredMime.includes('officedocument') || declaredMime === 'application/zip')) return true;
+  if (isOfficeDoc) return sniffed === 'application/zip'; // office formats are zip containers
   return sniffed === declaredMime;
 }
