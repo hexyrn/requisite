@@ -26,8 +26,16 @@ import { SearchService } from './platform/search/search.service';
 import { ImportService } from './platform/import/import.service';
 import { ImportHandlerRegistryService } from './platform/import/import-row-handler';
 import { EventSchemaService } from './platform/events/event-schema.service';
+import { assertProductionConfigOrThrow } from './config/production-config-check';
 
 async function bootstrap() {
+  // P3 item 39: fail fast and loudly with NODE_ENV=production and a
+  // critical secret missing/invalid, rather than booting successfully and
+  // failing confusingly deep inside a later request (or, worse, silently
+  // running with an insecure default - see production-config-check.ts's
+  // doc comment for the exact failure modes this closes).
+  assertProductionConfigOrThrow();
+
   const adapter = new FastifyAdapter({ trustProxy: parseTrustedProxies() });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 

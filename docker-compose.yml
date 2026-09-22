@@ -4,6 +4,16 @@
 # like (separate dev/test databases, a non-superuser role without BYPASSRLS
 # so RLS is genuinely exercised). This compose file is not required to run
 # the app or its tests, only convenient if Docker works for you.
+#
+# The application connects as `hexyrn_app` (created by
+# docker/postgres-init/01-app-role.sh on first container init), NOT as
+# POSTGRES_USER (`hexyrn`) - the official postgres image makes POSTGRES_USER
+# a superuser, which would silently defeat FORCE ROW LEVEL SECURITY (see
+# P3 item 18 and apps/api/src/db/__tests__/db-role-security.integration.spec.ts).
+# `hexyrn`/POSTGRES_PASSWORD remains the migration/admin role (owns the
+# schema, runs `npm run migrate`) - a distinct, more-privileged role from
+# the runtime app role is itself part of the item 18 review, not just the
+# superuser/BYPASSRLS check.
 version: '3.8'
 
 services:
@@ -14,10 +24,12 @@ services:
       POSTGRES_USER: hexyrn
       POSTGRES_PASSWORD: hexyrn_dev_password
       POSTGRES_DB: hexyrn_core
+      HEXYRN_APP_DB_PASSWORD: hexyrn_app_dev_password
     ports:
       - '5432:5432'
     volumes:
       - hexyrn_pg_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U hexyrn -d hexyrn_core']
       interval: 5s
@@ -31,8 +43,11 @@ services:
       POSTGRES_USER: hexyrn
       POSTGRES_PASSWORD: hexyrn_test_password
       POSTGRES_DB: hexyrn_core_test
+      HEXYRN_APP_DB_PASSWORD: hexyrn_app_test_password
     ports:
       - '5433:5432'
+    volumes:
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U hexyrn -d hexyrn_core_test']
       interval: 5s

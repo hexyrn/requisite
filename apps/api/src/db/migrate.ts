@@ -7,6 +7,19 @@
  * Applies every .sql file in ./migrations, in filename order, that is not
  * already recorded in the schema_migrations table. Each file runs inside its
  * own transaction; failure aborts without marking that file as applied.
+ *
+ * P3 item 18 ("separate migration/admin role where appropriate"): migrations
+ * create tables, alter schema, and issue `ENABLE`/`FORCE ROW LEVEL SECURITY`
+ * - genuinely privileged operations the runtime API role must NOT be able to
+ * perform (see apps/api/src/db/pool.ts and
+ * db-role-security.integration.spec.ts, which assert the RUNTIME role is
+ * non-superuser/non-BYPASSRLS - that check only means something if the
+ * runtime role is also not the schema owner). Migrations therefore connect
+ * with `MIGRATE_DATABASE_URL` (the schema-owning, more-privileged role -
+ * `hexyrn` in docker-compose.yml / docker/postgres-init/01-app-role.sh),
+ * falling back to `DATABASE_URL` for backward compatibility with any
+ * existing single-role setup (a valid, simpler configuration for a small
+ * self-hosted install that accepts the smaller blast-radius reduction).
  */
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'fs';
@@ -14,9 +27,9 @@ import { join } from 'path';
 import { Pool } from 'pg';
 
 async function main() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL is not set');
+    throw new Error('MIGRATE_DATABASE_URL (or DATABASE_URL) is not set');
   }
   const pool = new Pool({ connectionString });
 
