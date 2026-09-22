@@ -23,6 +23,8 @@ import { ReportQueryService } from './reporting/report-query.service';
 import { SavedReportService } from './reporting/saved-report.service';
 import { DashboardService } from './dashboards/dashboard.service';
 import { ExportService } from './exports/export.service';
+import { ServiceAccountService } from './api-access/service-account.service';
+import { ApiKeyAuthGuard } from './api-access/api-key-auth.guard';
 
 /**
  * Every P1 platform mechanism in one Nest module, `@Global()` so any
@@ -62,6 +64,8 @@ import { ExportService } from './exports/export.service';
     SavedReportService,
     DashboardService,
     ExportService,
+    ServiceAccountService,
+    ApiKeyAuthGuard,
   ],
   exports: [
     ApplicationRegistryService,
@@ -89,6 +93,8 @@ import { ExportService } from './exports/export.service';
     SavedReportService,
     DashboardService,
     ExportService,
+    ServiceAccountService,
+    ApiKeyAuthGuard,
   ],
 })
 export class PlatformModule {}

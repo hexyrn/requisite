@@ -794,6 +794,13 @@ export interface SyncExternalIdsTable {
   last_synced_at: Generated<Timestamp>;
 }
 
+export interface ApiCredentialLookupTable {
+  key_prefix: string;
+  organisation_id: string;
+  credential_id: string;
+  service_account_id: string;
+}
+
 export interface Database {
   installations: InstallationsTable;
   bootstrap_tokens: BootstrapTokensTable;
@@ -865,4 +872,5 @@ export interface Database {
   field_mappings: FieldMappingsTable;
   sync_runs: SyncRunsTable;
   sync_external_ids: SyncExternalIdsTable;
+  api_credential_lookup: ApiCredentialLookupTable;
 }
