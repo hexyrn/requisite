@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { authenticator } from 'otplib';
 import { Kysely } from 'kysely';
 import { Database } from '../db/types';
-import { encryptTotpSecret, decryptTotpSecret } from '../security/totp-encryption';
+import { encryptTotpSecret, decryptTotpSecret, rotateMasterKeyWrapping } from '../security/totp-encryption';
 import { hashToken, generateNumericRecoveryCode } from '../security/tokens';
 
 const RECOVERY_CODE_COUNT = 10;
@@ -101,6 +101,65 @@ export class TotpService {
       .where('id', '=', userAccountId)
       .execute();
     await db.deleteFrom('mfa_recovery_codes').where('user_account_id', '=', userAccountId).execute();
+  }
+
+  /**
+   * TOTP master key rotation pass (P3 item 7 / Architecture §6) for ONE
+   * organisation's users, run inside that organisation's withOrgContext by
+   * the caller - deliberately NOT a cross-org sweep. Reading every user's
+   * encrypted secret across every organisation at once would need a
+   * BYPASSRLS-equivalent path this codebase has specifically avoided
+   * building (see ADR 0005's rejection of that option for background
+   * work); a real installation-wide rotation script instead enumerates
+   * organisations (an installation-level, not organisation-scoped, list -
+   * see AppModule bootstrap) and calls this once per org, same as any
+   * other per-org operational task.
+   *
+   * Only re-wraps the data key for envelope-format secrets still on
+   * TOTP_MASTER_KEY_PREVIOUS; returns how many were rotated, how many were
+   * skipped (already current, or a legacy pre-envelope secret not eligible
+   * for this mechanism - see totp-encryption.ts's doc comment), and how
+   * many genuinely FAILED (opened under neither configured key - e.g. a
+   * secret wrapped under a key from before an even earlier rotation that
+   * TOTP_MASTER_KEY_PREVIOUS no longer holds). A single unrotatable row
+   * does not abort the whole pass - every other user's rotation still
+   * proceeds; failures are returned by user id so an operator can
+   * investigate them individually rather than the entire operation
+   * silently doing nothing because of one bad row.
+   */
+  async rotateAllMasterKeys(
+    db: Kysely<Database>,
+  ): Promise<{ rotated: number; skipped: number; failed: Array<{ userAccountId: string; reason: string }> }> {
+    const rows = await db
+      .selectFrom('user_accounts')
+      .select(['id', 'totp_secret_encrypted'])
+      .where('totp_secret_encrypted', 'is not', null)
+      .execute();
+
+    let rotated = 0;
+    let skipped = 0;
+    const failed: Array<{ userAccountId: string; reason: string }> = [];
+    for (const row of rows) {
+      if (!row.totp_secret_encrypted) continue;
+      let outcome: { value: string; changed: boolean };
+      try {
+        outcome = rotateMasterKeyWrapping(row.totp_secret_encrypted);
+      } catch (err) {
+        failed.push({ userAccountId: row.id, reason: err instanceof Error ? err.message : String(err) });
+        continue;
+      }
+      if (outcome.changed) {
+        await db
+          .updateTable('user_accounts')
+          .set({ totp_secret_encrypted: outcome.value })
+          .where('id', '=', row.id)
+          .execute();
+        rotated++;
+      } else {
+        skipped++;
+      }
+    }
+    return { rotated, skipped, failed };
   }
 
   /** One-time recovery code use - consumes it so it cannot be reused. */

@@ -589,6 +589,79 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
     });
   });
 
+  describe('TOTP master key rotation (P3 item 7, real DB round-trip)', () => {
+    const KEY_A = Buffer.alloc(32, 11).toString('base64');
+    const KEY_B = Buffer.alloc(32, 12).toString('base64');
+    const originalEnv = { ...process.env };
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('rotates a real enrolled user\'s stored secret to a new master key without breaking their MFA challenge', async () => {
+      process.env.TOTP_MASTER_KEY_CURRENT = KEY_A;
+      delete process.env.TOTP_MASTER_KEY_PREVIOUS;
+
+      const { hashPassword } = await import('../security/passwords');
+      const { authenticator } = await import('otplib');
+      const totpService = app.get(TotpService);
+
+      const secret = authenticator.generateSecret();
+      const userId = await withOrgContext(
+        organisationId,
+        async (db) => {
+          const inserted = await db
+            .insertInto('user_accounts')
+            .values({
+              organisation_id: organisationId,
+              email: 'rotation-e2e@e2e.test',
+              password_hash: await hashPassword('rotation-e2e-password-1'),
+              is_active: true,
+              mfa_enabled: true,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow();
+
+          const { encryptTotpSecret } = await import('../security/totp-encryption');
+          await db
+            .updateTable('user_accounts')
+            .set({ totp_secret_encrypted: encryptTotpSecret(secret) })
+            .where('id', '=', inserted.id)
+            .execute();
+          return inserted.id;
+        },
+        pool,
+      );
+
+      // Begin rotation.
+      process.env.TOTP_MASTER_KEY_PREVIOUS = KEY_A;
+      process.env.TOTP_MASTER_KEY_CURRENT = KEY_B;
+
+      const result = await withOrgContext(organisationId, (db) => totpService.rotateAllMasterKeys(db), pool);
+      expect(result.rotated).toBeGreaterThanOrEqual(1);
+      // Other users in this same test org (e.g. the MFA-enrolment test's
+      // user, wrapped under the real .env TOTP_MASTER_KEY, not KEY_A/KEY_B)
+      // correctly appear in `failed` rather than aborting this rotation
+      // pass entirely - proves one unrotatable row doesn't block everyone
+      // else's rotation.
+      expect(result.failed.some((f) => f.userAccountId === userId)).toBe(false);
+
+      // Close the rotation window entirely - if the rotated row still
+      // needed TOTP_MASTER_KEY_PREVIOUS, this would now fail.
+      delete process.env.TOTP_MASTER_KEY_PREVIOUS;
+
+      const stillValid = await withOrgContext(
+        organisationId,
+        (db) => totpService.verifyChallenge(db, userId, authenticator.generate(secret)),
+        pool,
+      );
+      expect(stillValid).toBe(true);
+
+      // A second rotation pass is idempotent - nothing left to rotate.
+      const secondPass = await withOrgContext(organisationId, (db) => totpService.rotateAllMasterKeys(db), pool);
+      expect(secondPass.rotated).toBe(0);
+    });
+  });
+
   describe('Administrator-assisted MFA reset (Architecture §6 / P3 item 33)', () => {
     it('an admin holding core.users.mfa_reset can reset another user\'s MFA - target re-enrolment required, sessions revoked, audited', async () => {
       // A fresh target user, enrolled in MFA end-to-end via the real HTTP flow.

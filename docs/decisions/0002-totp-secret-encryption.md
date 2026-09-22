@@ -1,6 +1,12 @@
 # ADR 0002: TOTP secret encryption - single master key now, envelope encryption deferred
 
 ## Status
+**Superseded (P3 item 7, 2026-09-22) by real envelope encryption + rotation -
+see `docs/decisions/0008-totp-envelope-encryption.md`.** This document is
+retained unmodified below for historical record of the P0 state and
+rationale; it is no longer the current implementation.
+
+## Status (original, P0)
 Accepted (P0), with an explicit, tracked follow-up (not silent debt).
 
 ## What Architecture v1.0 §6 specifies

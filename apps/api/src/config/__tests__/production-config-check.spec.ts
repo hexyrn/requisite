@@ -2,7 +2,7 @@ import { checkProductionConfig, assertProductionConfigOrThrow } from '../product
 
 const VALID_ENV = {
   NODE_ENV: 'production',
-  TOTP_MASTER_KEY: Buffer.alloc(32, 9).toString('base64'),
+  TOTP_MASTER_KEY_CURRENT: Buffer.alloc(32, 9).toString('base64'),
   HEXYRN_LICENSE_PUBLIC_KEY: 'some-real-configured-key',
   COOKIE_SECURE: 'true',
   DATABASE_URL: 'postgres://hexyrn_app:x@db:5432/hexyrn_core',
@@ -19,15 +19,15 @@ describe('production-config-check (P3 item 39)', () => {
   });
 
   it('flags a missing TOTP_MASTER_KEY', () => {
-    const env = { ...VALID_ENV, TOTP_MASTER_KEY: undefined };
+    const env = { ...VALID_ENV, TOTP_MASTER_KEY_CURRENT: undefined };
     const issues = checkProductionConfig(env as any);
-    expect(issues.map((i) => i.variable)).toContain('TOTP_MASTER_KEY');
+    expect(issues.map((i) => i.variable)).toContain('TOTP_MASTER_KEY_CURRENT');
   });
 
   it('flags a TOTP_MASTER_KEY of the wrong length', () => {
-    const env = { ...VALID_ENV, TOTP_MASTER_KEY: Buffer.alloc(16, 1).toString('base64') };
+    const env = { ...VALID_ENV, TOTP_MASTER_KEY_CURRENT: Buffer.alloc(16, 1).toString('base64') };
     const issues = checkProductionConfig(env as any);
-    expect(issues.map((i) => i.variable)).toContain('TOTP_MASTER_KEY');
+    expect(issues.map((i) => i.variable)).toContain('TOTP_MASTER_KEY_CURRENT');
   });
 
   it('flags a missing HEXYRN_LICENSE_PUBLIC_KEY (would silently trust the committed test key otherwise)', () => {
@@ -55,7 +55,7 @@ describe('production-config-check (P3 item 39)', () => {
     const env = { NODE_ENV: 'production' } as unknown as NodeJS.ProcessEnv;
     const issues = checkProductionConfig(env);
     expect(issues.map((i) => i.variable).sort()).toEqual(
-      ['DATABASE_URL', 'HEXYRN_LICENSE_PUBLIC_KEY', 'TOTP_MASTER_KEY'].sort(),
+      ['DATABASE_URL', 'HEXYRN_LICENSE_PUBLIC_KEY', 'TOTP_MASTER_KEY_CURRENT'].sort(),
     );
   });
 

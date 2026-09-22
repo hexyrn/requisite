@@ -42,11 +42,19 @@ export function checkProductionConfig(env: NodeJS.ProcessEnv): ProductionConfigI
     return issues; // dev/test convenience defaults are intentional outside production
   }
 
-  const totpKey = env.TOTP_MASTER_KEY;
+  // P3 item 7 (docs/decisions/0008-totp-envelope-encryption.md) renamed the
+  // primary TOTP master key var to TOTP_MASTER_KEY_CURRENT, keeping bare
+  // TOTP_MASTER_KEY only as a legacy fallback - checked here in the same
+  // order totp-encryption.ts itself resolves it, so this check can never
+  // drift out of sync with what the app actually uses at runtime.
+  const totpKey = env.TOTP_MASTER_KEY_CURRENT ?? env.TOTP_MASTER_KEY;
   if (!totpKey) {
-    issues.push({ variable: 'TOTP_MASTER_KEY', message: 'must be set in production (generate with: openssl rand -base64 32).' });
+    issues.push({
+      variable: 'TOTP_MASTER_KEY_CURRENT',
+      message: 'must be set in production (generate with: openssl rand -base64 32). The legacy TOTP_MASTER_KEY var is also accepted as a fallback.',
+    });
   } else if (Buffer.from(totpKey, 'base64').length !== 32) {
-    issues.push({ variable: 'TOTP_MASTER_KEY', message: 'must decode to exactly 32 bytes (base64-encoded).' });
+    issues.push({ variable: 'TOTP_MASTER_KEY_CURRENT', message: 'must decode to exactly 32 bytes (base64-encoded).' });
   }
 
   if (!env.HEXYRN_LICENSE_PUBLIC_KEY) {
