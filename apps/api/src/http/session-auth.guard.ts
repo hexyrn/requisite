@@ -10,6 +10,7 @@ import { withOrgContext } from '../db/org-context';
 import { SessionService } from '../sessions/session.service';
 import { RoleRepository } from '../rbac/role.repository';
 import { decodeSessionCookie, SESSION_COOKIE_NAME } from './session-cookie';
+import { ServiceAccountService } from '../platform/api-access/service-account.service';
 
 export const PUBLIC_ROUTE_KEY = 'hexyrn:public-route';
 export const PublicRoute = () => SetMetadata(PUBLIC_ROUTE_KEY, true);
@@ -27,6 +28,7 @@ export class SessionAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly sessions: SessionService,
     private readonly roles: RoleRepository,
+    private readonly serviceAccounts: ServiceAccountService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,6 +37,21 @@ export class SessionAuthGuard implements CanActivate {
       context.getHandler(),
     );
     const request = context.switchToHttp().getRequest();
+
+    // P2 item 11: the Public REST API is authenticated by a service-account
+    // API key (`Authorization: Bearer hxk_...`) instead of a session
+    // cookie. Checked BEFORE the cookie path so an API-key caller never
+    // needs a session at all; falls through to normal cookie handling
+    // (including @PublicRoute()) for any request that doesn't present one.
+    const authHeader: string | undefined = request.headers?.['authorization'];
+    if (authHeader?.startsWith('Bearer hxk_')) {
+      const auth = await this.serviceAccounts.authenticate(authHeader.slice('Bearer '.length).trim());
+      if (!auth) throw new UnauthorizedException('Invalid or revoked API credential.');
+      request.permissionSubject = this.serviceAccounts.toPermissionSubject(auth);
+      request.currentOrganisationId = auth.organisationId;
+      request.currentServiceAccountId = auth.serviceAccountId;
+      return true;
+    }
 
     const cookieHeader = request.cookies?.[SESSION_COOKIE_NAME];
     const decoded = decodeSessionCookie(cookieHeader);

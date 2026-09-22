@@ -24,7 +24,6 @@ import { SavedReportService } from './reporting/saved-report.service';
 import { DashboardService } from './dashboards/dashboard.service';
 import { ExportService } from './exports/export.service';
 import { ServiceAccountService } from './api-access/service-account.service';
-import { ApiKeyAuthGuard } from './api-access/api-key-auth.guard';
 import { EventSchemaService } from './events/event-schema.service';
 import { WebhookService } from './webhooks/webhook.service';
 import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service';
@@ -77,7 +76,6 @@ import { SyncEngineService } from './integrations/sync-engine.service';
     DashboardService,
     ExportService,
     ServiceAccountService,
-    ApiKeyAuthGuard,
     EventSchemaService,
     WebhookService,
     WebhookDispatcherService,
@@ -118,7 +116,6 @@ import { SyncEngineService } from './integrations/sync-engine.service';
     DashboardService,
     ExportService,
     ServiceAccountService,
-    ApiKeyAuthGuard,
     EventSchemaService,
     WebhookService,
     WebhookDispatcherService,

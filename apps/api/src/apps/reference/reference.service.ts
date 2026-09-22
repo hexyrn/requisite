@@ -181,4 +181,14 @@ export class ReferenceService {
       customFields: customFieldValues,
     };
   }
+
+  /**
+   * List endpoint - P2 item 26/11 proof point: reachable identically by a
+   * human session OR a service-account API key, since SessionAuthGuard now
+   * accepts either and populates request.permissionSubject the same way
+   * for both.
+   */
+  async listWidgets(db: Kysely<Database>, organisationId: string) {
+    return db.selectFrom('reference_widgets').select(['id', 'widget_number', 'title', 'created_at']).where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').limit(100).execute();
+  }
 }

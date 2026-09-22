@@ -25,6 +25,17 @@ export class ReferenceController {
     private readonly contextFactory: AppContextFactory,
   ) {}
 
+  // P2 items 11/26 proof point: this route is reachable by a human session
+  // cookie OR a service-account Bearer API key - both populate
+  // request.permissionSubject identically via SessionAuthGuard, so the
+  // exact same @RequirePermission check applies either way.
+  @RequirePermission('reference.widget.view')
+  @Get()
+  async list(@Req() req: FastifyRequest) {
+    const organisationId = (req as any).currentOrganisationId;
+    return withOrgContext(organisationId, (db) => this.reference.listWidgets(db, organisationId));
+  }
+
   @RequirePermission('reference.widget.create')
   @Post()
   async create(@Req() req: FastifyRequest, @Body() body: CreateWidgetDto) {

@@ -14,6 +14,14 @@ import { ConnectorRegistryService } from './platform/integrations/connector-regi
 import { SyncAdapterRegistryService } from './platform/integrations/sync-adapter-registry.service';
 import { SyncHandlerRegistryService } from './platform/integrations/sync-row-handler';
 import { registerReferenceConnector } from './apps/reference/reference-connector';
+import { registerReferenceAppP2Extensions } from './apps/reference/reference-p2-extensions';
+import { DatasetService } from './platform/reporting/dataset.service';
+import { SavedReportService } from './platform/reporting/saved-report.service';
+import { DashboardService } from './platform/dashboards/dashboard.service';
+import { SearchService } from './platform/search/search.service';
+import { ImportService } from './platform/import/import.service';
+import { ImportHandlerRegistryService } from './platform/import/import-row-handler';
+import { EventSchemaService } from './platform/events/event-schema.service';
 
 async function bootstrap() {
   const adapter = new FastifyAdapter({ trustProxy: parseTrustedProxies() });
@@ -107,6 +115,20 @@ async function bootstrap() {
   // reference app itself is registered above - a compiled-in demonstration
   // of the Integration Framework/Sync Engine end to end.
   await registerReferenceConnector(app.get(ConnectorRegistryService), app.get(SyncAdapterRegistryService), app.get(SyncHandlerRegistryService));
+
+  // Registers com.hexyrn.reference against every P2 extension point
+  // (P2 item 26) - dataset/relationship, saved report template, dashboard
+  // widget, search participation, import definition + handler, event
+  // schema.
+  await registerReferenceAppP2Extensions(
+    app.get(DatasetService),
+    app.get(SavedReportService),
+    app.get(DashboardService),
+    app.get(SearchService),
+    app.get(ImportService),
+    app.get(ImportHandlerRegistryService),
+    app.get(EventSchemaService),
+  );
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
