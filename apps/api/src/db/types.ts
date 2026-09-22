@@ -470,6 +470,17 @@ export interface FilesTable {
   created_at: Generated<Timestamp>;
 }
 
+// ---- P1: Cross-org dispatch routing (no RLS - see ADR 0005) ----
+export interface DispatchQueueTable {
+  id: Generated<string>;
+  organisation_id: string;
+  kind: string;
+  ref_id: string;
+  due_at: Generated<Timestamp>;
+  claimed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
 // ---- P1: Scheduling ----
 export interface ScheduledJobsTable {
   id: Generated<string>;
@@ -531,4 +542,5 @@ export interface Database {
   notification_preferences: NotificationPreferencesTable;
   files: FilesTable;
   scheduled_jobs: ScheduledJobsTable;
+  dispatch_queue: DispatchQueueTable;
 }
