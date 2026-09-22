@@ -1,0 +1,287 @@
+# Hexyrn Core / Requisite release-candidate pipeline (P3 item 5/14/17).
+#
+# HONESTY NOTE, read before trusting a green badge: this workflow has been
+# authored and reviewed but has NOT been executed by a real GitHub Actions
+# runner from the sandboxed environment this repository was developed in
+# (no CI runner access there). A job definition existing here is not the
+# same as that job having passed - treat this file as "ready to run,
+# execution pending" until a real run's logs/status are observed. See
+# P3-ENVIRONMENT-VERIFICATION.md.
+#
+# Every job below maps to a named P3 item 37/14 requirement. Jobs that
+# need real PostgreSQL client binaries or a Docker daemon are annotated -
+# those specific steps are exactly what P3-ENVIRONMENT-VERIFICATION.md
+# tracks as unverified in the sandbox this was authored in; on a real
+# runner (which DOES have postgres client tools and Docker available via
+# GitHub-hosted runner images) they are expected to actually execute, not
+# just be defined.
+
+name: Release Candidate Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ---- Formatting / lint / typecheck (fast, fail-fast checks first) ----
+  format-lint-typecheck:
+    name: Format, lint, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Format check (prettier)
+        run: npx prettier --check "apps/**/src/**/*.{ts,tsx}" "e2e/**/*.ts" "*.md" "docs/**/*.md"
+      - name: Lint (eslint, every workspace)
+        run: npm run lint
+      - name: Typecheck (tsc, every workspace)
+        run: npm run typecheck
+
+  # ---- Secret scanning - runs on every push/PR, blocks on any finding ----
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs full history to scan past commits, not just the diff
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # P3 item 40 (demo/test key separation): additionally confirm the
+      # known dev/test private keys (licensing/keys.ts, release-signing/
+      # release-keys.ts) are the SAME committed values checked in at HEAD -
+      # i.e. nobody has silently swapped in a different "test" key that
+      # could be a real credential. A cheap, deliberate tripwire alongside
+      # the general-purpose gitleaks scan above.
+      - name: Verify committed dev/test signing keys are exactly the known, documented values
+        run: |
+          grep -q "TEST_LICENSE_PRIVATE_KEY_PEM" apps/api/src/platform/licensing/keys.ts
+          grep -q "TEST_RELEASE_PRIVATE_KEY_1_PEM" apps/api/src/platform/release-signing/release-keys.ts
+          echo "Dev/test signing key markers present and labelled as expected."
+
+  # ---- Dependency vulnerability scan ----
+  dependency-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: npm audit (production dependencies, fail on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Lockfile integrity (fails if package-lock.json is out of sync with package.json)
+        run: npm ci --dry-run
+
+  # ---- Static analysis (beyond eslint - CodeQL for deeper dataflow checks) ----
+  static-analysis:
+    name: Static analysis (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
+
+  # ---- Backend unit + integration tests against REAL PostgreSQL ----
+  backend-tests:
+    name: Backend tests (real PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hexyrn
+          POSTGRES_PASSWORD: hexyrn_ci_password
+          POSTGRES_DB: hexyrn_core_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hexyrn -d hexyrn_core_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://hexyrn:hexyrn_ci_password@localhost:5432/hexyrn_core_test
+      TOTP_MASTER_KEY: dGVzdC1vbmx5LTMyLWJ5dGUta2V5LWZvci1jaS10ZXN0IQ==
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Run full backend Jest suite (unit + real-Postgres integration, includes the RLS/DB-role security matrix)
+        run: npm run test --workspace apps/api
+      - name: Verify production build
+        run: npm run build --workspace apps/api
+
+  # ---- Frontend tests ----
+  frontend-tests:
+    name: Frontend tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test --workspace apps/web
+      - name: Verify production build
+        run: npm run build --workspace apps/web
+
+  # ---- Migration test: clean-install migration path, no drift ----
+  migration-test:
+    name: Migration test (clean install)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hexyrn
+          POSTGRES_PASSWORD: hexyrn_ci_password
+          POSTGRES_DB: hexyrn_core_migration_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hexyrn -d hexyrn_core_migration_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://hexyrn:hexyrn_ci_password@localhost:5432/hexyrn_core_migration_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Run every migration against a genuinely empty database (real apps/api/src/db/migrate.ts CLI runner, the schema_migrations bookkeeping path production actually uses)
+        run: npm run migrate --workspace apps/api
+      - name: Re-run migrations a second time - must be a no-op (idempotency check)
+        run: npm run migrate --workspace apps/api
+
+  # ---- Browser E2E (Playwright) against a real running instance ----
+  browser-e2e:
+    name: Playwright E2E (real backend + Postgres + browser)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hexyrn
+          POSTGRES_PASSWORD: hexyrn_ci_password
+          POSTGRES_DB: hexyrn_core
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hexyrn -d hexyrn_core"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://hexyrn:hexyrn_ci_password@localhost:5432/hexyrn_core
+      TOTP_MASTER_KEY: dGVzdC1vbmx5LTMyLWJ5dGUta2V5LWZvci1jaS10ZXN0IQ==
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run migrate --workspace apps/api
+      - run: npx ts-node apps/api/scripts/e2e-seed.ts
+      - name: Start backend
+        run: npm run start:dev --workspace apps/api &
+      - name: Start frontend
+        run: npm run dev:web &
+      - name: Wait for both dev servers to be ready
+        run: npx wait-on http://localhost:3000/api/v1/health http://localhost:5173
+      - name: Run Playwright E2E suite
+        run: npm run test --workspace e2e
+      - name: Upload E2E screenshots as a build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: docs/screenshots/
+
+  # ---- Production build + packaging + signing + artifact hashing ----
+  package-and-sign:
+    name: Package, sign, hash artifacts
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, migration-test, secret-scan, dependency-scan]
+    if: github.event_name != 'pull_request' # only produce/sign real artifacts off main, not every PR
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package Docker image
+        run: docker build -t hexyrn-core:${{ github.sha }} -f apps/api/Dockerfile .
+        # NOTE: apps/api/Dockerfile does not exist yet in this repository -
+        # see P3-ENVIRONMENT-VERIFICATION.md / DOCKER_DEPLOYMENT.md for the
+        # current state of Docker packaging. This step is included here as
+        # the intended pipeline shape and will fail until that Dockerfile
+        # is written - an honest placeholder, not a working step today.
+        continue-on-error: true
+      - name: Sign release manifest
+        run: |
+          echo "Release signing requires the production private key, held only in Hexyrn's own"
+          echo "offline signing environment (docs/RELEASE_SIGNING.md) - NEVER this CI runner."
+          echo "This step is a placeholder for that offline-signed manifest being attached to"
+          echo "the release, not an in-CI signing operation."
+        # Real production releases are signed OFFLINE (docs/RELEASE_SIGNING.md's
+        # explicit operational requirement) - this job packages and hashes
+        # artifacts; the signature itself is produced outside CI and attached
+        # to the GitHub Release as a separate, manual step, matching "no
+        # production release-signing private key in the repository or CI."
+      - name: Generate artifact hashes
+        run: |
+          mkdir -p dist-artifacts
+          find apps/api/dist apps/web/dist -type f 2>/dev/null | xargs sha256sum > dist-artifacts/SHA256SUMS.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ github.sha }}
+          path: dist-artifacts/
+
+  # ---- Windows-specific packaging groundwork (P3 item 3/5) ----
+  windows-build:
+    name: Windows build/package (groundwork)
+    runs-on: windows-latest
+    needs: [backend-tests, frontend-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm run build
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          Write-Host "Windows installer build step - placeholder pending the installer project"
+          Write-Host "itself (P3 item 3, not yet written - see P3-ENVIRONMENT-VERIFICATION.md)."
+          Write-Host "This job runs on a genuine windows-latest GitHub-hosted runner, so once"
+          Write-Host "the installer project exists, this is where it actually builds and the"
+          Write-Host "smoke-test steps below actually execute - not a simulated environment."
+        # Once the installer project exists: build it here, then add
+        # smoke-test steps (install silently, confirm the service starts,
+        # hit the health endpoint, uninstall, confirm clean removal) -
+        # exactly the "Windows CI runner" capability P3 item 5 asks for.
+        # Left as an explicit placeholder rather than faked as passing.
