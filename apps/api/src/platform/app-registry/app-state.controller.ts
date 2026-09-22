@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { withOrgContext } from '../../db/org-context';
 import { RequirePermission } from '../../rbac/permission.guard';
@@ -26,5 +26,28 @@ export class AppStateController {
   async getState(@Req() req: FastifyRequest, @Param('appId') appId: string) {
     const organisationId = (req as any).currentOrganisationId;
     return withOrgContext(organisationId, (db) => this.registry.getApplicationState(db, organisationId, appId));
+  }
+
+  /** P3 item 10/25: the full licence administration detail view. */
+  @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
+  @Get(':appId/licence')
+  async getLicence(@Req() req: FastifyRequest, @Param('appId') appId: string) {
+    const organisationId = (req as any).currentOrganisationId;
+    return withOrgContext(organisationId, (db) => this.registry.getLicenceDetail(db, organisationId, appId));
+  }
+
+  /**
+   * P3 item 10/25: "authorised admins can import licence files." Verified
+   * offline (LicenseVerifier - pure local Ed25519 cryptography, no network
+   * call) via ApplicationRegistryService.grantLicense, which rejects
+   * anything that doesn't verify. No internet activation required, per
+   * Architecture §9.
+   */
+  @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
+  @Post(':appId/licence')
+  async importLicence(@Req() req: FastifyRequest, @Param('appId') appId: string, @Body() body: { majorVersion: number; licence: Record<string, unknown> }) {
+    const organisationId = (req as any).currentOrganisationId;
+    await withOrgContext(organisationId, (db) => this.registry.grantLicense(db, organisationId, appId, body.majorVersion, body.licence));
+    return withOrgContext(organisationId, (db) => this.registry.getLicenceDetail(db, organisationId, appId));
   }
 }

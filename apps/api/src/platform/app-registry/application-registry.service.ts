@@ -20,6 +20,36 @@ export interface ApplicationState {
 }
 
 /**
+ * P3 item 10/25: the full licence administration detail view - everything
+ * Architecture §9's LICENSE/COMPATIBILITY/SUPPORT separation implies an
+ * admin should be able to SEE distinctly, not just the flat `active`
+ * boolean ApplicationState collapses it to. In particular:
+ * `licenceValid` and `supportExpired` are INDEPENDENT fields - a perpetual
+ * licence with expired support is `licenceValid: true, supportExpired:
+ * true, active: true` all at once, which is exactly the "support expired
+ * is informational, never a runtime kill switch" property Architecture §9
+ * requires and this shape makes impossible to accidentally conflate in a
+ * UI (there is no single ambiguous "status" enum to misinterpret).
+ */
+export interface LicenceDetail {
+  appId: string;
+  installed: boolean;
+  installedDisplayName: string | null;
+  installedVersion: string | null;
+  enabled: boolean;
+  compatible: boolean;
+  active: boolean;
+  licenceValid: boolean;
+  licenceId: string | null;
+  licensedMajorVersion: number | null;
+  organisationId: string;
+  issuedAt: string | null;
+  supportExpiresAt: string | null;
+  /** null when there is no licence at all, or the licence is perpetual (no support-expiry date configured) - only true/false once a support-expiry date actually exists to compare against. */
+  supportExpired: boolean | null;
+}
+
+/**
  * Application Registry. Architecture §3, P1 item 1. `installed_applications`
  * has no RLS (installation-level, like `installations` itself) - registering
  * an app's manifest is a deploy-time/boot-time action, not something any
@@ -238,5 +268,71 @@ export class ApplicationRegistryService {
 
   async listInstalledApps(db: Kysely<Database>) {
     return db.selectFrom('installed_applications').selectAll().execute();
+  }
+
+  /** P3 item 10/25 - see LicenceDetail's doc comment for why licenceValid/supportExpired are independent fields. */
+  async getLicenceDetail(db: Kysely<Database>, organisationId: string, appId: string): Promise<LicenceDetail> {
+    const installedRow = await db.selectFrom('installed_applications').selectAll().where('app_id', '=', appId).executeTakeFirst();
+    const installed = !!installedRow;
+
+    const enablementRow = await db
+      .selectFrom('app_enablements')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
+    const enabled = !!enablementRow?.enabled;
+
+    const licenseRow = await db
+      .selectFrom('application_licenses')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
+
+    const compatible = installed ? isCoreVersionCompatible(installedRow!.requires_core_version) : false;
+
+    if (!licenseRow) {
+      return {
+        appId,
+        installed,
+        installedDisplayName: installedRow?.display_name ?? null,
+        installedVersion: installedRow?.version ?? null,
+        enabled,
+        compatible,
+        active: false,
+        licenceValid: false,
+        licenceId: null,
+        licensedMajorVersion: null,
+        organisationId,
+        issuedAt: null,
+        supportExpiresAt: null,
+        supportExpired: null,
+      };
+    }
+
+    const payload = licenseRow.license_payload as unknown as { licenseId: string; issuedAt: string };
+    const supportExpiresAt = licenseRow.support_expires_at ? new Date(licenseRow.support_expires_at).toISOString() : null;
+    const supportExpired = supportExpiresAt ? new Date(supportExpiresAt).getTime() < Date.now() : null;
+
+    return {
+      appId,
+      installed,
+      installedDisplayName: installedRow?.display_name ?? null,
+      installedVersion: installedRow?.version ?? null,
+      enabled,
+      compatible,
+      // Intentionally identical to getApplicationState's `active` formula -
+      // support expiry never appears in this calculation (Architecture §9:
+      // "support status is informational... not a runtime gate").
+      active: installed && enabled && compatible,
+      licenceValid: true, // a row only exists here because grantLicense already verified its signature before recording it - see this method's doc comment
+      licenceId: payload.licenseId ?? licenseRow.id,
+      licensedMajorVersion: licenseRow.licensed_major_version,
+      organisationId,
+      issuedAt: payload.issuedAt ?? null,
+      supportExpiresAt,
+      supportExpired,
+    };
   }
 }
