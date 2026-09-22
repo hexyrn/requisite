@@ -215,14 +215,27 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
     // CSRF token to send yet - login isn't behind the synchronizer-token
     // gate at all, by design (PUBLIC_ROUTE_KEY). Fixed by excluding
     // @PublicRoute() handlers from the CSRF check regardless of session state.
+    // Uses the dedicated 'second@e2e.test' user (created by the "another
+    // session's CSRF token" test above, which always runs first within this
+    // describe block) rather than ownerEmail specifically so these two new
+    // tests don't add to ownerEmail's already-heavily-used share of the
+    // account rate limiter's per-15-minute budget (loginRateLimiters.byAccount,
+    // security/rate-limits.ts) - that budget is shared, module-level, and
+    // consumed by every login in this file, so tests intentionally spread
+    // their login calls across distinct accounts where the account identity
+    // itself isn't the thing under test.
     it('re-submitting login while an existing valid session cookie is present succeeds without a CSRF header (public route, regression)', async () => {
       const agent = request.agent(server());
-      const first = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      const first = await agent
+        .post('/api/v1/auth/login')
+        .send({ email: 'second@e2e.test', password: 'second-users-password-1' });
       expect(first.status).toBe(201);
 
       // Same agent (same session cookie jar) hits POST /auth/login again -
       // a @PublicRoute() - with no X-Hexyrn-CSRF header. Must succeed, not 401.
-      const second = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      const second = await agent
+        .post('/api/v1/auth/login')
+        .send({ email: 'second@e2e.test', password: 'second-users-password-1' });
       expect(second.status).toBe(201);
       expect(second.body.csrfToken).toBeDefined();
     });
@@ -232,7 +245,7 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
     // still reject a missing CSRF header exactly as before.
     it('a non-public authenticated mutating route still requires CSRF even after the public-route fix', async () => {
       const agent = request.agent(server());
-      await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      await agent.post('/api/v1/auth/login').send({ email: 'second@e2e.test', password: 'second-users-password-1' });
       const res = await agent.post('/api/v1/auth/logout'); // logout is NOT @PublicRoute() - no header sent
       expect(res.status).toBe(401);
       expect(res.body.message).toMatch(/CSRF/i);
