@@ -1,5 +1,4 @@
 import { Pool } from 'pg';
-import { randomUUID } from 'crypto';
 import { setUpTestDatabase, createTestOrg } from '../../../test-utils/test-db';
 import { withOrgContext } from '../../../db/org-context';
 import { attachPoolErrorHandler } from '../../../db/pool';

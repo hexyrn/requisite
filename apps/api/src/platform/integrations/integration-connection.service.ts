@@ -3,7 +3,6 @@ import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 import { encryptSecretsMap, decryptSecretsMap } from '../../security/secret-encryption';
 import { toJsonbParam } from '../../db/jsonb-param';
-import { IntegrationDirection } from './connector-registry.service';
 
 /**
  * Per-organisation configured instances of a registered connector, P2
