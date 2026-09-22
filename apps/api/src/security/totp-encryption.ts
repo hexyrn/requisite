@@ -11,8 +11,9 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
  *
  *   - Full envelope encryption (per-secret data keys wrapped by the master
  *     key, enabling rotation without re-enrolment) is deferred to a
- *     post-P0 follow-up and tracked as technical debt - see the final P0
- *     report / docs/decisions.
+ *     post-P0 follow-up and tracked as technical debt - see
+ *     docs/decisions/0002-totp-secret-encryption.md for the full rationale,
+ *     concrete consequences, and migration path.
  *   - Today, rotating TOTP_MASTER_KEY invalidates all stored TOTP secrets
  *     (they cannot be decrypted with the new key) and requires every user
  *     to re-enrol MFA. This is an accepted P0 limitation.

@@ -136,6 +136,42 @@ describeIfDb('Password reset / invitation controllers + rate limiting (real HTTP
     expect(sawTooMany).toBe(true);
   });
 
+  it('SECURITY: cannot invite a user into a role that grants permissions the inviter does not hold', async () => {
+    // Create a "Limited Admin" role that holds only users.manage (not the
+    // full Owner permission set), assign it to a fresh user, and prove that
+    // user cannot use their users.manage permission to invite someone into
+    // the (more powerful) Owner role.
+    const { CORE_PERMISSIONS } = await import('../rbac/permissions');
+    const limitedRole = await withOrgContext(organisationId, async (db) => {
+      const role = await db.insertInto('roles').values({ organisation_id: organisationId, name: 'Limited Admin' }).returningAll().executeTakeFirstOrThrow();
+      await db.insertInto('role_permissions').values({ organisation_id: organisationId, role_id: role.id, permission_key: CORE_PERMISSIONS.USERS_MANAGE }).execute();
+      return role;
+    }, pool);
+
+    const ownerRole = await withOrgContext(organisationId, (db) => db.selectFrom('roles').selectAll().where('organisation_id', '=', organisationId).where('name', '=', 'Owner').executeTakeFirstOrThrow(), pool);
+
+    const limitedUser = await withOrgContext(organisationId, async (db) => {
+      const { hashPassword } = await import('../security/passwords');
+      const user = await db.insertInto('user_accounts').values({ organisation_id: organisationId, email: 'limited-admin@rl.test', password_hash: await hashPassword('limited-admin-password-1'), is_active: true }).returningAll().executeTakeFirstOrThrow();
+      await db.insertInto('user_roles').values({ organisation_id: organisationId, user_account_id: user.id, role_id: limitedRole.id }).execute();
+      return user;
+    }, pool);
+    void limitedUser;
+
+    const agent = request.agent(server());
+    const login = await agent.post('/api/v1/auth/login').send({ email: 'limited-admin@rl.test', password: 'limited-admin-password-1' });
+    expect(login.status).toBe(201);
+
+    // This user DOES hold users.manage, so the permission guard lets them in -
+    // but the privilege-escalation check must still block granting Owner.
+    const escalate = await agent.post('/api/v1/auth/invitations').set('X-Hexyrn-CSRF', login.body.csrfToken).send({ email: 'escalated@rl.test', roleIds: [ownerRole.id] });
+    expect(escalate.status).toBe(403);
+
+    // Granting their OWN role (a subset of their own permissions) is fine.
+    const legit = await agent.post('/api/v1/auth/invitations').set('X-Hexyrn-CSRF', login.body.csrfToken).send({ email: 'legit-invite@rl.test', roleIds: [limitedRole.id] });
+    expect(legit.status).toBe(201);
+  });
+
   it('invitation: an authenticated admin can create one and gets the URL back directly (SMTP not configured)', async () => {
     const res = await agentOwner.post('/api/v1/auth/invitations').set('X-Hexyrn-CSRF', ownerCsrf).send({ email: 'invitee-http@rl.test' });
     expect(res.status).toBe(201);
