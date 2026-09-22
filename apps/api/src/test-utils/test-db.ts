@@ -43,3 +43,34 @@ export async function setUpTestDatabase(pool: Pool): Promise<void> {
   await resetTestDatabase(pool);
   await applyMigrations(pool);
 }
+
+/** Creates an installation (if none exists yet on this pool) and a fresh organisation. Returns the new org's id. */
+export async function createTestOrg(pool: Pool, name = 'Test Org'): Promise<string> {
+  const { randomUUID } = await import('crypto');
+  const { withOrgContext } = await import('../db/org-context');
+  const orgId = randomUUID();
+  await withOrgContext(
+    orgId,
+    async (db) => {
+      let installation = await db.selectFrom('installations').selectAll().executeTakeFirst();
+      if (!installation) {
+        installation = await db.insertInto('installations').values({ core_version: 'test', config: {} }).returningAll().executeTakeFirstOrThrow();
+      }
+      await db
+        .insertInto('organisations')
+        .values({
+          id: orgId,
+          installation_id: installation.id,
+          name,
+          display_name: name,
+          default_currency: 'USD',
+          timezone: 'UTC',
+          locale: 'en-US',
+          financial_year_start_month: 1,
+        })
+        .execute();
+    },
+    pool,
+  );
+  return orgId;
+}

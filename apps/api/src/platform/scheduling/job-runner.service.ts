@@ -38,19 +38,28 @@ export class JobRunnerService {
     let processed = 0;
     for (const entry of dueEntries) {
       await routingDb.updateTable('dispatch_queue').set({ claimed_at: new Date() as any }).where('id', '=', entry.id).execute();
-      await this.runOne(entry.organisation_id, entry.ref_id, pool);
-      await routingDb.deleteFrom('dispatch_queue').where('id', '=', entry.id).execute();
+      const { terminal, retryAt } = await this.runOne(entry.organisation_id, entry.ref_id, pool);
+      if (terminal) {
+        // See the identical note in EventDispatcherService.dispatchPending -
+        // this loop is the ONLY place that inserts/deletes/clears this
+        // specific routing entry; runOne must never touch dispatch_queue
+        // for its OWN entry, or its decision races against this cleanup.
+        await routingDb.deleteFrom('dispatch_queue').where('id', '=', entry.id).execute();
+      } else {
+        await routingDb.updateTable('dispatch_queue').set({ claimed_at: null, due_at: (retryAt ?? new Date()) as any }).where('id', '=', entry.id).execute();
+      }
       processed++;
     }
     return { processed };
   }
 
-  private async runOne(organisationId: string, jobId: string, pool: Pool): Promise<void> {
-    await withOrgContext(
+  /** Returns whether the job reached a terminal state (completed/failed-permanently/gone), and a retry time if not. */
+  private async runOne(organisationId: string, jobId: string, pool: Pool): Promise<{ terminal: boolean; retryAt?: Date }> {
+    return withOrgContext(
       organisationId,
       async (db) => {
         const job = await db.selectFrom('scheduled_jobs').selectAll().where('id', '=', jobId).executeTakeFirst();
-        if (!job || job.status !== 'pending') return;
+        if (!job || job.status !== 'pending') return { terminal: true };
 
         await db.updateTable('scheduled_jobs').set({ status: 'running' }).where('id', '=', jobId).execute();
 
@@ -67,8 +76,11 @@ export class JobRunnerService {
               .values({ organisation_id: organisationId, app_id: job.app_id, job_type: job.job_type, payload: job.payload, run_at: nextRunAt as any, recurring_interval_seconds: job.recurring_interval_seconds })
               .returningAll()
               .executeTakeFirstOrThrow();
+            // A different ref_id (the NEW job's id) - never collides with
+            // the current entry, which the caller will delete after this returns.
             await db.insertInto('dispatch_queue').values({ organisation_id: organisationId, kind: 'job', ref_id: next.id, due_at: nextRunAt as any }).execute();
           }
+          return { terminal: true };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const attempts = job.attempts + 1;
@@ -80,10 +92,7 @@ export class JobRunnerService {
             .execute();
           logStructured({ event: 'job.execution.failed', errorCode: 'JOB_HANDLER_ERROR', context: { jobType: job.job_type, attempts, failed } });
 
-          if (!failed) {
-            const retryAt = new Date(Date.now() + BACKOFF_SECONDS * 1000);
-            await db.insertInto('dispatch_queue').values({ organisation_id: organisationId, kind: 'job', ref_id: jobId, due_at: retryAt as any }).execute();
-          }
+          return failed ? { terminal: true } : { terminal: false, retryAt: new Date(Date.now() + BACKOFF_SECONDS * 1000) };
         }
       },
       pool,

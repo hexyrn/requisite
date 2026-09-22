@@ -51,20 +51,34 @@ export class EventDispatcherService {
       // Claim it (best-effort - a real multi-worker deployment would use
       // SELECT ... FOR UPDATE SKIP LOCKED here; P1 runs a single dispatcher).
       await routingDb.updateTable('dispatch_queue').set({ claimed_at: new Date() }).where('id', '=', entry.id).execute();
-      await this.dispatchOne(entry.organisation_id, entry.ref_id, pool);
-      await routingDb.deleteFrom('dispatch_queue').where('id', '=', entry.id).execute();
+      const fullyDispatched = await this.dispatchOne(entry.organisation_id, entry.ref_id, pool);
+      if (fullyDispatched) {
+        // Terminal (all consumers delivered/skipped, or every failure hit
+        // max attempts) - this routing entry is done, remove it.
+        await routingDb.deleteFrom('dispatch_queue').where('id', '=', entry.id).execute();
+      } else {
+        // Still has retryable failures - leave the entry for a future pass,
+        // just release the claim. IMPORTANT: this must be the only place
+        // that decides the entry's fate - dispatchOne itself must never
+        // insert/delete dispatch_queue rows, or its outcome would race
+        // against this unconditional cleanup step (a real bug found via
+        // this test: an insert-inside-dispatchOne meant to "re-queue" was
+        // silently undone by this loop's own delete immediately afterward).
+        await routingDb.updateTable('dispatch_queue').set({ claimed_at: null }).where('id', '=', entry.id).execute();
+      }
       processed++;
     }
     return { processed };
   }
 
-  private async dispatchOne(organisationId: string, eventId: string, pool: Pool): Promise<void> {
-    await withOrgContext(
+  /** Returns true if the event is now fully dispatched (nothing left to retry). */
+  private async dispatchOne(organisationId: string, eventId: string, pool: Pool): Promise<boolean> {
+    return withOrgContext(
       organisationId,
       async (db) => {
         const event = await db.selectFrom('event_outbox').selectAll().where('id', '=', eventId).executeTakeFirst();
-        if (!event) return; // detail row gone - nothing to deliver (see ADR 0005's "fail-soft, never fail-open" note).
-        if (event.dispatched_at) return; // already fully dispatched by an earlier pass.
+        if (!event) return true; // detail row gone - nothing to deliver (see ADR 0005's "fail-soft, never fail-open" note); treat as done so the routing entry is cleared.
+        if (event.dispatched_at) return true; // already fully dispatched by an earlier pass.
 
         const payload = event.payload as Record<string, unknown>;
         const consumers = await db.selectFrom('event_consumer_registrations').selectAll().where('event_type', '=', event.event_type).execute();
@@ -77,10 +91,8 @@ export class EventDispatcherService {
 
         if (allTerminal) {
           await db.updateTable('event_outbox').set({ dispatched_at: new Date() }).where('id', '=', eventId).execute();
-        } else {
-          // Still has retryable failures - re-queue so a future pass tries again.
-          await db.insertInto('dispatch_queue').values({ organisation_id: organisationId, kind: 'event', ref_id: eventId }).onConflict((oc) => oc.columns(['kind', 'ref_id']).doUpdateSet({ claimed_at: null })).execute();
         }
+        return allTerminal;
       },
       pool,
     );
