@@ -27,6 +27,7 @@ import { ServiceAccountService } from './api-access/service-account.service';
 import { EventSchemaService } from './events/event-schema.service';
 import { WebhookService } from './webhooks/webhook.service';
 import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service';
+import { WEBHOOK_SENDER, HttpWebhookSender } from './webhooks/webhook-sender';
 import { ScheduledReportService } from './reporting/scheduled-report.service';
 import { SearchService } from './search/search.service';
 import { ImportService } from './import/import.service';
@@ -79,6 +80,7 @@ import { DataPortabilityService } from './exports/data-portability.service';
     ServiceAccountService,
     EventSchemaService,
     WebhookService,
+    { provide: WEBHOOK_SENDER, useValue: new HttpWebhookSender() },
     WebhookDispatcherService,
     ScheduledReportService,
     SearchService,
@@ -120,6 +122,7 @@ import { DataPortabilityService } from './exports/data-portability.service';
     ServiceAccountService,
     EventSchemaService,
     WebhookService,
+    WEBHOOK_SENDER,
     WebhookDispatcherService,
     ScheduledReportService,
     SearchService,

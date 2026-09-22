@@ -6,9 +6,11 @@ import { RequisitionService } from './requisition.service';
 import { PurchaseOrderService } from './purchase-order.service';
 import { GoodsReceiptService } from './goods-receipt.service';
 import { RfqService } from './rfq.service';
+import { RequisiteController } from './requisite.controller';
 
 @Module({
   imports: [PlatformModule],
+  controllers: [RequisiteController],
   providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
   exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService],
 })
