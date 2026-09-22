@@ -801,6 +801,173 @@ export interface ApiCredentialLookupTable {
   service_account_id: string;
 }
 
+// ---- Hexyrn Requisite v1 (com.hexyrn.requisite) ----
+export interface RequisiteSuppliersTable {
+  id: Generated<string>;
+  organisation_id: string;
+  supplier_number: string;
+  name: string;
+  account_number: string | null;
+  status: Generated<string>;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  payment_terms: string | null;
+  default_currency: Generated<string>;
+  notes: string | null;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface RequisiteRequisitionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  requisition_number: string;
+  requester_user_account_id: string;
+  request_date: Generated<string>;
+  organisational_unit_id: string | null;
+  location_id: string | null;
+  required_by_date: string | null;
+  preferred_supplier_id: string | null;
+  reason: string | null;
+  cost_object_reference: string | null;
+  category: string | null;
+  status: Generated<string>;
+  currency: Generated<string>;
+  estimated_value_minor: Generated<string>;
+  notes: string | null;
+  version: Generated<number>;
+  cancelled_at: Timestamp | null;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface RequisiteRequisitionLinesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  requisition_id: string;
+  line_number: number;
+  description: string;
+  quantity: string;
+  unit: string | null;
+  estimated_unit_price_minor: Generated<string>;
+  estimated_total_minor: Generated<string>;
+  category: string | null;
+  preferred_supplier_id: string | null;
+  required_by_date: string | null;
+  cost_object_reference: string | null;
+  notes: string | null;
+}
+
+export interface RequisiteRfqsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  rfq_number: string;
+  requisition_id: string | null;
+  status: Generated<string>;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface RequisiteQuotesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  rfq_id: string;
+  supplier_id: string;
+  quote_reference: string | null;
+  quote_date: string | null;
+  expiry_date: string | null;
+  currency: Generated<string>;
+  carriage_minor: Generated<string>;
+  total_minor: Generated<string>;
+  status: Generated<string>;
+  selection_reason: string | null;
+  notes: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface RequisiteQuoteLinesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  quote_id: string;
+  requisition_line_id: string | null;
+  description: string;
+  quantity: string;
+  unit_price_minor: Generated<string>;
+  line_total_minor: Generated<string>;
+}
+
+export interface RequisitePurchaseOrdersTable {
+  id: Generated<string>;
+  organisation_id: string;
+  po_number: string;
+  supplier_id: string;
+  source_requisition_id: string | null;
+  buyer_user_account_id: string | null;
+  organisational_unit_id: string | null;
+  delivery_location_id: string | null;
+  delivery_address: string | null;
+  supplier_reference: string | null;
+  currency: Generated<string>;
+  payment_terms: string | null;
+  order_date: Generated<string>;
+  expected_delivery_date: string | null;
+  status: Generated<string>;
+  subtotal_minor: Generated<string>;
+  tax_minor: Generated<string>;
+  carriage_minor: Generated<string>;
+  total_minor: Generated<string>;
+  notes: string | null;
+  version: Generated<number>;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface RequisitePurchaseOrderLinesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  purchase_order_id: string;
+  line_number: number;
+  source_requisition_line_id: string | null;
+  description: string;
+  quantity_ordered: string;
+  unit: string | null;
+  unit_price_minor: Generated<string>;
+  tax_rate_bp: Generated<number>;
+  line_total_minor: Generated<string>;
+  category: string | null;
+  cost_object_reference: string | null;
+  expected_delivery_date: string | null;
+  quantity_received: Generated<string>;
+}
+
+export interface RequisiteGoodsReceiptsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  grn_number: string;
+  purchase_order_id: string;
+  received_by_user_account_id: string | null;
+  received_at: Generated<Timestamp>;
+  location_id: string | null;
+  delivery_note_reference: string | null;
+  notes: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface RequisiteGoodsReceiptLinesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  goods_receipt_id: string;
+  purchase_order_line_id: string;
+  quantity_received: string;
+  condition: string | null;
+  notes: string | null;
+}
+
 export interface Database {
   installations: InstallationsTable;
   bootstrap_tokens: BootstrapTokensTable;
@@ -873,4 +1040,14 @@ export interface Database {
   sync_runs: SyncRunsTable;
   sync_external_ids: SyncExternalIdsTable;
   api_credential_lookup: ApiCredentialLookupTable;
+  requisite_suppliers: RequisiteSuppliersTable;
+  requisite_requisitions: RequisiteRequisitionsTable;
+  requisite_requisition_lines: RequisiteRequisitionLinesTable;
+  requisite_rfqs: RequisiteRfqsTable;
+  requisite_quotes: RequisiteQuotesTable;
+  requisite_quote_lines: RequisiteQuoteLinesTable;
+  requisite_purchase_orders: RequisitePurchaseOrdersTable;
+  requisite_purchase_order_lines: RequisitePurchaseOrderLinesTable;
+  requisite_goods_receipts: RequisiteGoodsReceiptsTable;
+  requisite_goods_receipt_lines: RequisiteGoodsReceiptLinesTable;
 }

@@ -25,9 +25,10 @@ import { HealthController } from './health/health.controller';
 import { PlatformModule } from './platform/platform.module';
 import { ApplicationActiveGuard } from './platform/app-registry/application-active.guard';
 import { ReferenceAppModule } from './apps/reference/reference.module';
+import { RequisiteAppModule } from './apps/requisite/requisite.module';
 
 @Module({
-  imports: [PlatformModule, ReferenceAppModule],
+  imports: [PlatformModule, ReferenceAppModule, RequisiteAppModule],
   controllers: [
     BootstrapController,
     AuthController,
