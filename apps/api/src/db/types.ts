@@ -508,6 +508,283 @@ export interface ScheduledJobsTable {
   completed_at: Timestamp | null;
 }
 
+// ---- P2: Reporting ----
+export interface DatasetDefinitionsTable {
+  id: Generated<string>;
+  dataset_key: string;
+  app_id: string;
+  display_name: string;
+  description: string | null;
+  required_permission: string;
+  source_ref: string;
+  fields: unknown;
+  is_exportable: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface DatasetRelationshipsTable {
+  id: Generated<string>;
+  from_dataset: string;
+  from_field: string;
+  to_dataset: string;
+  to_field: string;
+  cardinality: string;
+  label: string;
+}
+
+export interface SavedReportsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  owner_user_account_id: string | null;
+  name: string;
+  primary_dataset: string;
+  definition: unknown;
+  visibility: Generated<string>;
+  cloned_from_template_key: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ReportTemplatesTable {
+  template_key: string;
+  app_id: string;
+  name: string;
+  primary_dataset: string;
+  definition: unknown;
+}
+
+// ---- P2: Dashboards ----
+export interface WidgetDefinitionsTable {
+  widget_key: string;
+  app_id: string;
+  display_name: string;
+  widget_type: string;
+  dataset_key: string;
+  default_config: Generated<Record<string, unknown>>;
+}
+
+export interface DashboardsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  owner_user_account_id: string | null;
+  name: string;
+  is_default: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+}
+
+export interface DashboardWidgetsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  dashboard_id: string;
+  widget_key: string;
+  config: Generated<Record<string, unknown>>;
+  position_x: Generated<number>;
+  position_y: Generated<number>;
+  width: Generated<number>;
+  height: Generated<number>;
+}
+
+// ---- P2: Exports / Scheduled Reports ----
+export interface ExportJobsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  requested_by: string | null;
+  service_account_id: string | null;
+  report_id: string | null;
+  dataset_key: string;
+  format: string;
+  status: Generated<string>;
+  approximate_row_count: number | null;
+  file_ref: string | null;
+  error: string | null;
+  created_at: Generated<Timestamp>;
+  completed_at: Timestamp | null;
+}
+
+export interface ScheduledReportsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  report_id: string;
+  created_by: string | null;
+  recipient_user_account_ids: Generated<string[]>;
+  formats: Generated<string[]>;
+  cron_interval_seconds: number;
+  enabled: Generated<boolean>;
+  last_run_at: Timestamp | null;
+  last_status: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+// ---- P2: Search / Import ----
+export interface SearchEntityRegistrationsTable {
+  entity_type: string;
+  app_id: string;
+  required_permission: string;
+  result_label_template: string;
+  result_destination_template: string;
+}
+
+export interface SearchIndexTable {
+  id: Generated<string>;
+  organisation_id: string;
+  entity_type: string;
+  entity_id: string;
+  search_text: string;
+  result_label: string;
+  result_destination: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ImportDefinitionsTable {
+  entity_type: string;
+  app_id: string;
+  required_permission: string;
+  fields: unknown;
+}
+
+export interface ImportJobsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  entity_type: string;
+  requested_by: string | null;
+  column_mapping: Generated<Record<string, unknown>>;
+  status: Generated<string>;
+  total_rows: number | null;
+  success_count: Generated<number>;
+  error_count: Generated<number>;
+  row_errors: Generated<unknown[]>;
+  created_at: Generated<Timestamp>;
+  completed_at: Timestamp | null;
+}
+
+// ---- P2: Service Accounts / API Credentials ----
+export interface ServiceAccountsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  name: string;
+  description: string | null;
+  is_enabled: Generated<boolean>;
+  granted_scopes: Generated<string[]>;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+  last_used_at: Timestamp | null;
+}
+
+export interface ApiCredentialsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  service_account_id: string;
+  key_prefix: string;
+  secret_hash: string;
+  is_revoked: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  revoked_at: Timestamp | null;
+  last_used_at: Timestamp | null;
+}
+
+// ---- P2: Webhooks / Event Schemas ----
+export interface WebhookEndpointsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  url: string;
+  description: string | null;
+  event_types: Generated<string[]>;
+  secret_hash: string;
+  signing_key_encrypted: string;
+  is_enabled: Generated<boolean>;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface WebhookDeliveriesTable {
+  id: Generated<string>;
+  organisation_id: string;
+  endpoint_id: string;
+  event_id: string;
+  event_type: string;
+  payload_version: Generated<number>;
+  status: Generated<string>;
+  attempt_count: Generated<number>;
+  last_response_status: number | null;
+  last_error: string | null;
+  delivered_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface EventSchemasTable {
+  event_type: string;
+  version: number;
+  app_id: string;
+  schema: unknown;
+}
+
+// ---- P2: Integrations ----
+export interface ConnectorRegistrationsTable {
+  connector_id: string;
+  display_name: string;
+  supported_entities: string[];
+  supported_directions: string[];
+  config_schema: Generated<unknown[]>;
+}
+
+export interface IntegrationConnectionsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  connector_id: string;
+  display_name: string;
+  config: Generated<Record<string, unknown>>;
+  config_secrets_encrypted: Generated<Record<string, unknown>>;
+  status: Generated<string>;
+  last_error: string | null;
+  created_by: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface SyncOwnershipTable {
+  organisation_id: string;
+  connection_id: string;
+  entity_type: string;
+  direction: string;
+  authoritative_system: string;
+  conflict_resolution: string | null;
+}
+
+export interface FieldMappingsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  connection_id: string;
+  entity_type: string;
+  hexyrn_field: string;
+  external_field: string;
+  transform: Generated<string>;
+  is_required: Generated<boolean>;
+}
+
+export interface SyncRunsTable {
+  id: Generated<string>;
+  organisation_id: string;
+  connection_id: string;
+  entity_type: string;
+  direction: string;
+  status: Generated<string>;
+  processed_count: Generated<number>;
+  success_count: Generated<number>;
+  failure_count: Generated<number>;
+  errors: Generated<unknown[]>;
+  started_at: Generated<Timestamp>;
+  ended_at: Timestamp | null;
+}
+
+export interface SyncExternalIdsTable {
+  organisation_id: string;
+  connection_id: string;
+  entity_type: string;
+  external_id: string;
+  hexyrn_entity_id: string;
+  last_synced_at: Generated<Timestamp>;
+}
+
 export interface Database {
   installations: InstallationsTable;
   bootstrap_tokens: BootstrapTokensTable;
@@ -554,4 +831,28 @@ export interface Database {
   scheduled_jobs: ScheduledJobsTable;
   dispatch_queue: DispatchQueueTable;
   reference_widgets: ReferenceWidgetsTable;
+  dataset_definitions: DatasetDefinitionsTable;
+  dataset_relationships: DatasetRelationshipsTable;
+  saved_reports: SavedReportsTable;
+  report_templates: ReportTemplatesTable;
+  widget_definitions: WidgetDefinitionsTable;
+  dashboards: DashboardsTable;
+  dashboard_widgets: DashboardWidgetsTable;
+  export_jobs: ExportJobsTable;
+  scheduled_reports: ScheduledReportsTable;
+  search_entity_registrations: SearchEntityRegistrationsTable;
+  search_index: SearchIndexTable;
+  import_definitions: ImportDefinitionsTable;
+  import_jobs: ImportJobsTable;
+  service_accounts: ServiceAccountsTable;
+  api_credentials: ApiCredentialsTable;
+  webhook_endpoints: WebhookEndpointsTable;
+  webhook_deliveries: WebhookDeliveriesTable;
+  event_schemas: EventSchemasTable;
+  connector_registrations: ConnectorRegistrationsTable;
+  integration_connections: IntegrationConnectionsTable;
+  sync_ownership: SyncOwnershipTable;
+  field_mappings: FieldMappingsTable;
+  sync_runs: SyncRunsTable;
+  sync_external_ids: SyncExternalIdsTable;
 }
