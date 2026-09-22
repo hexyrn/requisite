@@ -205,6 +205,38 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       const res = await agent.get('/api/v1/organisation'); // no X-Hexyrn-CSRF header
       expect(res.status).toBe(200);
     });
+
+    // Regression test for a real bug found during Requisite UI manual testing
+    // (2026-09-22): SessionAuthGuard applied the CSRF check to @PublicRoute()
+    // handlers too whenever a still-valid session cookie happened to be
+    // present, so a logged-in user re-submitting the login form (e.g. a
+    // second browser tab, or returning to /login without logging out first)
+    // got "Missing or invalid CSRF token" even though the login form has no
+    // CSRF token to send yet - login isn't behind the synchronizer-token
+    // gate at all, by design (PUBLIC_ROUTE_KEY). Fixed by excluding
+    // @PublicRoute() handlers from the CSRF check regardless of session state.
+    it('re-submitting login while an existing valid session cookie is present succeeds without a CSRF header (public route, regression)', async () => {
+      const agent = request.agent(server());
+      const first = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      expect(first.status).toBe(201);
+
+      // Same agent (same session cookie jar) hits POST /auth/login again -
+      // a @PublicRoute() - with no X-Hexyrn-CSRF header. Must succeed, not 401.
+      const second = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      expect(second.status).toBe(201);
+      expect(second.body.csrfToken).toBeDefined();
+    });
+
+    // Companion test proving the fix did NOT weaken CSRF protection for any
+    // genuinely authenticated, non-public, state-changing route: it must
+    // still reject a missing CSRF header exactly as before.
+    it('a non-public authenticated mutating route still requires CSRF even after the public-route fix', async () => {
+      const agent = request.agent(server());
+      await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      const res = await agent.post('/api/v1/auth/logout'); // logout is NOT @PublicRoute() - no header sent
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/CSRF/i);
+    });
   });
 
   describe('Sessions', () => {
