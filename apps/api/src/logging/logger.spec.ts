@@ -44,4 +44,16 @@ describe('logStructured', () => {
     expect(parsed.context.nested.sessionToken).toBe('[REDACTED]');
     expect(parsed.context.nested.ok).toBe(true);
   });
+
+  describe('level (P3 item 22)', () => {
+    it('defaults to "info" when omitted - every pre-P3 call site keeps working unchanged', () => {
+      logStructured({ event: 'x' });
+      expect(JSON.parse(output[0]).level).toBe('info');
+    });
+
+    it('honours an explicitly set level', () => {
+      logStructured({ event: 'x', level: 'error' });
+      expect(JSON.parse(output[0]).level).toBe('error');
+    });
+  });
 });

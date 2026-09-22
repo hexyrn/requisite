@@ -47,6 +47,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       logStructured({
         event: 'http.request.error',
+        level: status >= 500 ? 'error' : 'warn',
         errorCode: `HTTP_${status}`,
         correlationId: referenceId,
         context: { path: request.url, method: request.method, status },
@@ -61,6 +62,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const err = exception instanceof Error ? exception : new Error(String(exception));
     logStructured({
       event: 'http.request.unhandled_error',
+      level: 'error',
       errorCode: 'INTERNAL_ERROR',
       correlationId: referenceId,
       context: {

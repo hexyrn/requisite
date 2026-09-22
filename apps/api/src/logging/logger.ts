@@ -8,8 +8,19 @@
  * emails, enforced by the type signature below (all fields are `string`
  * identifiers/enums, not free-form user-supplied strings).
  */
+/**
+ * P3 item 22: "useful levels." Defaults to 'info' when omitted (every
+ * pre-P3 call site keeps working unchanged) - callers that care about
+ * severity (the global exception filter, rate-limit warnings, etc.) set
+ * it explicitly. Deliberately a plain string union, not a numeric level,
+ * so a JSON log consumer (jq, a log aggregator) can filter on it directly
+ * without a lookup table.
+ */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 export interface LogEntry {
   event: string;
+  level?: LogLevel;
   userRef?: string | null;
   entityType?: string | null;
   entityRef?: string | null;
@@ -39,6 +50,7 @@ function redact(context: Record<string, unknown> | undefined): Record<string, un
 export function logStructured(entry: LogEntry): void {
   const line = {
     ts: new Date().toISOString(),
+    level: entry.level ?? 'info',
     event: entry.event,
     userRef: entry.userRef ?? null,
     entityType: entry.entityType ?? null,
