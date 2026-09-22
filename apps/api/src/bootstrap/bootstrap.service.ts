@@ -7,18 +7,9 @@ import { hashToken } from '../security/tokens';
 import { hashPassword } from '../security/passwords';
 import { AuditService } from '../audit/audit.service';
 import { ALL_CORE_PERMISSIONS } from '../rbac/permissions';
+import { CompleteBootstrapDto } from './dto';
 
-export interface CompleteBootstrapInput {
-  token: string;
-  organisationName: string;
-  organisationDisplayName: string;
-  defaultCurrency: string;
-  timezone: string;
-  locale: string;
-  financialYearStartMonth: number;
-  ownerEmail: string;
-  ownerPassword: string;
-}
+export type CompleteBootstrapInput = CompleteBootstrapDto;
 
 export interface CompleteBootstrapResult {
   organisationId: string;

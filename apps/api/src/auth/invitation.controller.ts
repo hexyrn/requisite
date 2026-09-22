@@ -8,6 +8,7 @@ import { RequirePermission } from '../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../rbac/permissions';
 import { RoleRepository } from '../rbac/role.repository';
 import { enforceRateLimit, invitationAcceptRateLimiters } from '../security/rate-limits';
+import { CreateInvitationDto, AcceptInvitationDto } from './invitation.dto';
 
 @Controller('api/v1/auth/invitations')
 export class InvitationController {
@@ -35,7 +36,7 @@ export class InvitationController {
    */
   @RequirePermission(CORE_PERMISSIONS.USERS_MANAGE)
   @Post()
-  async create(@Req() req: FastifyRequest, @Body() body: { email: string; roleIds?: string[] }) {
+  async create(@Req() req: FastifyRequest, @Body() body: CreateInvitationDto) {
     const organisationId = (req as any).currentOrganisationId;
     const actor = (req as any).currentUser;
     const roleIds = body.roleIds ?? [];
@@ -79,7 +80,7 @@ export class InvitationController {
 
   @PublicRoute()
   @Post('accept')
-  async accept(@Req() req: FastifyRequest, @Body() body: { token: string; password: string }) {
+  async accept(@Req() req: FastifyRequest, @Body() body: AcceptInvitationDto) {
     enforceRateLimit(invitationAcceptRateLimiters, body.token, req.ip);
     const organisationId = await this.installations.getPrimaryOrganisationId();
     return withOrgContext(organisationId, (db) =>

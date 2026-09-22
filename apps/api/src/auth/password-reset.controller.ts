@@ -10,6 +10,7 @@ import {
   passwordResetSubmitRateLimiters,
 } from '../security/rate-limits';
 import { logStructured } from '../logging/logger';
+import { RequestPasswordResetDto, SubmitPasswordResetDto } from './password-reset.dto';
 
 @Controller('api/v1/auth/password-reset')
 export class PasswordResetController {
@@ -32,7 +33,7 @@ export class PasswordResetController {
    */
   @PublicRoute()
   @Post('request')
-  async requestReset(@Req() req: FastifyRequest, @Body() body: { email: string }) {
+  async requestReset(@Req() req: FastifyRequest, @Body() body: RequestPasswordResetDto) {
     enforceRateLimit(passwordResetRequestRateLimiters, body.email, req.ip);
 
     const organisationId = await this.installations.getPrimaryOrganisationId();
@@ -65,7 +66,7 @@ export class PasswordResetController {
   @Post('submit')
   async submitReset(
     @Req() req: FastifyRequest,
-    @Body() body: { token: string; newPassword: string },
+    @Body() body: SubmitPasswordResetDto,
   ) {
     // Keyed by the token itself (opaque, high-entropy) rather than an
     // account, since we don't know which account it belongs to without

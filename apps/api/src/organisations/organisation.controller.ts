@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Patch, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { OrganisationService, UpdateOrganisationInput } from './organisation.service';
+import { OrganisationService } from './organisation.service';
+import { UpdateOrganisationDto } from './dto';
 import { withOrgContext } from '../db/org-context';
 import { RequirePermission, AuthenticatedOnly } from '../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../rbac/permissions';
@@ -18,7 +19,7 @@ export class OrganisationController {
 
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Patch()
-  async update(@Req() req: FastifyRequest, @Body() body: UpdateOrganisationInput) {
+  async update(@Req() req: FastifyRequest, @Body() body: UpdateOrganisationDto) {
     const organisationId = (req as any).currentOrganisationId;
     return withOrgContext(organisationId, (db) =>
       this.organisations.update(db, organisationId, body),

@@ -19,6 +19,7 @@ import {
   loginRateLimiters,
   mfaVerifyRateLimiters,
 } from '../security/rate-limits';
+import { LoginDto, MfaVerifyDto, MfaEnrollConfirmDto } from './dto';
 
 function cookieOptions() {
   return {
@@ -43,7 +44,7 @@ export class AuthController {
   @Post('login')
   async login(
     @Req() req: FastifyRequest,
-    @Body() body: { email: string; password: string },
+    @Body() body: LoginDto,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
     // Rate limiting BEFORE any DB work - both dimensions (Architecture-
@@ -97,7 +98,7 @@ export class AuthController {
   @Post('mfa/verify')
   async verifyMfa(
     @Req() req: FastifyRequest,
-    @Body() body: { code: string },
+    @Body() body: MfaVerifyDto,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
     const organisationId = await this.installations.getPrimaryOrganisationId();
@@ -183,7 +184,7 @@ export class AuthController {
   @Post('mfa/enroll/confirm')
   async confirmMfaEnrolment(
     @Req() req: FastifyRequest,
-    @Body() body: { secret: string; code: string },
+    @Body() body: MfaEnrollConfirmDto,
   ) {
     const organisationId = (req as any).currentOrganisationId;
     const user = (req as any).currentUser;
