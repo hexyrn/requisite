@@ -49,6 +49,22 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/\S+$/;
 
 /**
+ * `pg` special-cases a bare JS array bound parameter as a native Postgres
+ * ARRAY literal (e.g. `{a,b,c}`), even when the target column is `jsonb` -
+ * this is correct for a real array-typed column (like `invitations.role_ids
+ * UUID[]`) but wrong for a jsonb column, where a top-level array value must
+ * be sent as JSON text (`["a","b","c"]`) instead. A plain object bound
+ * parameter is NOT affected (pg serializes it to JSON correctly either way),
+ * so this helper is only needed for values that might be a bare array.
+ * Found empirically: `custom_field_definitions.select_options` (jsonb)
+ * threw "invalid input syntax for type json" until values were run through
+ * this helper before binding.
+ */
+function toJsonbParam(value: unknown): unknown {
+  return Array.isArray(value) ? JSON.stringify(value) : value;
+}
+
+/**
  * Custom field engine. Architecture §2, P1 item 5. JSONB is the canonical
  * store (`custom_field_values.values`); this service and
  * `CustomFieldQueryProvider` below are the ONLY code in Core (or any app)
@@ -72,7 +88,7 @@ export class CustomFieldService {
         help_text: input.helpText ?? null,
         field_type: input.fieldType,
         is_required: input.isRequired ?? false,
-        default_value: (input.defaultValue ?? null) as any,
+        default_value: toJsonbParam(input.defaultValue ?? null) as any,
         validation: (input.validation ?? null) as any,
         visibility: input.visibility ?? 'visible',
         ordering: input.ordering ?? 0,
@@ -83,7 +99,7 @@ export class CustomFieldService {
         is_reportable: input.isReportable ?? false,
         is_exportable: input.isExportable ?? true,
         classification: input.classification ?? 'internal',
-        select_options: (input.selectOptions ?? null) as any,
+        select_options: toJsonbParam(input.selectOptions ?? null) as any,
       })
       .onConflict((oc) =>
         oc.columns(['organisation_id', 'app_id', 'entity_type', 'key']).doUpdateSet({
