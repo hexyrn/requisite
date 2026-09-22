@@ -9,6 +9,7 @@ import { InstallationService } from './bootstrap/installation.service';
 import { ApplicationRegistryService } from './platform/app-registry/application-registry.service';
 import { registerReferenceApp } from './apps/reference/reference.manifest';
 import { registerRequisiteApp } from './apps/requisite/requisite.manifest';
+import { registerRequisiteP2Extensions } from './apps/requisite/requisite-p2-extensions';
 import { JobHandlerRegistryService } from './platform/scheduling/scheduled-job.service';
 import { ScheduledReportService, SCHEDULED_REPORT_JOB_TYPE } from './platform/reporting/scheduled-report.service';
 import { ConnectorRegistryService } from './platform/integrations/connector-registry.service';
@@ -102,6 +103,14 @@ async function bootstrap() {
   const registry = app.get(ApplicationRegistryService);
   await registerReferenceApp(registry);
   await registerRequisiteApp(registry);
+  await registerRequisiteP2Extensions(
+    app.get(DatasetService),
+    app.get(SavedReportService),
+    app.get(DashboardService),
+    app.get(SearchService),
+    app.get(ImportService),
+    app.get(ImportHandlerRegistryService),
+  );
 
   // Wires the Scheduled Reports (P2 item 8) job handler into the SAME P1
   // job-handler registry every other background job type uses - see
