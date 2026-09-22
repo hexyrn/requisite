@@ -14,16 +14,16 @@ import { getPool } from '../db/pool';
 @Injectable()
 export class InstallationRepository {
   async getPrimaryOrganisationId(pool: Pool = getPool()): Promise<string> {
+    // Deliberately does not call db.destroy() - `pool` is shared/caller-owned
+    // (see the identical, empirically-found bug and note in
+    // installation.service.ts). Destroying it here would end the pool for
+    // every other concurrent caller.
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
-    try {
-      const installation = await db.selectFrom('installations').selectAll().executeTakeFirst();
-      const config = installation?.config as { primaryOrganisationId?: string } | undefined;
-      if (!installation || !config?.primaryOrganisationId) {
-        throw new NotFoundException('No organisation has been set up yet. Complete bootstrap first.');
-      }
-      return config.primaryOrganisationId;
-    } finally {
-      await db.destroy();
+    const installation = await db.selectFrom('installations').selectAll().executeTakeFirst();
+    const config = installation?.config as { primaryOrganisationId?: string } | undefined;
+    if (!installation || !config?.primaryOrganisationId) {
+      throw new NotFoundException('No organisation has been set up yet. Complete bootstrap first.');
     }
+    return config.primaryOrganisationId;
   }
 }

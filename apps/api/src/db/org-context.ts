@@ -7,14 +7,44 @@ import { getPool, resetConnectionState } from './pool';
  * Wraps a single already-checked-out PoolClient so Kysely can be pointed at
  * exactly that connection for the lifetime of one transaction, instead of
  * Kysely managing its own pool checkout/release. This is what lets us
- * guarantee `SET LOCAL app.current_organisation_id` and every query issued
- * through `db` inside withOrgContext's callback share the same physical
- * connection - the property the whole RLS design in Architecture §8 depends
- * on. Release is a no-op here because withOrgContext owns release/cleanup.
+ * guarantee `set_config('app.current_organisation_id', ...)` and every query
+ * issued through `db` inside withOrgContext's callback share the same
+ * physical connection - the property the whole RLS design in Architecture §8
+ * depends on.
+ *
+ * IMPORTANT (found empirically against real Postgres, not assumed): Kysely's
+ * PostgresDriver calls `connection.release()` after EVERY top-level query
+ * that isn't inside an explicit `db.transaction()` block - it treats each
+ * query as its own acquire/release cycle against whatever "pool" it's given.
+ * Since withOrgContext issues several separate top-level queries against the
+ * SAME pinned client across one BEGIN/COMMIT window (not via
+ * `db.transaction()`, because we need `set_config` to run as the literal
+ * first statement before Kysely's own transaction machinery starts), handing
+ * Kysely the real client caused it to call the real `client.release()` after
+ * the FIRST query - so our own, later, deliberate release in withOrgContext's
+ * finally block became a double-release and pg-pool threw "Release called on
+ * client which has already been released to the pool."
+ *
+ * Fix: give Kysely a proxy that forwards everything except `release()`,
+ * which becomes a no-op. Only withOrgContext's own finally block (holding
+ * the real, unproxied `client` reference) ever calls the real release - so
+ * there is still exactly ONE physical connection for the whole transaction,
+ * and exactly ONE real release, at the end, with our DISCARD ALL safety net
+ * in front of it.
  */
 function singleConnectionPool(client: PoolClient): Pool {
+  const releaseSwallowingProxy = new Proxy(client, {
+    get(target, prop, receiver) {
+      if (prop === 'release') {
+        return () => undefined;
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  }) as PoolClient;
+
   return {
-    connect: async () => client,
+    connect: async () => releaseSwallowingProxy,
     // Kysely calls end() only if it owns the pool lifecycle - it doesn't here.
     end: async () => undefined,
     on: () => undefined,
@@ -48,6 +78,23 @@ export async function withOrgContext<T>(
   }
 
   const client = await pool.connect();
+  // A checked-out pg Client emits its OWN 'error' event (distinct from the
+  // pool's idle-client 'error') when its connection drops while in use -
+  // e.g. the backend is killed mid-transaction. Node's EventEmitter throws
+  // if an 'error' event has no listener, which surfaces as an unhandled
+  // rejection that can crash the process. Found empirically while testing
+  // connection-drop handling (§8.2 matrix item 4). We already detect and
+  // react to the failure via the thrown query error below; this listener
+  // exists solely to stop that *duplicate* 'error' emission from being
+  // unhandled - it intentionally does nothing beyond that. IMPORTANT: `pg`
+  // reuses the same physical Client object across many pool.connect() calls
+  // for the life of the pool, so this listener MUST be removed in the
+  // finally block below - leaving it attached forever accumulates one
+  // listener per withOrgContext call on the same reused client and trips
+  // Node's MaxListenersExceededWarning (found empirically running the full
+  // suite: "11 error listeners added to [Client]").
+  const swallowClientError = () => undefined;
+  client.on('error', swallowClientError);
   const db = new Kysely<Database>({
     dialect: new PostgresDialect({ pool: singleConnectionPool(client) }),
   });
@@ -56,7 +103,14 @@ export async function withOrgContext<T>(
   try {
     await client.query('BEGIN');
     try {
-      await client.query('SET LOCAL app.current_organisation_id = $1', [organisationId]);
+      // NOTE: `SET LOCAL x = $1` is not valid Postgres syntax - SET/SET LOCAL
+      // only accept a literal, not a bind parameter (confirmed empirically:
+      // it throws "syntax error at or near $1"). set_config() is a regular
+      // function, so it DOES accept a bind parameter, and with is_local=true
+      // it is exactly equivalent to SET LOCAL (transaction-scoped, reverts
+      // on COMMIT/ROLLBACK) - this is the correct, injection-safe way to set
+      // a parameterized GUC per Postgres's own documentation.
+      await client.query("SELECT set_config('app.current_organisation_id', $1, true)", [organisationId]);
     } catch (err) {
       // Treat inability to set org context as a hard failure - never proceed
       // without it (fail closed).
@@ -81,6 +135,7 @@ export async function withOrgContext<T>(
     throw err;
   } finally {
     await db.destroy().catch(() => undefined);
+    client.removeListener('error', swallowClientError);
     if (connectionIsHealthy) {
       try {
         await resetConnectionState(client);
@@ -104,6 +159,8 @@ export async function withNoOrgContext<T>(
   pool: Pool = getPool(),
 ): Promise<T> {
   const client = await pool.connect();
+  const swallowClientError = () => undefined;
+  client.on('error', swallowClientError); // see the identical note in withOrgContext above
   const db = new Kysely<Database>({
     dialect: new PostgresDialect({ pool: singleConnectionPool(client) }),
   });
@@ -111,6 +168,7 @@ export async function withNoOrgContext<T>(
     return await fn(db);
   } finally {
     await db.destroy().catch(() => undefined);
+    client.removeListener('error', swallowClientError);
     await resetConnectionState(client).catch(() => undefined);
     client.release();
   }

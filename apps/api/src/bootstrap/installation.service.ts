@@ -28,6 +28,16 @@ export interface EnsureInstallationResult {
 @Injectable()
 export class InstallationService {
   async ensureInstallation(pool: Pool = getPool()): Promise<EnsureInstallationResult> {
+    // NOTE: deliberately do NOT call db.destroy() in a finally block here.
+    // Kysely's PostgresDialect.destroy() calls pool.end() on whatever pool
+    // it was given - since `pool` is the shared, caller-owned pool (the
+    // default is the process-wide getPool() singleton, and tests pass in
+    // their own shared pool used across many calls), destroying this
+    // throwaway Kysely wrapper would end the SHARED pool out from under
+    // every other concurrent/future caller. This is a real bug that was
+    // caught empirically (tests failed with "Cannot use a pool after
+    // calling end on the pool") - the pool's lifecycle belongs to whoever
+    // constructed/injected it, never to a function that merely borrows it.
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     try {
       const existing = await db.selectFrom('installations').selectAll().executeTakeFirst();
@@ -54,7 +64,7 @@ export class InstallationService {
 
       return { installationId: installation.id, plaintextBootstrapToken: plaintextToken };
     } finally {
-      await db.destroy();
+      // See the note above the `db` declaration - never destroy a shared pool here.
     }
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../db/types';
 import { verifyPassword, hashPassword } from '../security/passwords';
@@ -14,6 +14,10 @@ export interface LoginResult {
   session: SessionRecord;
 }
 
+export type LoginFailureReason = 'unknown-account' | 'locked' | 'inactive' | 'bad-password';
+
+export type LoginOutcome = ({ ok: true } & LoginResult) | { ok: false; reason: LoginFailureReason };
+
 /**
  * Authentication. P0 item 12. Brute-force lockout is enforced here
  * (per-account failed_login_count + locked_until); endpoint-level rate
@@ -28,12 +32,28 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * IMPORTANT: this method never throws for an *expected* authentication
+   * failure (unknown account, locked, inactive, bad password) - it returns
+   * `{ ok: false, reason }` instead. This was a real bug found via
+   * integration testing against real Postgres: withOrgContext (correctly,
+   * per Architecture §8 matrix item 3) rolls back the ENTIRE transaction on
+   * any thrown error. Throwing UnauthorizedException/ForbiddenException from
+   * inside the org-context transaction therefore silently rolled back the
+   * very failed-login-counter increment and audit event this method exists
+   * to record - brute-force lockout never actually engaged, and the
+   * `auth.login.failed` audit trail (an explicit P0 item 21 requirement) was
+   * being lost on every failed attempt. Returning a result instead of
+   * throwing lets the transaction commit normally; the CALLER (see
+   * AuthController) inspects `ok`/`reason` and raises the appropriate HTTP
+   * exception only after the bookkeeping has already been persisted.
+   */
   async login(
     db: Kysely<Database>,
     organisationId: string,
     email: string,
     password: string,
-  ): Promise<LoginResult> {
+  ): Promise<LoginOutcome> {
     const user = await db
       .selectFrom('user_accounts')
       .selectAll()
@@ -45,24 +65,24 @@ export class AuthService {
     // avoid user-enumeration via response timing/shape differences.
     if (!user) {
       await this.recordFailedLogin(db, organisationId, null, 'unknown-account');
-      throw new UnauthorizedException('Invalid email or password.');
+      return { ok: false, reason: 'unknown-account' };
     }
 
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       await this.recordFailedLogin(db, organisationId, user.id, 'locked');
-      throw new ForbiddenException('Account is temporarily locked due to repeated failed sign-in attempts.');
+      return { ok: false, reason: 'locked' };
     }
 
     if (!user.is_active) {
       await this.recordFailedLogin(db, organisationId, user.id, 'inactive');
-      throw new ForbiddenException('Account is deactivated.');
+      return { ok: false, reason: 'inactive' };
     }
 
     const valid = await verifyPassword(user.password_hash, password);
     if (!valid) {
       await this.registerFailedAttempt(db, user.id, user.failed_login_count);
       await this.recordFailedLogin(db, organisationId, user.id, 'bad-password');
-      throw new UnauthorizedException('Invalid email or password.');
+      return { ok: false, reason: 'bad-password' };
     }
 
     // Successful login resets the failed-attempt counter and rotates the session
@@ -83,7 +103,7 @@ export class AuthService {
       entityRef: user.id,
     });
 
-    return { userAccountId: user.id, requiresMfa: user.mfa_enabled, session };
+    return { ok: true, userAccountId: user.id, requiresMfa: user.mfa_enabled, session };
   }
 
   async logout(db: Kysely<Database>, organisationId: string, sessionId: string, userAccountId: string): Promise<void> {

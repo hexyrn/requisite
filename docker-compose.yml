@@ -1,3 +1,9 @@
+# Local dev/test Postgres via Docker. If Docker isn't available in your
+# environment, a native Postgres install works too - see the note in
+# .env.example about TEST_DATABASE_URL for what that setup needs to look
+# like (separate dev/test databases, a non-superuser role without BYPASSRLS
+# so RLS is genuinely exercised). This compose file is not required to run
+# the app or its tests, only convenient if Docker works for you.
 version: '3.8'
 
 services:

@@ -32,6 +32,7 @@ import { Pool } from 'pg';
 import { sql } from 'kysely';
 import { randomUUID } from 'crypto';
 import { withOrgContext, withNoOrgContext, OrgContextRequiredError } from '../org-context';
+import { attachPoolErrorHandler } from '../pool';
 import { setUpTestDatabase } from '../../test-utils/test-db';
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
@@ -80,7 +81,7 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   }
 
   beforeAll(async () => {
-    adminPool = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+    adminPool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 1 }));
     await setUpTestDatabase(adminPool);
     orgA = await createOrg('Org A');
     orgB = await createOrg('Org B');
@@ -213,7 +214,7 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('4. database/connection error: a connection of uncertain state is destroyed, not returned to the pool', async () => {
-    const isolatedPool = new Pool({ connectionString: TEST_DATABASE_URL, max: 2 });
+    const isolatedPool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 2 }));
     try {
       await expect(
         withOrgContext(
@@ -244,7 +245,7 @@ describeIfDb('Architecture §8.2 RLS / organisation-context security matrix', ()
   });
 
   it('5. concurrent requests for different organisations never cross-contaminate (stress, small pool)', async () => {
-    const smallPool = new Pool({ connectionString: TEST_DATABASE_URL, max: 3 });
+    const smallPool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));
     try {
       const tasks = Array.from({ length: 30 }, (_, i) => {
         const org = i % 2 === 0 ? orgA : orgB;

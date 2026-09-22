@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { setUpTestDatabase } from '../../test-utils/test-db';
+import { attachPoolErrorHandler } from '../../db/pool';
 import { InstallationService } from '../installation.service';
 import { BootstrapService } from '../bootstrap.service';
 import { AuditService } from '../../audit/audit.service';
@@ -12,7 +13,7 @@ describeIfDb('Bootstrap: secure one-time setup token (P0 item 6)', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 3 });
+    pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));
     await setUpTestDatabase(pool);
   }, 60000);
 

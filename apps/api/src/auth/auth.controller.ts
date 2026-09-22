@@ -8,7 +8,7 @@ import { PublicRoute } from '../http/session-auth.guard';
 import { AuthenticatedOnly } from '../rbac/permission.guard';
 import { encodeSessionCookie, decodeSessionCookie, SESSION_COOKIE_NAME } from '../http/session-cookie';
 import { SessionService } from '../sessions/session.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 
 function cookieOptions() {
   return {
@@ -35,15 +35,30 @@ export class AuthController {
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
     const organisationId = await this.installations.getPrimaryOrganisationId();
-    const result = await withOrgContext(organisationId, (db) =>
+    const outcome = await withOrgContext(organisationId, (db) =>
       this.auth.login(db, organisationId, body.email, body.password),
     );
 
-    res.setCookie(SESSION_COOKIE_NAME, encodeSessionCookie(organisationId, result.session.id), cookieOptions());
+    // The failure-bookkeeping (lockout counter, audit event) has already
+    // been committed by AuthService.login regardless of outcome - see the
+    // comment on that method. Only NOW do we decide what to tell the caller.
+    if (!outcome.ok) {
+      if (outcome.reason === 'locked') {
+        throw new ForbiddenException('Account is temporarily locked due to repeated failed sign-in attempts.');
+      }
+      if (outcome.reason === 'inactive') {
+        throw new ForbiddenException('Account is deactivated.');
+      }
+      // 'unknown-account' and 'bad-password' get the same message/shape -
+      // no user-enumeration via response differences.
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    res.setCookie(SESSION_COOKIE_NAME, encodeSessionCookie(organisationId, outcome.session.id), cookieOptions());
 
     return {
-      requiresMfa: result.requiresMfa,
-      csrfToken: result.session.csrfToken,
+      requiresMfa: outcome.requiresMfa,
+      csrfToken: outcome.session.csrfToken,
     };
   }
 

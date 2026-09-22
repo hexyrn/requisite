@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import { setUpTestDatabase } from '../../test-utils/test-db';
 import { withOrgContext } from '../../db/org-context';
+import { attachPoolErrorHandler } from '../../db/pool';
 import { PasswordResetService } from '../password-reset.service';
 import { InvitationService } from '../invitation.service';
 import { SessionService } from '../../sessions/session.service';
@@ -17,7 +18,7 @@ describeIfDb('Password reset and invitations - single-use, expiring, hashed toke
   const invitations = new InvitationService();
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 5 });
+    pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 5 }));
     await setUpTestDatabase(pool);
     orgId = randomUUID();
     await withOrgContext(orgId, async (db) => {
@@ -83,9 +84,12 @@ describeIfDb('Password reset and invitations - single-use, expiring, hashed toke
   });
 
   it('invitation token can be accepted exactly once, and the invited user sets their own password', async () => {
+    const inviter = await withOrgContext(orgId, (db) =>
+      db.insertInto('user_accounts').values({ organisation_id: orgId, email: 'admin1@test.local', password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(),
+    pool);
     const result = await withOrgContext(
       orgId,
-      (db) => invitations.createInvitation(db, orgId, randomUUID(), 'invitee@test.local', [], false, 'https://app.example.test'),
+      (db) => invitations.createInvitation(db, orgId, inviter.id, 'invitee@test.local', [], false, 'https://app.example.test'),
       pool,
     );
     expect(result.invitationUrlForAdmin).toBeDefined(); // SMTP not configured -> URL surfaced to admin, per P0 item 15.
@@ -100,9 +104,12 @@ describeIfDb('Password reset and invitations - single-use, expiring, hashed toke
   });
 
   it('invitation token is rejected once expired', async () => {
+    const inviter = await withOrgContext(orgId, (db) =>
+      db.insertInto('user_accounts').values({ organisation_id: orgId, email: 'admin2@test.local', password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(),
+    pool);
     const result = await withOrgContext(
       orgId,
-      (db) => invitations.createInvitation(db, orgId, randomUUID(), 'expiredinvite@test.local', [], false, 'https://app.example.test'),
+      (db) => invitations.createInvitation(db, orgId, inviter.id, 'expiredinvite@test.local', [], false, 'https://app.example.test'),
       pool,
     );
     const token = new URL(result.invitationUrlForAdmin!).searchParams.get('token')!;
