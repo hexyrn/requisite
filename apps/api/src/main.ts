@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { GlobalExceptionFilter } from './http/global-exception.filter';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
@@ -66,6 +67,13 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // P3 item 13/23: global exception filter - every uncaught error now gets
+  // a consistent reference ID surfaced to the caller and full detail
+  // logged server-side, and a raw (non-HttpException) error's message/
+  // stack is never sent to the client. See global-exception.filter.ts's
+  // doc comment for the full rationale.
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Security headers - Architecture §6.
   app
