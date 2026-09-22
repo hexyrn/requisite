@@ -122,3 +122,70 @@ workflow instance) never appears in any Requisite HTTP response - request/
 response bodies use plain domain fields (`status`, `requisition_number`,
 `estimated_value_minor`, etc.), matching item 34's requirement even
 without a UI to visually confirm it in.
+
+## UI Completion phase update
+
+A real React customer-facing UI was subsequently built on top of the
+existing Core frontend shell, closing most of the above. Items 34-36 are
+now genuinely confirmed with a rendered UI, not just an API proof, via
+the Playwright E2E suite (`e2e/tests/requisite-lifecycle.spec.ts`).
+
+### Frontend security review (item 27)
+
+- **XSS**: no `dangerouslySetInnerHTML` anywhere in the Requisite frontend
+  (`grep -rn dangerouslySetInnerHTML apps/web/src` returns nothing) -
+  supplier names, requisition purposes, filenames, and comments are all
+  rendered through normal JSX text interpolation, which React escapes
+  unconditionally.
+- **Sensitive data in browser persistence**: no `localStorage`,
+  `sessionStorage`, or direct `document.cookie` access anywhere in the
+  Requisite frontend - the session remains an httpOnly cookie (P0), and
+  the CSRF token lives only in an in-memory JS variable for the lifetime
+  of one page load (see the E2E test's own commentary on why this means
+  every navigation must be a client-side route change, never a full
+  reload, mid-session).
+- **Malicious filenames**: the real multipart upload path relies entirely
+  on Core `FileService`'s existing protections (random server-generated
+  `storage_key`, never the client filename; MIME-sniffed against actual
+  bytes) - the frontend never constructs a filesystem path from a
+  filename, and `original_filename` is only ever rendered as plain text.
+- **CSRF**: every non-GET Requisite request (including the new multipart
+  upload) carries the `X-Hexyrn-CSRF` header via the existing synchronizer
+  token check.
+- **Permission assumptions**: the UI hides actions it doesn't expect to
+  succeed (no Approve button without the pending step, no Generate PO
+  before 'approved') as a UX convenience only - every action is still
+  independently enforced server-side (proven throughout the backend
+  phase's security review), and self-approval is blocked in the backend
+  regardless of what the UI shows.
+- **Not yet reviewed**: URL injection in file-attachment `href`s beyond
+  the one PDF-download link exercised by the E2E test; no dedicated
+  fuzzing of supplier-name/description fields for markup-like content was
+  performed (React's default escaping makes stored XSS structurally
+  unlikely, but this was not independently proven with an adversarial
+  input test).
+
+### Responsive/accessibility status (items 22/23)
+
+- **Confirmed**: `Input`'s label-association bug (missing `htmlFor`/`id`
+  when neither `id` nor `name` was set) was found and fixed at the Core
+  Design System level, affecting every existing Input usage, not just
+  Requisite's fast-editing line rows. `StatusBadge` never conveys status
+  by colour alone (always renders the text label). All primary flows use
+  real `<label>`/`aria-label` associations, exercised implicitly by every
+  `getByLabel(...)` call succeeding in both the Vitest component tests
+  and the Playwright E2E run (a mislabeled control would have failed
+  those locators).
+- **Not done**: no systematic WCAG 2.2 AA audit (automated tooling such as
+  axe-core, or a manual screen-reader pass) was run against any screen;
+  no dedicated tablet/mobile viewport testing was performed (the design
+  system's layouts use CSS grid/flexbox with reasonable wrapping, but this
+  is an untested assumption, not a verified claim); colour contrast
+  ratios were not measured against WCAG thresholds. This is genuine
+  remaining debt, not a silent gap - see the phase report's verdict.
+
+### Requisite v1 UI verdict (superseding any earlier partial-progress note)
+
+See the final UI-completion phase report for the authoritative verdict;
+this file's job is the running technical record, not the sign-off
+statement itself.
