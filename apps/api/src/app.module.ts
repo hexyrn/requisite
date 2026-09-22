@@ -26,6 +26,8 @@ import { AppStateController } from './platform/app-registry/app-state.controller
 import { ReportsController } from './platform/reporting/reports.controller';
 import { SmtpController } from './platform/smtp/smtp.controller';
 import { SmtpConfigService } from './platform/smtp/smtp-config.service';
+import { HealthDiagnosticsController } from './platform/health/health-diagnostics.controller';
+import { HealthDiagnosticsService } from './platform/health/health-diagnostics.service';
 import { PlatformModule } from './platform/platform.module';
 import { ApplicationActiveGuard } from './platform/app-registry/application-active.guard';
 import { ReferenceAppModule } from './apps/reference/reference.module';
@@ -43,10 +45,12 @@ import { RequisiteAppModule } from './apps/requisite/requisite.module';
     AppStateController,
     ReportsController,
     SmtpController,
+    HealthDiagnosticsController,
   ],
   providers: [
     AuditService,
     SmtpConfigService,
+    HealthDiagnosticsService,
     SessionService,
     RoleRepository,
     AuthService,
