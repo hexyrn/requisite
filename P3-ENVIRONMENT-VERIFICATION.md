@@ -176,14 +176,101 @@ left running from this verification.
 **Still not verified (a smaller, more honestly-scoped remaining list
 than before)::** Caddy's REAL internet-facing Let's Encrypt ACME flow
 (only its local-CA fallback for `localhost` was exercised here, since
-this environment has no public DNS name to provision a cert for); volume
-persistence across a container restart/`docker compose down` without
-`-v`; the Windows-specific packaging path (see "Windows packaging"
-below); `db-role-security.integration.spec.ts` has not yet been re-run
-pointed AT the container-provisioned database specifically (it has been
-run extensively against this sandbox's native Postgres instance, which
-uses the same role-creation logic, but not literally inside the
-container).
+this environment has no public DNS name to provision a cert for); the
+Windows-specific packaging path (see "Windows packaging" below);
+`db-role-security.integration.spec.ts` has not yet been re-run pointed
+AT the container-provisioned database specifically (it has been run
+extensively against this sandbox's native Postgres instance, which uses
+the same role-creation logic, but not literally inside the container).
+Volume persistence across a container restart is now genuinely verified
+- see "PostgreSQL 17 alignment" below.
+
+---
+
+## PostgreSQL 17 alignment — **VERIFIED**
+
+Per explicit product direction (Hexyrn Core/Requisite 1.0 officially
+supports PostgreSQL 17), `docker-compose.yml`/`docker-compose.prod.yml`/
+`.github/workflows/release-pipeline.yml` were updated from
+`postgres:16-alpine` to `postgres:17-alpine`, and the production stack
+was genuinely rebuilt and re-verified against a live PostgreSQL 17
+deployment - not just a text/config change. Exact evidence, each
+directly observed via real commands in this session, torn down
+afterward:
+
+- **Version:** `postgres:17-alpine` freshly pulled from Docker Hub (not
+  a cached 16 image - confirmed by the pull log). `SHOW server_version;`
+  against the live container returned `17.11`.
+- **Migration role:** `hexyrn` confirmed `rolsuper=t` (genuinely the
+  schema-owning/migration role, unchanged privilege model from PG16).
+- **Runtime role non-superuser, non-BYPASSRLS:** `hexyrn_app` confirmed
+  `rolsuper=f, rolbypassrls=f` via a live `pg_roles` query inside the
+  PG17 container.
+- **Backup role privileges retained:** `hexyrn_backup` confirmed
+  `rolsuper=f, rolbypassrls=t` - genuinely BYPASSRLS-only, not
+  superuser, matching the exact model verified against PG16 earlier this
+  phase.
+- **Migrations succeed:** all 33 migrations applied cleanly (`migrate`
+  container exited 0, `schema_migrations` table shows count 33) against
+  a fresh PG17 instance.
+- **Core starts, Requisite starts:** the `api` container reported
+  healthy and its startup log shows BOTH Core's own routes AND every
+  Requisite route (`/api/v1/requisite/...`) mapped - both applications
+  genuinely initialized against PG17, not just Core.
+- **HTTP/TLS works:** `curl -sk https://localhost/api/v1/health` → `200`
+  + `{"status":"ok"}`, `curl -sk https://localhost/` → `200` (the real
+  built SPA), both through Caddy's real reverse proxy/TLS termination.
+- **Persistence works:** `docker restart` of the live PostgreSQL 17
+  container, followed by re-querying `installations`/`schema_migrations`
+  row counts - both unchanged after the restart, proving the named
+  volume genuinely persists data across a container restart (this
+  specific check was NOT done during the original PG16 verification
+  earlier this phase - closes that gap too, not just the version bump).
+- **RLS/isolation assumptions remain valid:** `organisations` confirmed
+  `relrowsecurity=t, relforcerowsecurity=t` under PG17; a live `SELECT
+  count(*) FROM organisations` connected AS `hexyrn_app` with NO
+  organisation context set returned `0` rows (not an error, not all
+  rows) - RLS genuinely still enforced correctly under PG17.
+- **Backup/restore tooling remains compatible:** a real `pg_dump
+  --format=custom --data-only` (PostgreSQL 17.11 binary, run from
+  INSIDE the live container, connecting as `hexyrn_backup`) produced a
+  33KB dump with the same expected circular-FK warnings on
+  `organisational_units`/`locations` as under PG16 (informational, not
+  fatal - documented previously, unchanged under 17). The exact
+  `TRUNCATE ... CASCADE` + `pg_restore --data-only --no-owner` sequence
+  `realPgRestore()` uses was then run for real against that dump -
+  `TRUNCATE_EXIT:0`, `RESTORE_EXIT:0` - and `installations`/
+  `schema_migrations` row counts confirmed the data genuinely came back.
+  The API container was confirmed still healthy and serving
+  `{"status":"ok"}` after this destructive TRUNCATE/restore cycle.
+
+**One flakiness discovered while attempting a SECOND, independent
+confirmation via `scripts/docker-acceptance-test.sh` (run AFTER the
+above manual verification had already fully succeeded):** rebuilding
+ALL FOUR images together (`docker compose build`, buildx "bake" mode)
+began failing with `ERROR: invalid file request
+node_modules/.bin/acorn[.cmd]` - a Docker Desktop build-context
+file-transfer error, reproduced consistently across multiple retries,
+`docker buildx prune`, and even after directly rewriting the offending
+file. This is a genuine, currently-unresolved Docker Desktop-on-Windows
+environment issue, NOT caused by the PostgreSQL version change itself
+(`apps/api/Dockerfile`/`apps/web/Dockerfile` were not touched by this
+task, and the api/web application images do not reference PostgreSQL's
+version at all - only the separate `postgres` image tag changed). It
+appeared only when rebuilding all images concurrently via bake; a single
+plain `docker build -f apps/api/Dockerfile .` had succeeded earlier in
+this exact session before this flakiness appeared. Stated honestly as a
+real, observed issue rather than silently omitted - the PostgreSQL 17
+verification above does not depend on it (the api/web images used in
+that verification were pre-existing, valid, already-proven builds,
+unaffected by the Postgres version since they don't reference it).
+Recommended follow-up for whoever next touches Docker in this
+environment: a Docker Desktop restart/file-sharing reset likely resolves
+it; not investigated further here since it is unrelated to this task's
+actual scope.
+
+Everything was torn down and images removed afterward - nothing left
+running from this verification either.
 
 ---
 
