@@ -102,11 +102,26 @@
         ErrorControl="normal"
         Account="LocalSystem" />
       <!-- Account="LocalSystem" is a placeholder, not a final decision -
-           see docs/WINDOWS_INSTALLER_DESIGN.md's "service account"
-           section: a dedicated least-privilege service account is the
-           right target for a real release, LocalSystem is the
-           conservative starting point that is guaranteed to work while
-           that's finalised. -->
+           see docs/WINDOWS_INSTALLER_DESIGN.md's "Windows Service
+           account" section: TWO dedicated least-privilege service
+           accounts (one for this service, one for the bundled
+           PostgreSQL service below) are the right target for a real
+           release, LocalSystem is the conservative starting point that
+           is guaranteed to work while that's finalised on the real
+           Windows round. -->
+      <!-- TODO (real Windows round, per the product direction to bundle
+           PostgreSQL - see docs/WINDOWS_INSTALLER_DESIGN.md's
+           "PostgreSQL bundling strategy" section, now DECIDED not
+           open): add a second <ServiceInstall>/<ServiceControl> pair
+           here for the bundled PostgreSQL service (Name="HexyrnPostgreSQL"
+           or similar), registered via pg_ctl or an equivalent WiX
+           element, installed/started BEFORE this service (Hexyrn Core
+           needs the database reachable at first boot) and stopped AFTER
+           it on shutdown. Not added yet because it requires real
+           PostgreSQL binaries to harvest/reference, which this sandbox
+           cannot download - see that doc's "Stop conditions" for the
+           two concrete open questions (binaries code-signing status,
+           PostgreSQL/Docker major-version alignment) to resolve first. -->
       <ServiceControl
         Id="HexyrnCoreServiceControl"
         Name="HexyrnCore"
@@ -130,15 +145,22 @@
       <CreateFolder Directory="HexyrnStorageFolder" />
       <CreateFolder Directory="HexyrnBackupsFolder" />
       <CreateFolder Directory="HexyrnConfigFolder" />
+      <!-- TODO (real Windows round): add a HexyrnPostgresDataFolder
+           CreateFolder here too, per docs/WINDOWS_INSTALLER_DESIGN.md's
+           now-DECIDED "Data directory" section
+           (%ProgramData%\Hexyrn Core\postgresql-data\) - not added yet
+           since the bundled-PostgreSQL components themselves aren't
+           built here (see the ServiceInstall TODO above). -->
       <!-- Uninstall behaviour for these folders is deliberately NOT
            "always delete" - see docs/WINDOWS_INSTALLER_DESIGN.md's
            uninstall section: this mirrors scripts/uninstall-docker.sh's
-           two-step confirm (remove the app, keep data unless a SEPARATE
+           two-step confirm (remove the app, keep data - including,
+           once added, the PostgreSQL data directory - unless a SEPARATE
            explicit choice says otherwise). A real WiX implementation of
            that choice needs a UI dialog sequence (a Burn bundle, not a
-           bare MSI) - not designed further here since it depends on
-           decisions (embedded vs. external Postgres, primarily) that
-           are still open, per docs/WINDOWS_INSTALLER_DESIGN.md.
+           bare MSI) - real Windows-round implementation work, not a
+           still-open design decision (the PostgreSQL bundling question
+           itself is now decided, see docs/WINDOWS_INSTALLER_DESIGN.md).
       -->
     </Component>
   </Package>
