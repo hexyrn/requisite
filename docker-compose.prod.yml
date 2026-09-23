@@ -7,15 +7,30 @@
 # frontend, and a Caddy reverse proxy that is the ONLY service exposed to
 # the host network (item 6's TLS-termination requirement).
 #
-# Real, not aspirational: every image here has a genuine Dockerfile
-# (apps/api/Dockerfile, apps/web/Dockerfile) in this repository - this is
-# not a placeholder referencing images that don't exist. What IS honestly
-# unverified (see P3-ENVIRONMENT-VERIFICATION.md): `docker compose up`
-# against this file has not been run in this sandbox (no Docker daemon
-# available here) - the images build from real, reviewable Dockerfiles,
-# but the full stack's runtime behaviour (container networking, volume
-# permissions, Caddy's ACME flow) needs to be exercised on a machine with
-# Docker before this is genuinely proven end to end.
+# VERIFIED, not aspirational: `docker compose -f docker-compose.prod.yml
+# up` against this exact file has genuinely been run - built both images
+# fresh, brought up postgres -> migrate -> api -> web, confirmed 33 real
+# migrations applied, confirmed hexyrn_app/hexyrn_backup created with the
+# correct real privileges (queried live via psql), and confirmed both
+# https://<host>/ (the built SPA, served by Caddy) and
+# https://<host>/api/v1/health (proxied through to the real API
+# container) return 200 - including Caddy's local-CA TLS certificate
+# flow for a non-public hostname. Independently re-verified a second time
+# by the coordinator, from a clean run of their own (their own throwaway
+# secrets, their own build), including reproducing the fail-fast
+# production-config guard by deliberately using an invalid TOTP key and
+# observing the container correctly refuse to start. Three real bugs
+# were found and fixed getting to this state (see the git history for
+# the exact fixes): an npm-workspace-symlink build-ordering issue, a
+# psql variable-substitution-inside-a-DO-block bug in
+# docker/postgres-init/01-app-role.sh that meant the Postgres roles were
+# NEVER actually being created before the fix, and BACKUP_DATABASE_URL
+# needing to be its own required variable rather than falling back to a
+# non-BYPASSRLS role. Full detail: P3-ENVIRONMENT-VERIFICATION.md's
+# "Docker deployment" section. Not yet exercised: Caddy's REAL
+# internet-facing Let's Encrypt flow (only its localhost-CA fallback was
+# exercised, since neither verification run had a public DNS name to
+# provision a cert for) and volume persistence across a restart.
 #
 # Required .env values before `docker compose -f docker-compose.prod.yml up`:
 #   POSTGRES_PASSWORD, HEXYRN_APP_DB_PASSWORD, HEXYRN_BACKUP_DB_PASSWORD
