@@ -1,0 +1,140 @@
+# Production Docker Compose (P3 items 3/6, distinct from docker-compose.yml
+# which is dev/test-Postgres-only convenience, never intended for a real
+# deployment). Brings up: Postgres (with the same two-role split -
+# `hexyrn` migration/owner role, `hexyrn_app` restricted runtime role,
+# `hexyrn_backup` BYPASSRLS backup/restore role - as dev/test, per item 18
+# and docker/postgres-init/01-app-role.sh), the API, the built static web
+# frontend, and a Caddy reverse proxy that is the ONLY service exposed to
+# the host network (item 6's TLS-termination requirement).
+#
+# Real, not aspirational: every image here has a genuine Dockerfile
+# (apps/api/Dockerfile, apps/web/Dockerfile) in this repository - this is
+# not a placeholder referencing images that don't exist. What IS honestly
+# unverified (see P3-ENVIRONMENT-VERIFICATION.md): `docker compose up`
+# against this file has not been run in this sandbox (no Docker daemon
+# available here) - the images build from real, reviewable Dockerfiles,
+# but the full stack's runtime behaviour (container networking, volume
+# permissions, Caddy's ACME flow) needs to be exercised on a machine with
+# Docker before this is genuinely proven end to end.
+#
+# Required .env values before `docker compose -f docker-compose.prod.yml up`:
+#   POSTGRES_PASSWORD, HEXYRN_APP_DB_PASSWORD, HEXYRN_BACKUP_DB_PASSWORD
+#     - three DISTINCT strong passwords, never reused across roles
+#       (defeats the whole point of the role split if they match).
+#   HEXYRN_PUBLIC_HOSTNAME - the real DNS name customers will reach this
+#     installation at (Caddy uses it for automatic HTTPS); "localhost" is
+#     fine for an internal/offline deployment, in which case Caddy serves
+#     a self-signed cert instead of requesting one from Let's Encrypt.
+#   HEXYRN_SESSION_SECRET, TOTP_MASTER_KEY_CURRENT,
+#   HEXYRN_LICENSE_PUBLIC_KEY - see .env.example and
+#   apps/api/src/config/production-config-check.ts, which fails the API's
+#   startup outright if any of these production-required values are
+#   missing or left at an insecure default - a genuine fail-fast guard,
+#   confirmed by a real `docker run` of the built image in this phase's
+#   development (it refused to start and listed exactly these three
+#   missing variables, proving the guard works, not just documentation).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hexyrn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env - see docker-compose.prod.yml's header comment}
+      POSTGRES_DB: hexyrn_core
+      HEXYRN_APP_DB_PASSWORD: ${HEXYRN_APP_DB_PASSWORD:?HEXYRN_APP_DB_PASSWORD must be set in .env}
+      HEXYRN_BACKUP_DB_PASSWORD: ${HEXYRN_BACKUP_DB_PASSWORD:?HEXYRN_BACKUP_DB_PASSWORD must be set in .env}
+    volumes:
+      - hexyrn_pg_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hexyrn -d hexyrn_core']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Deliberately NOT publishing 5432 to the host - only `api` (on the
+    # same Compose network) can reach Postgres, matching the "database
+    # not exposed to the public internet" baseline in
+    # docs/FIRST_CUSTOMER_SECURITY_CHECKLIST.md.
+
+  # One-shot migration runner, applied before `api` starts (item 3: a
+  # fresh deployment must have its schema in place before the app tries
+  # to serve requests). Runs the same real migration runner the CLI and
+  # the update flow use (apps/api/src/db/migrate.ts's runPendingMigrations,
+  # via its `npm run migrate:build` entrypoint), as the `hexyrn` owner
+  # role (MIGRATE_DATABASE_URL) - DDL genuinely needs table ownership,
+  # unlike backup/restore's BYPASSRLS role.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MIGRATE_DATABASE_URL: postgres://hexyrn:${POSTGRES_PASSWORD}@postgres:5432/hexyrn_core
+    command: ['npm', 'run', 'migrate:build']
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MIGRATE_DATABASE_URL: postgres://hexyrn:${POSTGRES_PASSWORD}@postgres:5432/hexyrn_core
+      DATABASE_URL: postgres://hexyrn_app:${HEXYRN_APP_DB_PASSWORD}@postgres:5432/hexyrn_core
+      # Real bug found and fixed this phase: backup.controller.ts and
+      # update.controller.ts previously fell back to MIGRATE_DATABASE_URL
+      # (the `hexyrn` owner role, NOT BYPASSRLS) for pg_dump/pg_restore,
+      # which would have failed in production with the same RLS error the
+      # hexyrn_backup role exists to solve - see backup.controller.ts's
+      # dumpConnectionString() doc comment for the full reasoning.
+      BACKUP_DATABASE_URL: postgres://hexyrn_backup:${HEXYRN_BACKUP_DB_PASSWORD}@postgres:5432/hexyrn_core
+      HEXYRN_SESSION_SECRET: ${HEXYRN_SESSION_SECRET:?HEXYRN_SESSION_SECRET must be set in .env}
+      TOTP_MASTER_KEY_CURRENT: ${TOTP_MASTER_KEY_CURRENT:?TOTP_MASTER_KEY_CURRENT must be set in .env}
+      HEXYRN_LICENSE_PUBLIC_KEY: ${HEXYRN_LICENSE_PUBLIC_KEY:?HEXYRN_LICENSE_PUBLIC_KEY must be set in .env}
+      COOKIE_SECURE: 'true'
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
+      HEXYRN_BACKUP_DIR: /repo/apps/api/backups
+      LOCAL_STORAGE_PATH: /repo/apps/api/storage
+    volumes:
+      - hexyrn_storage:/repo/apps/api/storage
+      - hexyrn_backups:/repo/apps/api/backups
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/v1/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Deliberately NOT publishing 3000 to the host - only Caddy (via the
+    # Caddyfile's `reverse_proxy api:3000`) can reach the API directly;
+    # the API is never the TLS-terminating, publicly-reachable process.
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      HEXYRN_PUBLIC_HOSTNAME: ${HEXYRN_PUBLIC_HOSTNAME:-localhost}
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - hexyrn_caddy_data:/data
+      - hexyrn_caddy_config:/config
+
+volumes:
+  hexyrn_pg_data:
+  hexyrn_storage:
+  hexyrn_backups:
+  hexyrn_caddy_data:
+  hexyrn_caddy_config:

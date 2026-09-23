@@ -83,6 +83,13 @@ export class UpdateController {
     const migrateConnectionString = process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL;
     if (!migrateConnectionString) throw new BadRequestException('MIGRATE_DATABASE_URL (or DATABASE_URL) is not configured.');
     const migratePool = new Pool({ connectionString: migrateConnectionString });
+    // Deliberately a SEPARATE connection string from migrateConnectionString
+    // (a real bug found and fixed this phase, same root cause as
+    // BackupController's dumpConnectionString(): migrateConnectionString is
+    // the `hexyrn` schema-owner role, which is NOT BYPASSRLS and cannot
+    // pg_dump an RLS-forced database - see that controller's doc comment
+    // for the confirmed real error and full reasoning).
+    const backupConnectionString = process.env.BACKUP_DATABASE_URL;
 
     try {
       const result = await applyUpdate({
@@ -94,12 +101,15 @@ export class UpdateController {
         hasRecentBackup: async () => false, // conservative default - no backup-freshness tracking yet, so always treated as "no recent backup" unless auto-backed-up below
         requireRecentBackup: body.requireBackup ?? true,
         autoBackup: async () => {
+          if (!backupConnectionString) {
+            throw new Error('BACKUP_DATABASE_URL is not configured - cannot auto-backup before applying the update. Must point at the hexyrn_backup role (BYPASSRLS), see docker/postgres-init/01-app-role.sh.');
+          }
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           await createBackup({
             destinationDir: `${process.env.HEXYRN_BACKUP_DIR ?? './backups'}/${timestamp}-pre-update`,
             storageRootDir: process.env.LOCAL_STORAGE_PATH ?? './storage',
             pool,
-            runPgDump: realPgDump(migrateConnectionString),
+            runPgDump: realPgDump(backupConnectionString),
           });
         },
         enterMaintenanceMode: () => setMaintenanceMode(pool, true),

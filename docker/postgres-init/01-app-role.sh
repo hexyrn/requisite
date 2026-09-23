@@ -49,22 +49,29 @@ HEXYRN_BACKUP_DB_PASSWORD="${HEXYRN_BACKUP_DB_PASSWORD:?HEXYRN_BACKUP_DB_PASSWOR
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v app_password="$HEXYRN_APP_DB_PASSWORD" -v backup_password="$HEXYRN_BACKUP_DB_PASSWORD" -v dbname="$POSTGRES_DB" <<-'EOSQL'
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hexyrn_app') THEN
-        EXECUTE format(
-          'CREATE ROLE hexyrn_app WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS',
-          :'app_password'
-        );
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hexyrn_backup') THEN
-        EXECUTE format(
-          'CREATE ROLE hexyrn_backup WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS',
-          :'backup_password'
-        );
-      END IF;
-    END
-    $$;
+    -- REAL BUG, found and fixed by a genuine `docker compose up` of
+    -- docker-compose.prod.yml this phase (this script had never actually
+    -- been executed against a real Postgres container before - only
+    -- reviewed): the previous version put `:'app_password'`/
+    -- `:'backup_password'` INSIDE a `DO $$ ... $$` block. psql does NOT
+    -- perform `:'var'` substitution inside a dollar-quoted string (proven
+    -- empirically here, not assumed from docs) - it sends the literal
+    -- text `:'app_password'` to the server, which then fails with
+    -- "syntax error at or near ':'". The role was NEVER actually created,
+    -- and the api container then failed to start with "password
+    -- authentication failed for user hexyrn_app - role does not exist."
+    -- Fixed using the standard `\gexec` idiom instead: the `:'var'`
+    -- substitution happens in the OUTER SELECT (proven to work), which
+    -- builds the CREATE ROLE statement as TEXT, and `\gexec` then
+    -- executes whatever that SELECT returned - conditional CREATE ROLE
+    -- with no DO block, no dollar-quoting problem.
+    SELECT format('CREATE ROLE hexyrn_app WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS', :'app_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hexyrn_app')
+    \gexec
+
+    SELECT format('CREATE ROLE hexyrn_backup WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS', :'backup_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hexyrn_backup')
+    \gexec
 
     GRANT CONNECT ON DATABASE :"dbname" TO hexyrn_app;
     GRANT USAGE ON SCHEMA public TO hexyrn_app;

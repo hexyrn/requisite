@@ -1,0 +1,46 @@
+# Reverse proxy / TLS termination config (P3 item 6). Caddy chosen over
+# nginx for this reference config specifically because it gets automatic
+# HTTPS (ACME/Let's Encrypt) with no separate certbot process to operate -
+# a materially smaller operational surface for a self-hosted product whose
+# customers are not expected to be reverse-proxy experts (Architecture
+# §43's public-internet assumption + docs/OPERATOR_GUIDE.md §4's
+# requirement). nginx/Traefik remain valid alternatives for operators who
+# already run one - not mandated, just not what this shipped default uses.
+#
+# {$HEXYRN_PUBLIC_HOSTNAME} - set via docker-compose.prod.yml's env; when
+# it is a real DNS name Caddy automatically provisions a Let's Encrypt
+# certificate; when it is left as "localhost" or an IP, Caddy serves a
+# locally-trusted self-signed certificate instead (documented in
+# docs/DOCKER_DEPLOYMENT.md - a customer without public DNS yet is still
+# served over TLS, not silently downgraded to plaintext).
+{$HEXYRN_PUBLIC_HOSTNAME:localhost} {
+	encode gzip
+
+	# API traffic proxies straight through to the api container - Caddy is
+	# the ONLY component that terminates TLS; api never listens on a
+	# public interface itself (docker-compose.prod.yml does not publish
+	# the api service's port to the host).
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Everything else is the built static SPA. try_files falls back to
+	# index.html for client-side routing (React Router's BrowserRouter),
+	# matching apps/web/src/main.tsx's route structure.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Matches Architecture §43's required security headers (mirrors what
+	# the API itself sets for its own responses - see
+	# apps/api/src/main.ts's Fastify security-header hook - applied here
+	# too since Caddy serves the SPA's own document response directly).
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	}
+}

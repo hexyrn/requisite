@@ -34,9 +34,28 @@ export class BackupController {
     return process.env.HEXYRN_BACKUP_DIR ?? './backups';
   }
 
+  /**
+   * A REAL production bug, found and fixed this phase (not merely a
+   * naming cleanup): this previously fell back to MIGRATE_DATABASE_URL
+   * (the `hexyrn` schema-owner role) when BACKUP_DATABASE_URL wasn't set.
+   * `hexyrn` is deliberately NOT BYPASSRLS (see docker/postgres-init/
+   * 01-app-role.sh) - and FORCE ROW LEVEL SECURITY applies even to the
+   * table OWNER (confirmed by the real pg_dump/pg_restore acceptance
+   * test, P3 item 13/14 - see P3-ENVIRONMENT-VERIFICATION.md), so a
+   * backup attempted with the migration role would have failed in
+   * production with the exact same "query would be affected by row-level
+   * security policy" error that motivated creating `hexyrn_backup` in the
+   * first place. BACKUP_DATABASE_URL (the `hexyrn_backup` role's
+   * connection string) is now REQUIRED with no silent fallback to a
+   * role that cannot actually do the job.
+   */
   private dumpConnectionString(): string {
-    const cs = process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL;
-    if (!cs) throw new BadRequestException('MIGRATE_DATABASE_URL (or DATABASE_URL) is not configured - cannot create a backup.');
+    const cs = process.env.BACKUP_DATABASE_URL;
+    if (!cs) {
+      throw new BadRequestException(
+        'BACKUP_DATABASE_URL is not configured - cannot create a backup. This must point at the hexyrn_backup role (BYPASSRLS), not the migration or application role - see docker/postgres-init/01-app-role.sh.',
+      );
+    }
     return cs;
   }
 
