@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { GlobalExceptionFilter } from './http/global-exception.filter';
+import { checkMaintenanceMode, MAINTENANCE_RESPONSE_BODY } from './platform/maintenance/maintenance-mode';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
@@ -114,6 +115,23 @@ async function bootstrap() {
     });
 
   app.enableCors({ origin: allowedOrigins.length > 0 ? allowedOrigins : false, credentials: true });
+
+  // P3 item 4 (maintenance mode enforcement): rejects state-changing
+  // requests while an update/restore is in progress, with an explicit
+  // allowlist for the endpoints an admin needs to observe or recover from
+  // that very operation - see maintenance-mode.ts's doc comment for the
+  // full rationale.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', (req: any, reply: any, done: any) => {
+      const result = checkMaintenanceMode(req.method, req.url.split('?')[0]);
+      if (result.blocked) {
+        reply.code(503).send(MAINTENANCE_RESPONSE_BODY);
+        return;
+      }
+      done();
+    });
 
   // Ensures the installation row + one-time bootstrap token exist on first boot (P0 items 5/6).
   const installationService = app.get(InstallationService);

@@ -3,6 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { Pool } from 'pg';
 import { withOrgContext } from '../../db/org-context';
 import { getPool } from '../../db/pool';
+import { setMaintenanceMode } from '../maintenance/maintenance-mode';
 import { RequirePermission } from '../../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../../rbac/permissions';
 import { AuditService } from '../../audit/audit.service';
@@ -62,15 +63,13 @@ export class UpdateController {
    * before/during/after sequence (applyUpdate in update.service.ts),
    * wired to REAL migrations (runPendingMigrations, the same function the
    * CLI migration runner uses) and a REAL post-update health check
-   * (HealthDiagnosticsService), not stubs. Maintenance mode is a real,
-   * queryable installation-level flag (installations.config.maintenanceMode)
-   * - not yet enforced by the HTTP layer itself (no request-blocking
-   * middleware checks it), which is stated here plainly rather than
-   * implied: the flag is set/cleared correctly and visible to an operator/
-   * script that wants to act on it (e.g. a reverse-proxy health check
-   * pulling this flag to show a maintenance page), but this codebase does
-   * not yet reject ordinary requests while it is set. Tracked as narrower
-   * follow-up, not silently assumed complete.
+   * (HealthDiagnosticsService), not stubs. Maintenance mode is now
+   * genuinely ENFORCED (platform/maintenance/maintenance-mode.ts, wired as
+   * a global Fastify onRequest hook in main.ts): while active, every
+   * state-changing request is rejected with 503 except an explicit
+   * allowlist (health/diagnostics, the backup/update/support-bundle admin
+   * endpoints themselves, login/logout) - see that module's doc comment
+   * for the full design and why reads are still allowed through.
    */
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Post('apply')
@@ -124,8 +123,4 @@ export class UpdateController {
       await migratePool.end();
     }
   }
-}
-
-async function setMaintenanceMode(pool: Pool, active: boolean): Promise<void> {
-  await pool.query(`UPDATE installations SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{maintenanceMode}', $1::jsonb, true)`, [JSON.stringify(active)]);
 }
