@@ -1,3 +1,4 @@
+import { createCipheriv, randomBytes } from 'crypto';
 import { encryptTotpSecret, decryptTotpSecret, rotateMasterKeyWrapping } from '../totp-encryption';
 
 const KEY_A = Buffer.alloc(32, 1).toString('base64');
@@ -47,7 +48,6 @@ describe('TOTP envelope encryption (P3 item 7 - resolves ADR 0002)', () => {
       // Reproduce the OLD direct-encryption scheme by hand to prove the new
       // decryptTotpSecret() still understands it, without depending on the
       // old implementation still existing anywhere.
-      const { createCipheriv, randomBytes } = require('crypto');
       process.env.TOTP_MASTER_KEY_CURRENT = KEY_A;
       const iv = randomBytes(12);
       const cipher = createCipheriv('aes-256-gcm', Buffer.from(KEY_A, 'base64'), iv);
