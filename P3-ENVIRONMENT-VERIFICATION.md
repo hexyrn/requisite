@@ -189,12 +189,14 @@ container).
 
 ## Windows packaging
 
-**Status: NOT IMPLEMENTED YET** (tracked here because it belongs in the same environment-constrained category, not because code exists to verify). No Windows installer project, service configuration, or packaged layout has been created in this pass. Requires a Windows environment to build and, per the coordinator's explicit instruction, must not be claimed as working until actually built and exercised there - status will be **IMPLEMENTED — WINDOWS ACCEPTANCE TEST PENDING** once the implementation lands, not before.
+**Status: IMPLEMENTED — DESIGN/SOURCE ONLY, NOT BUILT.** `installer/windows/Product.wxs` (a real WiX Toolset v4 source file, not a stub) and `docs/WINDOWS_INSTALLER_DESIGN.md` now exist, making every concrete decision an installer needs: packaging the same `apps/api/dist`/`node_modules` build output Docker uses, Program Files + ProgramData directory layout (data separated from the app binaries, matching the same "don't put runtime-writable state under Program Files" reasoning used elsewhere), Windows Service registration via WiX's `ServiceInstall`/`ServiceControl` (`StartType="demand"`, not auto-start, deliberately - an operator should confirm first-run setup before the service is trusted to auto-start unattended), and an uninstall design that mirrors `scripts/uninstall-docker.sh`'s two-step data-retention confirmation. **Confirmed no WiX toolchain is available to actually compile this** (`which candle.exe light.exe makensis.exe wix.exe` all failed in this environment) - this is genuinely as far as design/source can go without a Windows machine with WiX installed. One real, explicitly unresolved product decision is documented rather than silently defaulted: whether to require a pre-installed PostgreSQL (matching the existing Docker/native deployment model) or bundle an embedded one (see the design doc's "PostgreSQL bundling strategy" section for the full trade-off) - this affects the service-account and uninstall-UI design and needs a decision from the coordinator/user before the installer can be completed, not just built.
 
 **Needed to close:** a Windows build environment (real or CI runner) to:
-1. Build the installer artifact from the prepared configuration (once written).
-2. Install into a clean/isolated Windows environment.
-3. Confirm the Windows service starts, the app is reachable, uninstall behaves as documented, and upgrade-in-place works.
+1. Resolve the PostgreSQL bundling decision above.
+2. Install the WiX Toolset v4 and compile `Product.wxs` against a real build output (harvesting the real file list, not hand-enumerating it).
+3. Add a WiX Burn bundle for the uninstall data-retention confirmation UI a bare MSI can't show on its own.
+4. Install into a clean/isolated Windows environment.
+5. Confirm the Windows service starts, the app is reachable, uninstall behaves as documented, and upgrade-in-place works.
 
 ---
 
@@ -204,9 +206,14 @@ container).
 
 ---
 
-## Windows installer (P3 item 3)
+## Windows installer (P3 item 3) — superseded, see "Windows packaging" above
 
-**Status: NOT IMPLEMENTED.** No installer project (WiX/NSIS/Inno Setup or similar), no Windows service configuration, no packaged-layout definition exists yet. This remains the largest genuinely unstarted piece of P3 - it requires either a Windows development environment to author and iterate the installer project, or accepting a first version authored blind and only verified on the eventual real Windows test.
+**UPDATE: no longer "not implemented" in the strict sense** - real WiX
+source and a design document now exist (see "Windows packaging" above).
+Still, correctly, not a working installer: it has never been compiled or
+run, and one real product decision (PostgreSQL bundling) remains
+unresolved. This heading is kept only as a pointer for anyone searching
+for "item 3."
 
 ---
 
@@ -241,7 +248,7 @@ written" gap. Kept as a heading here only so anyone searching for "item
 | Support bundle + HTTP admin endpoints | Yes (full) | Yes (fully) | None |
 | Docker DB role split | Yes (full) | **Yes - VERIFIED inside a real container** (`01-app-role.sh` run for real via `docker compose up`, both roles confirmed via psql with correct privileges) | None (closed) |
 | Docker production compose (app + proxy) | Yes (full) | **Yes - VERIFIED** (`docker-compose.prod.yml`, real `docker build` + `docker compose up`, real migrations applied, healthy API, SPA + TLS-proxied API served through Caddy) | None (closed) |
-| Windows installer | Not yet | No | Windows development/build environment |
+| Windows installer | Design/source only (`installer/windows/Product.wxs`, real WiX v4) - not built | No (no WiX toolchain in this environment; one product decision - Postgres bundling - unresolved) | Windows machine + WiX Toolset v4 + a bundling decision |
 | Windows CI job definition | Yes (job defined) | No (never executed) | GitHub Actions runner access |
 | Clean-machine harness (automatable portion) | Yes (full, passing) | Yes | None - this part is genuinely proven |
 | Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset; real pg_dump/pg_restore and real Docker deployment now separately verified) | No | Isolated/clean Windows environment + a built, signed release artifact |

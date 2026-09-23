@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hexyrn Core Windows installer - WiX Toolset v4 source (P3 item 3).
+
+  STATUS: real, reviewable groundwork - NOT built or run. No WiX toolchain
+  (candle/light/wix.exe) is available in this sandbox (confirmed:
+  `which candle.exe light.exe makensis.exe wix.exe` all failed) and there
+  is no Windows GUI session to click through an install/uninstall even if
+  an .msi existed. This file is the concrete starting design, not a
+  placeholder - it makes every real decision an installer needs (install
+  location, service registration, upgrade/uninstall behaviour, what gets
+  removed vs kept) so a future round on a real Windows machine with the
+  WiX Toolset installed can build and iterate it rather than start from
+  nothing. See docs/WINDOWS_INSTALLER_DESIGN.md for the reasoning behind
+  each decision below.
+
+  Requires (on the machine that eventually BUILDS this): WiX Toolset v4
+  (`dotnet tool install --global wix`), and the API already built to
+  apps/api/dist + apps/api/node_modules (this .wxs references that
+  output layout, matching apps/api/Dockerfile's production build - the
+  Windows installer and the Docker image are meant to package the SAME
+  build output, not diverge into two different build pipelines).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Hexyrn Core"
+    Manufacturer="Hexyrn"
+    Version="$(var.HexyrnVersion)"
+    UpgradeCode="8f2b6c1a-2f0e-4c3a-9a7e-3b1c9d5f6a02"
+    Compressed="yes">
+
+    <!-- Upgrade behaviour: newer versions replace older ones in place,
+         never allow a downgrade over a newer install (item 15's rollback
+         strategy is handled separately, via a restored backup + an
+         explicitly OLDER installer package - not by letting this MSI
+         silently downgrade files under a running database). -->
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of Hexyrn Core is already installed. Uninstall it first if you specifically need to downgrade."
+      Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Standard-ish Program Files layout, not something bespoke -
+         predictable for anyone who has installed other Windows server
+         software, and keeps the app payload out of user-writable
+         locations by default. -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Hexyrn Core">
+        <!-- apps/api/dist + node_modules, i.e. the SAME output
+             apps/api/Dockerfile's runtime stage packages - one build
+             output, two distribution mechanisms (Docker image, Windows
+             installer), not two separately-maintained builds that could
+             drift apart. -->
+        <Directory Id="ApiFolder" Name="api" />
+        <!-- Config/data directories are OUTSIDE INSTALLFOLDER (in
+             ProgramData, not Program Files) - Program Files is
+             conventionally treated as read-mostly and can require
+             elevated permissions to write to at runtime; a database
+             connection string, license file, or backup written under
+             Program Files by a running service is the kind of thing
+             that silently breaks under stricter ACLs or a future
+             Windows hardening policy. -->
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="HexyrnDataFolder" Name="Hexyrn Core">
+        <Directory Id="HexyrnStorageFolder" Name="storage" />
+        <Directory Id="HexyrnBackupsFolder" Name="backups" />
+        <Directory Id="HexyrnConfigFolder" Name="config" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="Hexyrn Core" Level="1">
+      <ComponentGroupRef Id="ApiFiles" />
+      <ComponentRef Id="HexyrnService" />
+      <ComponentRef Id="DataDirectories" />
+    </Feature>
+
+    <!-- Windows Service registration - runs `node dist/main.js` the same
+         way apps/api/Dockerfile's CMD does, just under the Windows
+         Service Control Manager instead of a container's PID 1. Uses
+         WiX's built-in ServiceInstall (no third-party service wrapper
+         like NSSM/node-windows needed for the CORE registration - though
+         one may still be worth adopting later for cleaner
+         start/stop/log-rotation behaviour; a decision for the actual
+         Windows-environment round, not pre-decided here).
+         StartType="demand" (not "auto") is DELIBERATE for the FIRST
+         release: an operator should complete first-run
+         setup/configuration (see docs/OPERATOR_GUIDE.md) and confirm the
+         service starts cleanly before it's set to auto-start on every
+         boot - reduces the chance of a broken unattended restart loop on
+         a machine an operator isn't actively watching yet. -->
+    <Component Id="HexyrnService" Directory="ApiFolder" Guid="6a1d9c3e-7b4f-4a2d-8e1c-9f3a5b7d2e04">
+      <File Id="ServiceMarker" Source="$(var.ApiDistPath)\main.js" KeyPath="yes" />
+      <ServiceInstall
+        Id="HexyrnCoreService"
+        Type="ownProcess"
+        Name="HexyrnCore"
+        DisplayName="Hexyrn Core"
+        Description="Hexyrn Core application server."
+        Start="demand"
+        ErrorControl="normal"
+        Account="LocalSystem" />
+      <!-- Account="LocalSystem" is a placeholder, not a final decision -
+           see docs/WINDOWS_INSTALLER_DESIGN.md's "service account"
+           section: a dedicated least-privilege service account is the
+           right target for a real release, LocalSystem is the
+           conservative starting point that is guaranteed to work while
+           that's finalised. -->
+      <ServiceControl
+        Id="HexyrnCoreServiceControl"
+        Name="HexyrnCore"
+        Start="install"
+        Stop="both"
+        Remove="uninstall"
+        Wait="yes" />
+    </Component>
+
+    <ComponentGroup Id="ApiFiles" Directory="ApiFolder">
+      <!-- Real file harvesting (every file under apps/api/dist and
+           apps/api/node_modules) is intentionally NOT hand-enumerated
+           here - that belongs to a WiX "harvest" step (heat.exe /
+           `wix build` with a directory harvest, or an MSBuild-based
+           packaging project) run against a real build output on a real
+           Windows machine, not guessed at file-by-file in this sandbox
+           where no such build output exists to harvest from. -->
+    </ComponentGroup>
+
+    <Component Id="DataDirectories" Directory="HexyrnDataFolder" Guid="3c7e9a1b-5d2f-4e8a-b6c3-1a9d7f2e4b08">
+      <CreateFolder Directory="HexyrnStorageFolder" />
+      <CreateFolder Directory="HexyrnBackupsFolder" />
+      <CreateFolder Directory="HexyrnConfigFolder" />
+      <!-- Uninstall behaviour for these folders is deliberately NOT
+           "always delete" - see docs/WINDOWS_INSTALLER_DESIGN.md's
+           uninstall section: this mirrors scripts/uninstall-docker.sh's
+           two-step confirm (remove the app, keep data unless a SEPARATE
+           explicit choice says otherwise). A real WiX implementation of
+           that choice needs a UI dialog sequence (a Burn bundle, not a
+           bare MSI) - not designed further here since it depends on
+           decisions (embedded vs. external Postgres, primarily) that
+           are still open, per docs/WINDOWS_INSTALLER_DESIGN.md.
+      -->
+    </Component>
+  </Package>
+</Wix>
