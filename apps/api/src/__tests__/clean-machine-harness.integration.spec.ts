@@ -19,32 +19,41 @@ import { BootstrapService } from '../bootstrap/bootstrap.service';
  *
  * This is NOT a substitute for the real 24-step clean-Windows-machine
  * acceptance test the P3 spec requires (item 47) - it cannot be: there is
- * no clean Windows environment, no Docker daemon, and no real pg_dump/
- * pg_restore binary available in the environment this was authored in
- * (see P3-ENVIRONMENT-VERIFICATION.md). What it DOES genuinely prove,
- * end to end, against a real Nest application and real Postgres, chained
- * in one reproducible run so the eventual real acceptance test has a
- * known-working sequence to follow:
+ * no clean Windows environment and no built, signed release artifact to
+ * install (see P3-ENVIRONMENT-VERIFICATION.md). What it DOES genuinely
+ * prove, end to end, against a real Nest application and real Postgres,
+ * chained in one reproducible run so the eventual real acceptance test
+ * has a known-working sequence to follow:
  *
  *   bootstrap -> organisation/owner created -> invite a second (approver)
  *   user -> login as both -> create a requisition -> submit it -> approve
  *   it as the distinct approver -> generate a Purchase Order -> issue it
- *   -> record a goods receipt -> BACKUP (real manifest/checksums, fake
- *   pg_dump step) -> deliberately alter live data -> RESTORE (real
- *   integrity check + compatibility check + full-replace) -> verify the
- *   original data came back -> verify authentication still works
- *   post-restore -> import a real signed Requisite licence -> verify
- *   licence state -> check an offline update package (verify without
- *   applying) -> generate a support bundle and verify it contains no
- *   secrets (reusing the same canary-secret discipline as
- *   support-bundle.service.spec.ts) -> export data via Core's Data
- *   Portability service.
+ *   -> record a goods receipt -> BACKUP (real manifest/checksums; REAL
+ *   pg_dump when PG_DUMP_PATH/PG_RESTORE_PATH/HARNESS_BACKUP_DATABASE_URL
+ *   point at a real pg_dump/pg_restore + hexyrn_backup-style role - see
+ *   step 8's own comment - else an honestly-labelled fake dump step) ->
+ *   deliberately alter live data -> RESTORE (real integrity check +
+ *   compatibility check + full-replace, and genuinely real pg_restore
+ *   under the same env-var condition) -> verify the original data came
+ *   back -> verify authentication still works post-restore -> import a
+ *   real signed Requisite licence -> verify licence state -> check an
+ *   offline update package (verify without applying) -> generate a
+ *   support bundle and verify it contains no secrets (reusing the same
+ *   canary-secret discipline as support-bundle.service.spec.ts) -> export
+ *   data via Core's Data Portability service.
  *
- * Steps genuinely NOT covered here, and why: real pg_dump/pg_restore
- * execution (binaries unavailable), Windows installer install/launch/
- * uninstall (no Windows environment), `docker compose up` (no Docker
- * daemon), signature verification of a REAL downloaded release artifact
- * (no artifact has been built yet - Windows/Docker packaging is not done).
+ * Steps genuinely NOT covered here, and why: Windows installer
+ * install/launch/uninstall (no Windows environment - see
+ * docs/WINDOWS_INSTALLER_DESIGN.md, which has real WiX source but no
+ * toolchain to build it here), signature verification of a REAL
+ * downloaded release artifact (no artifact has been built yet). Real
+ * pg_dump/pg_restore execution and a real `docker compose up` are BOTH
+ * now separately, genuinely verified elsewhere in this repository
+ * (scripts/real-backup-restore-acceptance.ts and
+ * docker-compose.prod.yml/scripts/docker-acceptance-test.sh
+ * respectively) - and, when this file's own env vars are configured,
+ * step 8/10 above exercise the real pg_dump/pg_restore path too, not
+ * only via that separate script.
  * Every one of these is tracked explicitly in P3-ENVIRONMENT-VERIFICATION.md.
  */
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
@@ -239,16 +248,33 @@ describeIfDb('Clean-machine harness (P3 items 19/47/48) - automated as far as th
       .send({ lines: [{ purchaseOrderLineId: line.id, quantityReceived: line.quantity_ordered }] });
     expect(receiptRes.status).toBe(201);
 
-    // --- 8. BACKUP (real manifest/checksums, injected fake dump step - the one genuine sandbox limitation, see file header) ---
-    const { createBackup, restoreBackup, verifyBackupIntegrity } = await import('../platform/backup/backup.service');
+    // --- 8. BACKUP ---
+    // Real pg_dump/pg_restore execution IS now available and used here
+    // when this test's environment provides it (PG_DUMP_PATH/
+    // PG_RESTORE_PATH + HARNESS_BACKUP_DATABASE_URL pointing at a real
+    // hexyrn_backup-style BYPASSRLS role - see
+    // scripts/real-backup-restore-acceptance.ts, which proved this exact
+    // mechanism works end to end, and docker/postgres-init/
+    // 01-app-role.sh for how that role is provisioned). Falls back to an
+    // injected fake dump/restore (the ORIGINAL, honestly-labelled
+    // sandbox limitation) when those aren't configured, so this test
+    // still runs and still proves the real ORCHESTRATION (confirmation
+    // guard, integrity check, compatibility check, full file-replace) in
+    // any environment, not only ones with the real binaries + role
+    // provisioned.
+    const { createBackup, restoreBackup, verifyBackupIntegrity, realPgDump, realPgRestore } = await import('../platform/backup/backup.service');
     const backupDir = join(backupsDir, 'harness-backup-1');
+    const realBackupConnectionString = process.env.HARNESS_BACKUP_DATABASE_URL;
+    const usingRealPgDump = Boolean(realBackupConnectionString && process.env.PG_DUMP_PATH);
     const { manifest } = await createBackup({
       destinationDir: backupDir,
       storageRootDir: storageDir,
       pool,
-      runPgDump: async (outputPath) => {
-        await fs.writeFile(outputPath, 'HARNESS FAKE DUMP - real pg_dump execution is environment-verification-pending, see P3-ENVIRONMENT-VERIFICATION.md');
-      },
+      runPgDump: usingRealPgDump
+        ? realPgDump(realBackupConnectionString!, process.env.PG_DUMP_PATH)
+        : async (outputPath) => {
+            await fs.writeFile(outputPath, 'HARNESS FAKE DUMP - set PG_DUMP_PATH/PG_RESTORE_PATH/HARNESS_BACKUP_DATABASE_URL to exercise the real path, see P3-ENVIRONMENT-VERIFICATION.md');
+          },
     });
     expect(manifest.formatVersion).toBe(1);
     const integrityBeforeAlter = await verifyBackupIntegrity(backupDir);
@@ -265,22 +291,30 @@ describeIfDb('Clean-machine harness (P3 items 19/47/48) - automated as far as th
     expect(alteredCheck.body.reason).not.toBe(originalReason);
 
     // --- 10. RESTORE ---
+    const usingRealPgRestore = Boolean(realBackupConnectionString && process.env.PG_RESTORE_PATH);
     const restoreResult = await restoreBackup({
       backupDir,
       storageRootDir: storageDir,
-      runPgRestore: async () => {
-        // Real pg_restore execution is environment-verification-pending
-        // (see file header) - this harness proves the ORCHESTRATION
-        // (confirmation guard, integrity check, compatibility check, full
-        // file-replace) for real; the database rows themselves in THIS
-        // test are reverted directly below to prove what a real restore
-        // WOULD produce, since the injected dump above is not a real
-        // pg_dump capable of being genuinely restored from.
-        await withOrgContext(organisationId, (db) => db.updateTable('requisite_requisitions').set({ reason: originalReason }).where('id', '=', requisitionId).execute(), pool);
-      },
+      runPgRestore:
+        usingRealPgDump && usingRealPgRestore
+          ? realPgRestore(realBackupConnectionString!, process.env.PG_RESTORE_PATH)
+          : async () => {
+              // Fake-dump fallback path (see step 8): the injected dump
+              // above isn't a real pg_dump capable of being genuinely
+              // restored from, so the row is reverted directly here to
+              // prove what a real restore WOULD produce.
+              await withOrgContext(organisationId, (db) => db.updateTable('requisite_requisitions').set({ reason: originalReason }).where('id', '=', requisitionId).execute(), pool);
+            },
       confirmed: true,
     });
     expect(restoreResult.manifest.formatVersion).toBe(1);
+    if (usingRealPgDump && usingRealPgRestore) {
+      // Real pg_restore doesn't know about `originalReason` the way the
+      // fake fallback's inline revert does - confirm the row it actually
+      // wrote back matches what was truly backed up.
+      const restoredRow = await withOrgContext(organisationId, (db) => db.selectFrom('requisite_requisitions').select('reason').where('id', '=', requisitionId).executeTakeFirst(), pool);
+      expect(restoredRow?.reason).toBe(originalReason);
+    }
 
     // --- 11. Verify original data returned ---
     const afterRestoreCheck = await ownerAgent.get(`/api/v1/requisite/requisitions/${requisitionId}`);
