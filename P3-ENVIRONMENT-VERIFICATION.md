@@ -15,72 +15,96 @@ code exists yet). Everything below is the former unless stated otherwise.
 
 ---
 
-## PostgreSQL client utilities (pg_dump / pg_restore)
+## PostgreSQL client utilities (pg_dump / pg_restore) — **VERIFIED**
 
-**UPDATE (this phase): the binaries ARE available in this environment.**
-`C:\Program Files\PostgreSQL\17\bin\pg_dump.exe` / `pg_restore.exe` exist
-and run (`pg_dump (PostgreSQL) 17.11`, `pg_restore (PostgreSQL) 17.11`) -
-the earlier "not installed" framing was wrong; they were simply not on
-`PATH`. `scripts/real-backup-restore-acceptance.ts` was written to use
-them for real, against a dedicated, isolated throwaway database (never
-the shared dev/test database), seeding real organisation/user/file data
-and attempting a genuine `createBackup()` → alter data → `restoreBackup()`
-cycle with the actual binaries.
+**UPDATE (this phase): genuinely, end-to-end VERIFIED, not merely
+implemented.** `C:\Program Files\PostgreSQL\17\bin\pg_dump.exe` /
+`pg_restore.exe` are available (`pg_dump (PostgreSQL) 17.11`,
+`pg_restore (PostgreSQL) 17.11`). A Postgres superuser (the coordinator,
+who originally set up this local instance) provisioned the real
+`hexyrn_backup` role (`NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS`) on
+a dedicated, isolated throwaway database (`hexyrn_backup_restore_test`,
+never the shared dev/test database), matching
+`docker/postgres-init/01-app-role.sh`'s design exactly.
+`scripts/real-backup-restore-acceptance.ts` was then run for real,
+connecting as `hexyrn_backup` and invoking the actual `pg_dump.exe` /
+`pg_restore.exe` binaries (no injected fakes) end-to-end:
 
-**A real, important architectural finding came out of that attempt, not
-a tooling gap:** `pg_dump` failed with `ERROR: query would be affected by
-row-level security policy for table "organisations"`. This is correct,
-documented PostgreSQL behaviour, not a bug: `pg_dump` has no per-request
-organisation context to set (a full-database backup must read every
-organisation's rows in one pass), and `FORCE ROW LEVEL SECURITY` (which
-this codebase correctly applies to every organisation-owned table, per
-item 18) applies even to the table OWNER - so a dump/restore role that
-is not exempted from RLS cannot read OR write organisation-scoped tables
-at all, regardless of who owns them. **A full-database backup role
-genuinely needs `BYPASSRLS`** - this is the correct, standard use of that
-attribute, applied to a narrowly-scoped role used only by the backup/
-restore child process, never by the application's request-handling
-runtime role (which remains verified non-superuser/non-BYPASSRLS by
-`db-role-security.integration.spec.ts`, unaffected by this).
+seed real organisation/user (real Argon2id password hash)/Requisite
+supplier/uploaded file/cryptographically-signed test licence → real
+`createBackup()` (real `pg_dump`) → verify manifest/checksums (real
+SHA-256) → deliberately alter/delete the live data → real
+`restoreBackup()` (real `pg_restore`) → verify the user's email, the
+uploaded file's content, the user's password still verifies, the
+Requisite supplier row, and the licence (re-verified cryptographically
+via `LicenseVerifier`, not just row presence) are all genuinely
+restored → verify an ordinary org-scoped query still functions.
 
-**Fixed as far as this sandbox allows:**
-- `docker/postgres-init/01-app-role.sh` now also creates `hexyrn_backup`
-  (`NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS`, full DML grants,
-  `FOR ROLE hexyrn` default-privilege scoping so it actually covers
-  migration-created tables - a related, separate bug in the original
-  `hexyrn_app` grants found and fixed at the same time).
-- `backup.service.ts`'s `realPgDump`/`realPgRestore` switched to
-  `--data-only`/`--disable-triggers` - deliberate, not incidental: a
-  schema+data dump would additionally require the connecting role to
-  OWN every table (for `pg_restore --clean`'s DROP/CREATE) on top of
-  BYPASSRLS, a materially larger privilege than backup/restore needs.
-  Restoring now correctly assumes the target database's schema was
-  already brought up to date via the ordinary migration runner first
-  (a genuine prerequisite, documented in `docs/OPERATOR_GUIDE.md` §6),
-  and only round-trips row DATA - confirmed by re-running the real
-  acceptance script, which got past the schema/ownership concern
-  entirely and failed on ONLY the RLS/BYPASSRLS issue above.
+**Result: 11 of 11 checks PASS**, all real (no fakes/mocks in this run).
 
-**Still cannot fully verify here, and why - stated precisely, not
-vaguely:** provisioning `hexyrn_backup` requires `CREATE ROLE`, which
-requires PostgreSQL superuser privileges. The `hexyrn` role in this
-sandbox's local Postgres instance does not have `CREATEROLE`, and no
-superuser (`postgres`) credentials are available here (no `.pgpass`, no
-known password, psql prompts interactively with no way to answer it).
-**A workaround was deliberately NOT taken**: temporarily running
-`ALTER TABLE ... NO FORCE ROW LEVEL SECURITY` on the throwaway isolated
-test database (which `hexyrn`, as table owner, technically could do) was
-attempted and correctly refused by this environment's own safety
-classifier as a security-weakening action - respected, not circumvented,
-even though the target was a disposable test database. This is the right
-outcome: the fix that matters is the real one (a superuser-provisioned
-`BYPASSRLS` role), not a shortcut that happens to produce a green
-checkmark.
+**Two real architectural findings came out of getting this to pass, not
+tooling gaps:**
 
-**Needed to close, precisely:**
-1. On a machine/container where a Postgres superuser (or `CREATEROLE`) IS available - run `docker/postgres-init/01-app-role.sh`'s SQL (or the equivalent manual `CREATE ROLE hexyrn_backup ... BYPASSRLS` for a non-Docker deployment) to actually provision the role.
-2. Point `PG_DUMP_PATH`/`PG_RESTORE_PATH`/the backup connection string at that role and re-run `scripts/real-backup-restore-acceptance.ts` (already written and ready) - expected to pass now that the RLS blocker's actual cause and fix are known and applied.
-3. Confirm exit-code/failure-path behaviour (wrong credentials, disk full, killed mid-run) surfaces as an actionable error, not a silently "successful" partial file - not yet exercised even with fakes.
+1. **`pg_dump` genuinely requires `BYPASSRLS`.** `pg_dump` has no
+   per-request organisation context to set (a full-database backup must
+   read every organisation's rows in one pass), and `FORCE ROW LEVEL
+   SECURITY` (applied to every organisation-owned table per item 18)
+   applies even to the table OWNER - so any non-bypassing role fails
+   outright with "query would be affected by row-level security policy."
+   This is correct, documented PostgreSQL behaviour. A workaround
+   (`ALTER TABLE ... NO FORCE ROW LEVEL SECURITY` on the throwaway test
+   database) was attempted and correctly refused by this environment's
+   own safety classifier as security-weakening - respected, not
+   circumvented, even on a disposable database. The real fix (a
+   superuser-provisioned, narrowly-scoped `BYPASSRLS` role, never used by
+   the application's request-handling runtime role, which remains
+   verified non-superuser/non-BYPASSRLS by
+   `db-role-security.integration.spec.ts`) is what actually closed this.
+
+2. **`pg_restore --disable-triggers` requires TABLE OWNERSHIP**, which
+   `hexyrn_backup` deliberately does not have (real execution produced
+   170 "must be owner of table X" errors, one per table, for the
+   `ALTER TABLE ... DISABLE/ENABLE TRIGGER ALL` statements
+   `--disable-triggers` emits). `--clean` cannot be combined with
+   `--data-only` at all (`pg_restore` rejects that combination outright -
+   confirmed by real execution, not assumed from docs). The actual fix:
+   `realPgRestore()` now empties every table with a single
+   `TRUNCATE ... CASCADE` (a grantable, DML-adjacent privilege - added to
+   `01-app-role.sh`'s grants - not ownership) before invoking
+   `pg_restore --data-only --no-owner` with neither flag. `TRUNCATE
+   ... CASCADE` resolves FK dependency order itself, so the ownership
+   requirement never arises.
+
+**Fixed and confirmed working, precisely:**
+- `docker/postgres-init/01-app-role.sh`: `hexyrn_backup` role creation
+  plus `FOR ROLE hexyrn`-scoped grants now include `TRUNCATE` alongside
+  `SELECT, INSERT, UPDATE, DELETE`.
+- `backup.service.ts`'s `realPgDump` uses `--format=custom --data-only`;
+  `realPgRestore` pre-truncates every `public` table via
+  `TRUNCATE ... CASCADE` over a plain SQL connection, then runs
+  `pg_restore --data-only --no-owner` (no `--disable-triggers`, no
+  `--clean` - both confirmed unusable for this privilege model by real
+  execution, not assumption).
+- Both functions' doc comments in `backup.service.ts` record the exact
+  reasoning and the real errors that drove each decision.
+
+**Known accepted edge case, not yet exercised by this specific test:**
+`pg_dump` warns (does not fail) about two tables with genuinely
+CIRCULAR foreign-key dependencies (`organisational_units`, `locations` -
+self-referencing parent/child hierarchies). This test's seed data does
+not touch rows in either table, so the `TRUNCATE ... CASCADE` +
+dependency-ordered `COPY FROM` path was not exercised against a circular
+reference. If restoring an organisation whose hierarchy has been deeply
+nested, this remains a real, narrow, documented edge case for future
+verification - not a fabricated caveat.
+
+**Remaining, for a true production/Docker deployment (not this specific
+acceptance test):** exercising failure-path behaviour (wrong
+credentials, disk full, process killed mid-run) surfaces as an
+actionable error rather than a silently "successful" partial file - not
+yet exercised even with fakes; and running this same role-provisioning
++ acceptance flow inside the actual Docker Compose stack once a Docker
+daemon is available (see "Docker deployment" below).
 
 ---
 
@@ -149,7 +173,7 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 **Status: PARTIALLY AUTOMATED.** `apps/api/src/__tests__/clean-machine-harness.integration.spec.ts` (added this phase, passing) chains, against a real Nest application and real Postgres, in one reproducible run: bootstrap → organisation/owner → Requisite installed/enabled/licensed with permissions granted → invite a genuinely distinct second user → login as both → create/submit/approve a requisition → generate/issue a PO → record a goods receipt → real backup (manifest/checksums) → deliberately corrupt live data → restore → verify original data returned → verify auth still works → import a licence via the real HTTP endpoint → verify licence state → check a real signed offline update package via the HTTP endpoint → generate a support bundle via HTTP and verify no secrets leak → confirm restored data is reachable via the ordinary API.
 
-**What this does NOT prove, stated in the harness file's own header:** real `pg_dump`/`pg_restore` execution (the harness injects a fake dump step and manually reverts the altered row inside the fake `runPgRestore` callback, rather than genuinely restoring from binary dump content); a real downloaded/signature-verified release ARTIFACT (no artifact has been built - Windows/Docker packaging isn't done); Windows installer install/launch/uninstall; `docker compose up`. This is the single most important remaining gap before "RELEASE CANDIDATE READY" could be honestly declared - it requires a real clean Windows (or at minimum genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox structurally is not (accumulated dev database, dev dependencies, no way to represent "a customer's machine that has never run Hexyrn before").
+**What this does NOT prove, stated in the harness file's own header:** this harness itself still injects a fake dump step and manually reverts the altered row inside a fake `runPgRestore` callback, rather than shelling out to the real binaries - real `pg_dump`/`pg_restore` execution is now separately, genuinely VERIFIED, but via the dedicated `scripts/real-backup-restore-acceptance.ts` script (see the "PostgreSQL client utilities" section above), not via this harness. Still not proven by either: a real downloaded/signature-verified release ARTIFACT (no artifact has been built - Windows/Docker packaging isn't done); Windows installer install/launch/uninstall; `docker compose up`. This is the single most important remaining gap before "RELEASE CANDIDATE READY" could be honestly declared - it requires a real clean Windows (or at minimum genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox structurally is not (accumulated dev database, dev dependencies, no way to represent "a customer's machine that has never run Hexyrn before").
 
 **Needed to close:** a real or convincingly isolated environment (a fresh VM/container snapshot at minimum, ideally real Windows) to run the full sequence - including the parts the harness above cannot reach - end to end, producing real evidence (screenshots, command output) at each of the 24 steps.
 
@@ -159,15 +183,15 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 | Area | Implemented in this repo | Verifiable in this sandbox | Blocking environment need |
 |---|---|---|---|
-| Backup/restore mechanism + HTTP admin endpoints | Yes (full) | Partially (everything except real pg_dump/pg_restore exec) | `pg_dump`/`pg_restore` binaries |
-| Update system + HTTP admin endpoints | Yes (full) | Yes (real migrations + real health check proven; only the pg_dump-dependent auto-backup preflight step is unverified) | `pg_dump` binary (for the auto-backup path only) |
+| Backup/restore mechanism + HTTP admin endpoints | Yes (full) | **Yes - real pg_dump/pg_restore VERIFIED** (`scripts/real-backup-restore-acceptance.ts`, 11/11 checks pass against real PostgreSQL 17.11 binaries + a real superuser-provisioned `hexyrn_backup` BYPASSRLS role) | None (closed) |
+| Update system + HTTP admin endpoints | Yes (full) | Yes (real migrations + real health check proven; the pg_dump-dependent auto-backup preflight step now benefits from real pg_dump being verified above, though not re-exercised specifically inside the update flow) | None (closed for the pg_dump dependency itself) |
 | Support bundle + HTTP admin endpoints | Yes (full) | Yes (fully) | None |
-| Docker DB role split | Yes (full) | Partially (SQL-level logic only, not the container stack) | Docker daemon |
+| Docker DB role split | Yes (full) | Partially (SQL-level logic verified directly against real Postgres, including the real `hexyrn_backup` role now proven to work end-to-end; not yet run inside the container stack itself) | Docker daemon |
 | Docker production compose (app + proxy) | Not yet | N/A | Docker daemon (to build/test once written) |
 | Windows installer | Not yet | No | Windows development/build environment |
 | Windows CI job definition | Yes (job defined) | No (never executed) | GitHub Actions runner access |
 | Clean-machine harness (automatable portion) | Yes (full, passing) | Yes | None - this part is genuinely proven |
-| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset) | No | Isolated/clean Windows (or equivalent) environment + real pg_dump/pg_restore + a built, signed release artifact |
+| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset; real pg_dump/pg_restore now separately verified) | No | Isolated/clean Windows (or equivalent) environment + a built, signed release artifact |
 
 This file will be updated as further P3 work lands or as any of these
 verification gaps are closed in a genuine target environment.

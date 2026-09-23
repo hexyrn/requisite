@@ -368,20 +368,63 @@ export function realPgDump(connectionString: string, pgDumpPath = process.env.PG
 
 /** Real (non-test) pg_restore invocation. Destructive - callers must have already confirmed with the operator. */
 /**
- * `--data-only --disable-triggers` matches realPgDump's `--data-only`
- * (see its doc comment) - restores rows into an ALREADY-MIGRATED schema
- * (the target database must have had migrations applied first; restoring
- * onto a bare/never-migrated database is not a supported path).
- * `--disable-triggers` is required for `--data-only` restores of tables
- * with FK constraints so rows can load in any order without transient FK
- * violations, matching pg_restore's own documented recommendation for
- * this combination. Requires the same `hexyrn_backup`-style
- * BYPASSRLS + DML role realPgDump needs - see that function's doc comment.
+ * `--data-only` matches realPgDump's `--data-only` (see its doc comment)
+ * - restores rows into an ALREADY-MIGRATED schema (the target database
+ * must have had migrations applied first; restoring onto a bare/never-
+ * migrated database is not a supported path).
+ *
+ * `--disable-triggers` is DELIBERATELY NOT used, despite being
+ * pg_restore's own documented recommendation for `--data-only` restores
+ * of tables with FK constraints - confirmed by real execution during P3
+ * development that it requires TABLE OWNERSHIP (`ALTER TABLE ... DISABLE
+ * TRIGGER ALL` fails with "must be owner of table" for a non-owner role),
+ * which the `hexyrn_backup` role deliberately does not have (see
+ * docker/postgres-init/01-app-role.sh - only BYPASSRLS + DML, never
+ * ownership, keeps the privilege scope minimal). `pg_dump`'s TOC already
+ * orders data by dependency for the overwhelming majority of tables, so
+ * this is only a real risk for the small number of tables with genuinely
+ * CIRCULAR foreign-key dependencies (pg_dump warns about exactly these at
+ * dump time - currently `organisational_units` and `locations`, per
+ * their self-referencing parent/child hierarchy design) - a restore
+ * touching rows in those specific tables may need manual FK-constraint
+ * handling. This trade-off (minimal-privilege role vs. one documented
+ * edge case) is accepted deliberately, not silently.
+ *
+ * `--clean` is NOT combined with `--data-only`: confirmed by real
+ * execution that pg_restore rejects that combination outright ("options
+ * -c/--clean and -a/--data-only cannot be used together"), so it is not
+ * available regardless of privilege. Instead, this function empties every
+ * base table in `public` with `TRUNCATE ... CASCADE` (via a plain SQL
+ * connection, not pg_restore) BEFORE invoking pg_restore. TRUNCATE is a
+ * DML-adjacent statement, not DDL - it needs the TRUNCATE privilege
+ * (granted to `hexyrn_backup` alongside SELECT/INSERT/UPDATE/DELETE, see
+ * docker/postgres-init/01-app-role.sh), never table ownership, and
+ * confirmed by real execution to succeed for a non-owner role. `CASCADE`
+ * lets a single statement empty every table regardless of FK dependency
+ * order (Postgres resolves the dependency graph itself), avoiding the
+ * ownership requirement `--disable-triggers` had. The restore then loads
+ * into empty tables in pg_dump's own dependency order.
  */
 export function realPgRestore(connectionString: string, pgRestorePath = process.env.PG_RESTORE_PATH ?? 'pg_restore') {
   return async (dumpPath: string): Promise<void> => {
+    const pool = new Pool({ connectionString });
     try {
-      await execFileAsync(pgRestorePath, ['--data-only', '--disable-triggers', '--no-owner', '--dbname', connectionString, dumpPath]);
+      const { rows } = await pool.query<{ tablename: string }>(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
+      );
+      if (rows.length > 0) {
+        const tableList = rows.map((r) => `"${r.tablename}"`).join(', ');
+        await pool.query(`TRUNCATE TABLE ${tableList} CASCADE`);
+      }
+    } catch (err) {
+      await pool.end();
+      throw new Error(
+        `pre-restore TRUNCATE failed (role needs TRUNCATE privilege on all public tables, see docker/postgres-init/01-app-role.sh): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    await pool.end();
+    try {
+      await execFileAsync(pgRestorePath, ['--data-only', '--no-owner', '--dbname', connectionString, dumpPath]);
     } catch (err) {
       throw new Error(
         `pg_restore failed (looked for "${pgRestorePath}" - override with PG_RESTORE_PATH if it's not on PATH): ${err instanceof Error ? err.message : String(err)}`,

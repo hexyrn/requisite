@@ -98,8 +98,20 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
     -- FORCE ROW LEVEL SECURITY applies symmetrically to writes too, so a
     -- restore under a non-bypassing role would fail INSERT the same way a
     -- dump fails SELECT. Same "FOR ROLE hexyrn" scoping as above.
+    --
+    -- TRUNCATE is ALSO granted: confirmed by real execution
+    -- (P3 item 13/14 acceptance testing) that pg_restore's own
+    -- `--disable-triggers` flag requires TABLE OWNERSHIP (which this role
+    -- deliberately does not have) to reorder FK-dependent data-only
+    -- restores, and `--clean` cannot be combined with `--data-only` at
+    -- all. realPgRestore() instead empties every table with a single
+    -- `TRUNCATE ... CASCADE` before invoking pg_restore, which resolves
+    -- FK dependency order itself and needs only the TRUNCATE privilege
+    -- (a grantable DML-adjacent privilege, not ownership) - see
+    -- backup.service.ts's realPgRestore() doc comment for the full
+    -- reasoning.
     GRANT CONNECT ON DATABASE :"dbname" TO hexyrn_backup;
     GRANT USAGE ON SCHEMA public TO hexyrn_backup;
-    ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO hexyrn_backup;
+    ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO hexyrn_backup;
     ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO hexyrn_backup;
 EOSQL
