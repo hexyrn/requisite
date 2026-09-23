@@ -332,10 +332,32 @@ export async function restoreBackup(options: RestoreBackupOptions): Promise<Rest
 }
 
 /** Real (non-test) pg_dump invocation - production wiring for CreateBackupOptions.runPgDump. */
+/**
+ * P3 item 13/14 real-binary finding: `--data-only` is deliberate, not an
+ * oversight. A schema+data dump (`pg_dump`'s default) requires
+ * `pg_restore --clean` to later DROP/CREATE tables, which requires TABLE
+ * OWNERSHIP - a materially larger privilege than the connecting role
+ * needs for anything else it does. Restoring assumes the target database
+ * already has the correct schema applied via the ordinary migration
+ * runner (a genuine prerequisite of any restore - see restoreBackup()'s
+ * orchestration and docs/OPERATOR_GUIDE.md §6), so only DATA needs to
+ * round-trip through backup/restore. This also directly determines what
+ * privilege the backup role needs: `--data-only` only ever issues
+ * `COPY ... TO/FROM stdout` (SELECT/INSERT/DELETE row access, gated by
+ * RLS), never DDL - so a role with BYPASSRLS + DML grants (never table
+ * ownership) is sufficient. See docker/postgres-init/01-app-role.sh's
+ * `hexyrn_backup` role for the concrete, documented reason it needs
+ * BYPASSRLS at all: a full-database dump has no per-request organisation
+ * context to set, and FORCE ROW LEVEL SECURITY applies even to the table
+ * owner, so a dump/restore role that ISN'T exempted from RLS cannot read
+ * or write organisation-scoped tables at all - confirmed by attempting a
+ * real dump against a FORCE-RLS-enabled database during this phase's
+ * development (see P3-ENVIRONMENT-VERIFICATION.md).
+ */
 export function realPgDump(connectionString: string, pgDumpPath = process.env.PG_DUMP_PATH ?? 'pg_dump') {
   return async (outputPath: string): Promise<void> => {
     try {
-      await execFileAsync(pgDumpPath, ['--format=custom', '--file', outputPath, connectionString]);
+      await execFileAsync(pgDumpPath, ['--format=custom', '--data-only', '--file', outputPath, connectionString]);
     } catch (err) {
       throw new Error(
         `pg_dump failed (looked for "${pgDumpPath}" - override with PG_DUMP_PATH if it's not on PATH): ${err instanceof Error ? err.message : String(err)}`,
@@ -345,10 +367,21 @@ export function realPgDump(connectionString: string, pgDumpPath = process.env.PG
 }
 
 /** Real (non-test) pg_restore invocation. Destructive - callers must have already confirmed with the operator. */
+/**
+ * `--data-only --disable-triggers` matches realPgDump's `--data-only`
+ * (see its doc comment) - restores rows into an ALREADY-MIGRATED schema
+ * (the target database must have had migrations applied first; restoring
+ * onto a bare/never-migrated database is not a supported path).
+ * `--disable-triggers` is required for `--data-only` restores of tables
+ * with FK constraints so rows can load in any order without transient FK
+ * violations, matching pg_restore's own documented recommendation for
+ * this combination. Requires the same `hexyrn_backup`-style
+ * BYPASSRLS + DML role realPgDump needs - see that function's doc comment.
+ */
 export function realPgRestore(connectionString: string, pgRestorePath = process.env.PG_RESTORE_PATH ?? 'pg_restore') {
   return async (dumpPath: string): Promise<void> => {
     try {
-      await execFileAsync(pgRestorePath, ['--clean', '--if-exists', '--no-owner', '--dbname', connectionString, dumpPath]);
+      await execFileAsync(pgRestorePath, ['--data-only', '--disable-triggers', '--no-owner', '--dbname', connectionString, dumpPath]);
     } catch (err) {
       throw new Error(
         `pg_restore failed (looked for "${pgRestorePath}" - override with PG_RESTORE_PATH if it's not on PATH): ${err instanceof Error ? err.message : String(err)}`,

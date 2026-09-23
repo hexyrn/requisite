@@ -25,6 +25,7 @@ services:
       POSTGRES_PASSWORD: hexyrn_dev_password
       POSTGRES_DB: hexyrn_core
       HEXYRN_APP_DB_PASSWORD: hexyrn_app_dev_password
+      HEXYRN_BACKUP_DB_PASSWORD: hexyrn_backup_dev_password
     ports:
       - '5432:5432'
     volumes:
@@ -44,6 +45,7 @@ services:
       POSTGRES_PASSWORD: hexyrn_test_password
       POSTGRES_DB: hexyrn_core_test
       HEXYRN_APP_DB_PASSWORD: hexyrn_app_test_password
+      HEXYRN_BACKUP_DB_PASSWORD: hexyrn_backup_test_password
     ports:
       - '5433:5432'
     volumes:
