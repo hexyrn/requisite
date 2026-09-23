@@ -108,35 +108,82 @@ daemon is available (see "Docker deployment" below).
 
 ---
 
-## Docker deployment
+## Docker deployment — **VERIFIED** (a real Docker daemon became available this round)
 
-**Implemented:** `docker-compose.yml` (dev/test Postgres, two-role split -
-`hexyrn` migration/owner role, `hexyrn_app` restricted runtime role),
-`docker/postgres-init/01-app-role.sh` (creates the restricted role on first
-container init), `docs/DOCKER_DEPLOYMENT.md` (documents the role model, the
-existing-deployment migration path, and why native `docker-entrypoint-initdb.d`
-timing matters). `apps/api/src/db/__tests__/db-role-security.integration.spec.ts`
-verifies the ROLE PRIVILEGE LOGIC itself (non-superuser, non-BYPASSRLS,
-FORCE RLS on every organisation-owned table) against this sandbox's real
-Postgres instance.
+**UPDATE: genuinely, end-to-end VERIFIED with a real `docker compose up`,
+not merely implemented and reviewed.** A Docker daemon was available in
+this environment this round (not true in earlier P3 rounds). Built both
+production images for real (`docker build -f apps/api/Dockerfile .` and
+`-f apps/web/Dockerfile .`) and ran the full production stack
+(`docker compose -f docker-compose.prod.yml up`): Postgres → a one-shot
+migration container (33 real migrations applied) → the API container →
+Caddy serving the built SPA and reverse-proxying `/api/*`.
 
-**Cannot verify here:** no Docker daemon is available in this sandbox.
-`docker compose up` has never been run. Specifically unverified:
-container build/startup itself; whether `01-app-role.sh` actually executes
-correctly inside the real `postgres:16-alpine` entrypoint sequence (it has
-only been reviewed, not run); volume persistence across a container
-restart; the healthchecks; network exposure between a (not-yet-built)
-application container and the database containers; and whether the
-running application, once connected as `hexyrn_app` inside the real
-container stack, is actually blocked from superuser operations the same
-way this sandbox's differently-provisioned Postgres role was proven to be.
+**Three real bugs found and fixed by actually running this, not by
+review** (full detail in each fix's own commit and code comment):
 
-**Needed to close:** on a machine with a working Docker daemon:
-1. `docker compose up -d postgres postgres_test` - confirm both start healthy and `01-app-role.sh` created `hexyrn_app` correctly (query `pg_roles` inside the container).
-2. Build and run the (not-yet-created) application container against `postgres`, confirm it boots using `hexyrn_app` and the app's own boot-time checks pass.
-3. Restart the stack, confirm data persists via the named volume.
-4. Run the full `db-role-security.integration.spec.ts` suite against the container-provisioned database specifically (not just this sandbox's native Postgres), to close the exact gap that motivated the item 18 fix in the first place.
-5. A production-oriented compose file (app + reverse-proxy example + backup volume) is not yet written - see "Not implemented" below.
+1. **npm workspace symlinks broke across the Docker build boundary.**
+   Both Dockerfiles originally ran `npm ci` before copying full source
+   (the standard Docker-caching pattern) - on this host, doing so makes
+   npm's workspace symlinks (`node_modules/@hexyrn/app-sdk` etc.) embed
+   the BUILD HOST'S OWN ABSOLUTE FILESYSTEM PATH instead of a relative
+   one. That symlink is dangling once copied into the image, so
+   TypeScript failed with "Cannot find module '@hexyrn/app-sdk'". Fixed
+   by copying full source before `npm ci`.
+2. **`01-app-role.sh` had never actually been executed against a real
+   Postgres container before this round - only reviewed.** Its
+   role-creation SQL put psql's `:'var'` password substitution INSIDE a
+   `DO $$ ... $$` block; psql does not perform that substitution inside
+   dollar-quoted strings (confirmed empirically, not assumed from docs),
+   so it sent the literal text `:'app_password'` to the server and
+   failed with a syntax error. **`hexyrn_app` and `hexyrn_backup` were
+   NEVER actually created** by this script until this fix - the API
+   container then failed outright with "password authentication failed
+   for user hexyrn_app... role does not exist." Fixed using the standard
+   `\gexec` idiom (substitution happens in an outer `SELECT` that builds
+   the `CREATE ROLE` statement as text, which `\gexec` then executes).
+3. **BackupController/UpdateController's pg_dump/pg_restore connection
+   string fell back to `MIGRATE_DATABASE_URL`** (the `hexyrn` owner role,
+   NOT BYPASSRLS) when a dedicated backup connection string was unset -
+   this would have failed in a real production deployment with the exact
+   RLS error that motivated creating `hexyrn_backup` in the first place
+   (see the PostgreSQL client utilities section above). Fixed:
+   `BACKUP_DATABASE_URL` is now required, no unsafe fallback.
+
+**Confirmed working by direct inspection, not just "the process didn't
+crash":**
+- `docker run` of the bare api image with `NODE_ENV=production` and no
+  secrets configured correctly REFUSED to start and listed exactly the
+  missing required variables - proving `production-config-check.ts`'s
+  fail-fast guard genuinely works in the built image, not just in tests.
+- `psql` query inside the running Postgres container confirmed
+  `hexyrn_app` (`rolsuper=f, rolbypassrls=f`) and `hexyrn_backup`
+  (`rolsuper=f, rolbypassrls=t`) both exist with the correct privileges.
+- `curl -sk https://localhost/api/v1/health` → `{"status":"ok"}` (200,
+  through Caddy's reverse proxy to the real API container).
+- `curl -sk https://localhost/` → the real built SPA's `index.html`
+  (200, through Caddy's static file serving + auto-provisioned local TLS
+  certificate).
+- The SAME fix to `01-app-role.sh` was then also verified against the
+  plain dev `docker-compose.yml` (`docker compose up -d postgres`) -
+  confirmed both roles are created correctly there too, closing a
+  verification gap that predates this phase (this script was previously
+  only ever reviewed, never run in either compose file).
+
+Everything was torn down and built images removed afterward - nothing
+left running from this verification.
+
+**Still not verified (a smaller, more honestly-scoped remaining list
+than before)::** Caddy's REAL internet-facing Let's Encrypt ACME flow
+(only its local-CA fallback for `localhost` was exercised here, since
+this environment has no public DNS name to provision a cert for); volume
+persistence across a container restart/`docker compose down` without
+`-v`; the Windows-specific packaging path (see "Windows packaging"
+below); `db-role-security.integration.spec.ts` has not yet been re-run
+pointed AT the container-provisioned database specifically (it has been
+run extensively against this sandbox's native Postgres instance, which
+uses the same role-creation logic, but not literally inside the
+container).
 
 ---
 
@@ -163,9 +210,15 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 ---
 
-## Docker production deployment (P3 item 4)
+## Docker production deployment (P3 item 4) — superseded, see "Docker deployment" above
 
-**Status: PARTIALLY IMPLEMENTED.** The security-critical piece (the `hexyrn`/`hexyrn_app` two-role split, `docker/postgres-init/01-app-role.sh`) is done and documented (`docs/DOCKER_DEPLOYMENT.md`). NOT done: a production-oriented compose file including an application container and a reverse-proxy example (the current `docker-compose.yml` is dev/test Postgres only, no app container). `docker compose up` itself has never been run in this sandbox (no Docker daemon).
+**UPDATE: this is now the same VERIFIED item as the "Docker deployment"
+section above** (`docker-compose.prod.yml`, `apps/api/Dockerfile`,
+`apps/web/Dockerfile`, `apps/web/docker/Caddyfile`) - a production
+compose file with an application container and a real reverse-proxy
+config now exists and was run for real, not left as the earlier "not yet
+written" gap. Kept as a heading here only so anyone searching for "item
+4" finds the pointer; see above for the actual detail.
 
 ---
 
@@ -173,7 +226,7 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 **Status: PARTIALLY AUTOMATED.** `apps/api/src/__tests__/clean-machine-harness.integration.spec.ts` (added this phase, passing) chains, against a real Nest application and real Postgres, in one reproducible run: bootstrap → organisation/owner → Requisite installed/enabled/licensed with permissions granted → invite a genuinely distinct second user → login as both → create/submit/approve a requisition → generate/issue a PO → record a goods receipt → real backup (manifest/checksums) → deliberately corrupt live data → restore → verify original data returned → verify auth still works → import a licence via the real HTTP endpoint → verify licence state → check a real signed offline update package via the HTTP endpoint → generate a support bundle via HTTP and verify no secrets leak → confirm restored data is reachable via the ordinary API.
 
-**What this does NOT prove, stated in the harness file's own header:** this harness itself still injects a fake dump step and manually reverts the altered row inside a fake `runPgRestore` callback, rather than shelling out to the real binaries - real `pg_dump`/`pg_restore` execution is now separately, genuinely VERIFIED, but via the dedicated `scripts/real-backup-restore-acceptance.ts` script (see the "PostgreSQL client utilities" section above), not via this harness. Still not proven by either: a real downloaded/signature-verified release ARTIFACT (no artifact has been built - Windows/Docker packaging isn't done); Windows installer install/launch/uninstall; `docker compose up`. This is the single most important remaining gap before "RELEASE CANDIDATE READY" could be honestly declared - it requires a real clean Windows (or at minimum genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox structurally is not (accumulated dev database, dev dependencies, no way to represent "a customer's machine that has never run Hexyrn before").
+**What this does NOT prove, stated in the harness file's own header:** this harness itself still injects a fake dump step and manually reverts the altered row inside a fake `runPgRestore` callback, rather than shelling out to the real binaries - real `pg_dump`/`pg_restore` execution is now separately, genuinely VERIFIED, but via the dedicated `scripts/real-backup-restore-acceptance.ts` script (see the "PostgreSQL client utilities" section above), not via this harness. `docker compose up` is now ALSO separately, genuinely verified (see "Docker deployment" above) - it was the one item in this paragraph's original list that has since been closed. Still not proven: a real downloaded/signature-verified release ARTIFACT (no release-manifest generator or built artifact exists yet); Windows installer install/launch/uninstall (no Windows installer exists at all - see "Windows installer" below). This remains the most important remaining gap before "RELEASE CANDIDATE READY" could be honestly declared - it requires a real clean Windows (or at minimum genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox structurally is not (accumulated dev database, dev dependencies, no way to represent "a customer's machine that has never run Hexyrn before").
 
 **Needed to close:** a real or convincingly isolated environment (a fresh VM/container snapshot at minimum, ideally real Windows) to run the full sequence - including the parts the harness above cannot reach - end to end, producing real evidence (screenshots, command output) at each of the 24 steps.
 
@@ -186,12 +239,12 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 | Backup/restore mechanism + HTTP admin endpoints | Yes (full) | **Yes - real pg_dump/pg_restore VERIFIED** (`scripts/real-backup-restore-acceptance.ts`, 11/11 checks pass against real PostgreSQL 17.11 binaries + a real superuser-provisioned `hexyrn_backup` BYPASSRLS role) | None (closed) |
 | Update system + HTTP admin endpoints | Yes (full) | Yes (real migrations + real health check proven; the pg_dump-dependent auto-backup preflight step now benefits from real pg_dump being verified above, though not re-exercised specifically inside the update flow) | None (closed for the pg_dump dependency itself) |
 | Support bundle + HTTP admin endpoints | Yes (full) | Yes (fully) | None |
-| Docker DB role split | Yes (full) | Partially (SQL-level logic verified directly against real Postgres, including the real `hexyrn_backup` role now proven to work end-to-end; not yet run inside the container stack itself) | Docker daemon |
-| Docker production compose (app + proxy) | Not yet | N/A | Docker daemon (to build/test once written) |
+| Docker DB role split | Yes (full) | **Yes - VERIFIED inside a real container** (`01-app-role.sh` run for real via `docker compose up`, both roles confirmed via psql with correct privileges) | None (closed) |
+| Docker production compose (app + proxy) | Yes (full) | **Yes - VERIFIED** (`docker-compose.prod.yml`, real `docker build` + `docker compose up`, real migrations applied, healthy API, SPA + TLS-proxied API served through Caddy) | None (closed) |
 | Windows installer | Not yet | No | Windows development/build environment |
 | Windows CI job definition | Yes (job defined) | No (never executed) | GitHub Actions runner access |
 | Clean-machine harness (automatable portion) | Yes (full, passing) | Yes | None - this part is genuinely proven |
-| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset; real pg_dump/pg_restore now separately verified) | No | Isolated/clean Windows (or equivalent) environment + a built, signed release artifact |
+| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset; real pg_dump/pg_restore and real Docker deployment now separately verified) | No | Isolated/clean Windows environment + a built, signed release artifact |
 
 This file will be updated as further P3 work lands or as any of these
 verification gaps are closed in a genuine target environment.
