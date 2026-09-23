@@ -17,6 +17,13 @@ import { GoodsReceiptListPage } from './requisite/GoodsReceiptListPage';
 import { RfqListPage } from './requisite/RfqListPage';
 import { RfqDetailPage } from './requisite/RfqDetailPage';
 import { ReportsPage } from './requisite/ReportsPage';
+import { AdminLayout } from './admin/AdminLayout';
+import { AdminHealthPage } from './admin/AdminHealthPage';
+import { AdminBackupPage } from './admin/AdminBackupPage';
+import { AdminUpdatePage } from './admin/AdminUpdatePage';
+import { AdminLicencePage } from './admin/AdminLicencePage';
+import { AdminSmtpPage } from './admin/AdminSmtpPage';
+import { AdminSupportBundlePage } from './admin/AdminSupportBundlePage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -38,6 +45,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="rfqs" element={<RfqListPage />} />
             <Route path="rfqs/:id" element={<RfqDetailPage />} />
             <Route path="reports" element={<ReportsPage />} />
+          </Route>
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin/health" replace />} />
+            <Route path="health" element={<AdminHealthPage />} />
+            <Route path="backup" element={<AdminBackupPage />} />
+            <Route path="update" element={<AdminUpdatePage />} />
+            <Route path="licence" element={<AdminLicencePage />} />
+            <Route path="smtp" element={<AdminSmtpPage />} />
+            <Route path="support-bundle" element={<AdminSupportBundlePage />} />
           </Route>
           <Route index element={<Navigate to="/requisite" replace />} />
         </Route>

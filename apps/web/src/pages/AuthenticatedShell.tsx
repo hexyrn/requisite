@@ -40,6 +40,9 @@ export function AuthenticatedShell() {
           <Link to="/requisite" style={{ color: '#fff' }}>
             Requisite
           </Link>
+          <Link to="/admin" style={{ color: '#fff' }}>
+            Admin
+          </Link>
           <Button variant="secondary" onClick={onLogout}>
             Log out
           </Button>
