@@ -247,9 +247,29 @@ extensive canary-secret test suite for what's proven never to leak.
 
 ## 15. Uninstall / data retention
 
-Not yet implemented or documented - explicit choices around
-binaries/database/files/config/backups on uninstall (P3 item 31) remain
-outstanding work.
+For a Docker deployment (`docker-compose.prod.yml`): run
+`scripts/uninstall-docker.sh` (optionally `--env-file <path>` if your
+`.env` isn't at the repo root). It is interactive and destructive by
+design, not silent:
+
+1. Reminds you to take a final backup and/or a Data Portability export
+   first (see §16).
+2. Stops and removes the containers (`docker compose down`) - your data
+   volumes (`hexyrn_pg_data`, `hexyrn_storage`, `hexyrn_backups`,
+   `hexyrn_caddy_data`, `hexyrn_caddy_config`) are explicitly NOT touched
+   by this step; re-running `docker compose up` afterward restores the
+   installation exactly as it was.
+3. Only if you explicitly confirm a SECOND time, permanently deletes
+   those data volumes too (`docker compose down -v`).
+
+Built Docker images are deliberately left in place either way - remove
+them separately (`docker image prune` / `docker rmi`) if you also want
+the disk space back. Genuinely tested end to end (both the "keep data"
+and "delete data" paths) during P3 development, not just reviewed.
+
+A native (non-Docker) install and the Windows installer's own uninstall
+path are separate, not yet implemented - see the Windows installer
+section (§3) and P3-ENVIRONMENT-VERIFICATION.md.
 
 ## 16. Data export / disaster recovery
 
