@@ -49,8 +49,15 @@
 #   development (it refused to start and listed exactly these three
 #   missing variables, proving the guard works, not just documentation).
 services:
+  # PostgreSQL 17 - Hexyrn's officially supported database major version
+  # for Core/Requisite 1.0, aligned with the Windows installer's
+  # bundled-PostgreSQL design (docs/WINDOWS_INSTALLER_DESIGN.md).
+  # Genuinely rebuilt and re-verified end to end against this exact image
+  # - see P3-ENVIRONMENT-VERIFICATION.md's "PostgreSQL 17 alignment"
+  # section for the real evidence (migrations, role privileges,
+  # RLS/isolation, backup/restore).
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: hexyrn

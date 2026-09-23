@@ -12,9 +12,12 @@ confirm."
 ## 1. System requirements
 
 - **Node.js**: 20.x (see root `package.json`'s `engines` field).
-- **PostgreSQL**: 16 (the version used throughout development/testing and
-  in `docker-compose.yml`'s `postgres:16-alpine` image; not tested against
-  other major versions).
+- **PostgreSQL**: 17 - Hexyrn's officially supported database major
+  version for Core/Requisite 1.0 (`docker-compose.yml`/
+  `docker-compose.prod.yml`'s `postgres:17-alpine` image, and the version
+  the Windows installer's bundled-PostgreSQL design targets - see
+  `docs/WINDOWS_INSTALLER_DESIGN.md`). Not tested against other major
+  versions.
 - **Package manager**: npm (workspaces) - the only supported one; no
   yarn/pnpm lockfile is maintained.
 - **OS**: Linux (primary target for Docker/self-hosted deployment) or
@@ -44,7 +47,7 @@ goal, not yet met for Windows).
 
 ### 2.3 Manual / bare-metal
 
-1. Provision PostgreSQL 16. Create the schema-owning role (matching
+1. Provision PostgreSQL 17. Create the schema-owning role (matching
    `docker/postgres-init/01-app-role.sh`'s SQL by hand if not using
    Docker) and the restricted runtime role - see `.env.example`'s
    `DATABASE_URL` vs `MIGRATE_DATABASE_URL` comments for exactly which

@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: hexyrn
           POSTGRES_PASSWORD: hexyrn_ci_password
@@ -151,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: hexyrn
           POSTGRES_PASSWORD: hexyrn_ci_password
@@ -181,7 +181,7 @@ jobs:
     needs: [backend-tests, frontend-tests]
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: hexyrn
           POSTGRES_PASSWORD: hexyrn_ci_password

@@ -73,21 +73,20 @@ database fork" requirement structurally, not by policy alone.
 
 ### Supported major version
 
-**PostgreSQL 17** - matches the version this entire phase's real
+**PostgreSQL 17** - Hexyrn's officially supported database major version
+for Core/Requisite 1.0, matching the version this entire phase's real
 pg_dump/pg_restore verification work was proven against (`pg_dump
 (PostgreSQL) 17.11`, confirmed exact version string in
-`P3-ENVIRONMENT-VERIFICATION.md`), and the version Docker deployments use
-(`postgres:16-alpine` in `docker-compose.yml`/`docker-compose.prod.yml`
-is actually 16, not 17 - **a real, now-flagged inconsistency**: the
-Windows path bundling PG17 while Docker ships PG16 is not itself unsafe
-(both are supported, genuinely-current major versions; Hexyrn Core's own
-schema/migrations don't depend on version-specific PostgreSQL features
-beyond what both majors support), but it means backup/restore
-interoperability between a Windows-installed instance and a Docker
-instance would cross a major version boundary if a customer ever moved
-data between the two deployment types. Worth aligning both to the same
-major version in a future round - noted here, not silently left
-inconsistent.
+`P3-ENVIRONMENT-VERIFICATION.md`). **UPDATE: the previously-flagged
+PG17-Windows/PG16-Docker inconsistency this section noted is now
+resolved** - `docker-compose.yml`/`docker-compose.prod.yml` were updated
+to `postgres:17-alpine` and the production stack was genuinely rebuilt
+and re-verified against PostgreSQL 17 (real migrations, real role
+privileges, real RLS behaviour, real backup/restore) - see
+`P3-ENVIRONMENT-VERIFICATION.md`'s "PostgreSQL 17 alignment" section for
+the exact evidence. Windows and Docker now target the same major
+version, so backup/restore interoperability between the two deployment
+types no longer crosses a major version boundary.
 
 ### Installation process (WiX-driven, silent)
 
@@ -272,7 +271,7 @@ if bundling creates a concrete problem:
 - **Maintenance burden:** genuinely accepted, not a blocker - Hexyrn
   becomes responsible for tracking PostgreSQL security releases for the
   bundled version and shipping updated bundles, the same ongoing
-  commitment already implicitly accepted by shipping `postgres:16-alpine`
+  commitment already implicitly accepted by shipping `postgres:17-alpine`
   in the Docker path's own `docker-compose.yml`/`docker-compose.prod.yml`
   (an operator running Docker-Compose-provided Postgres already depends
   on Hexyrn's documentation to tell them when to bump that image tag).

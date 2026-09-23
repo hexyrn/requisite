@@ -7,7 +7,8 @@ reference documentation - this is the sequence to follow, in order, once.
 ## Pre-deployment requirements
 
 - [ ] Customer's server/environment meets `docs/OPERATOR_GUIDE.md` §1
-      (Node 20, PostgreSQL 16+, sufficient disk for database + uploads +
+      (Node 20, PostgreSQL 17 - Hexyrn's officially supported version for
+      Core/Requisite 1.0 - sufficient disk for database + uploads +
       backups).
 - [ ] Customer has a domain name and can point DNS at the deployment.
 - [ ] Customer has decided their SMTP provider (or explicitly opted to

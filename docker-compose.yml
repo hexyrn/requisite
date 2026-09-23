@@ -14,11 +14,22 @@
 # schema, runs `npm run migrate`) - a distinct, more-privileged role from
 # the runtime app role is itself part of the item 18 review, not just the
 # superuser/BYPASSRLS check.
+#
+# PostgreSQL 17 (postgres:17-alpine): Hexyrn's officially supported
+# database major version for Core/Requisite 1.0. Genuinely rebuilt and
+# re-verified against this image (not just bumped in text) - real
+# migrations, real role privileges, real pg_dump/pg_restore - see
+# P3-ENVIRONMENT-VERIFICATION.md's "PostgreSQL 17 alignment" section for
+# the exact verification evidence. Previously postgres:16-alpine; aligned
+# to 17 to match the Windows installer's bundled-PostgreSQL design
+# (docs/WINDOWS_INSTALLER_DESIGN.md), which targets 17, and the version
+# this whole phase's real pg_dump/pg_restore acceptance testing was
+# proven against (`pg_dump (PostgreSQL) 17.11`).
 version: '3.8'
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: hexyrn
@@ -38,7 +49,7 @@ services:
       retries: 10
 
   postgres_test:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: hexyrn
