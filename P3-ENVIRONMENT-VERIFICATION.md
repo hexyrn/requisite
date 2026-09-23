@@ -89,15 +89,29 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 ## Windows CI runner
 
-**Status: NOT IMPLEMENTED YET.** No CI pipeline definition exists yet for a Windows-specific build/package/smoke-test job. Per instruction: build the pipeline definition even though it cannot be executed from this sandbox; do not claim it has passed.
+**Status: IMPLEMENTED — EXECUTION PENDING.** `.github/workflows/release-pipeline.yml`'s `windows-build` job targets a genuine `windows-latest` GitHub-hosted runner, building the project there. It cannot build/test a Windows installer yet because no installer project exists (see below), and this workflow has not been executed by a real GitHub Actions runner from the sandbox this was authored in - the job definition exists, execution is pending.
+
+---
+
+## Windows installer (P3 item 3)
+
+**Status: NOT IMPLEMENTED.** No installer project (WiX/NSIS/Inno Setup or similar), no Windows service configuration, no packaged-layout definition exists yet. This remains the largest genuinely unstarted piece of P3 - it requires either a Windows development environment to author and iterate the installer project, or accepting a first version authored blind and only verified on the eventual real Windows test.
+
+---
+
+## Docker production deployment (P3 item 4)
+
+**Status: PARTIALLY IMPLEMENTED.** The security-critical piece (the `hexyrn`/`hexyrn_app` two-role split, `docker/postgres-init/01-app-role.sh`) is done and documented (`docs/DOCKER_DEPLOYMENT.md`). NOT done: a production-oriented compose file including an application container and a reverse-proxy example (the current `docker-compose.yml` is dev/test Postgres only, no app container). `docker compose up` itself has never been run in this sandbox (no Docker daemon).
 
 ---
 
 ## Clean-machine acceptance test (P3 item 47, the 24-step sequence)
 
-**Status: NOT AUTOMATED YET beyond what the Playwright E2E from the Requisite UI phase already covers (login → requisition → approval → PO → goods receipt).** The backup/restore, offline-update, support-bundle, and signature-verification steps of the full sequence are not yet wired into a single reproducible script. This is the single most important P3 acceptance test per the original spec and remains the final gate before any "RELEASE CANDIDATE READY" declaration - it requires a real clean Windows (or at minimum a genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox is not (it has an accumulated dev database, dev dependencies, and no way to represent "a customer's machine that has never run Hexyrn before").
+**Status: PARTIALLY AUTOMATED.** `apps/api/src/__tests__/clean-machine-harness.integration.spec.ts` (added this phase, passing) chains, against a real Nest application and real Postgres, in one reproducible run: bootstrap → organisation/owner → Requisite installed/enabled/licensed with permissions granted → invite a genuinely distinct second user → login as both → create/submit/approve a requisition → generate/issue a PO → record a goods receipt → real backup (manifest/checksums) → deliberately corrupt live data → restore → verify original data returned → verify auth still works → import a licence via the real HTTP endpoint → verify licence state → check a real signed offline update package via the HTTP endpoint → generate a support bundle via HTTP and verify no secrets leak → confirm restored data is reachable via the ordinary API.
 
-**Needed to close:** a real or convincingly isolated environment (a fresh VM/container snapshot at minimum, ideally real Windows) to run the full sequence end to end and produce real evidence (screenshots, command output) at each of the 24 steps.
+**What this does NOT prove, stated in the harness file's own header:** real `pg_dump`/`pg_restore` execution (the harness injects a fake dump step and manually reverts the altered row inside the fake `runPgRestore` callback, rather than genuinely restoring from binary dump content); a real downloaded/signature-verified release ARTIFACT (no artifact has been built - Windows/Docker packaging isn't done); Windows installer install/launch/uninstall; `docker compose up`. This is the single most important remaining gap before "RELEASE CANDIDATE READY" could be honestly declared - it requires a real clean Windows (or at minimum genuinely isolated) environment with no pre-existing Hexyrn state, which this sandbox structurally is not (accumulated dev database, dev dependencies, no way to represent "a customer's machine that has never run Hexyrn before").
+
+**Needed to close:** a real or convincingly isolated environment (a fresh VM/container snapshot at minimum, ideally real Windows) to run the full sequence - including the parts the harness above cannot reach - end to end, producing real evidence (screenshots, command output) at each of the 24 steps.
 
 ---
 
@@ -105,12 +119,15 @@ way this sandbox's differently-provisioned Postgres role was proven to be.
 
 | Area | Implemented in this repo | Verifiable in this sandbox | Blocking environment need |
 |---|---|---|---|
-| Backup/restore mechanism | Yes (full) | Partially (everything except real pg_dump/pg_restore exec) | `pg_dump`/`pg_restore` binaries |
+| Backup/restore mechanism + HTTP admin endpoints | Yes (full) | Partially (everything except real pg_dump/pg_restore exec) | `pg_dump`/`pg_restore` binaries |
+| Update system + HTTP admin endpoints | Yes (full) | Yes (real migrations + real health check proven; only the pg_dump-dependent auto-backup preflight step is unverified) | `pg_dump` binary (for the auto-backup path only) |
+| Support bundle + HTTP admin endpoints | Yes (full) | Yes (fully) | None |
 | Docker DB role split | Yes (full) | Partially (SQL-level logic only, not the container stack) | Docker daemon |
 | Docker production compose (app + proxy) | Not yet | N/A | Docker daemon (to build/test once written) |
-| Windows installer | Not yet | No | Windows build environment |
-| Windows CI | Not yet | No | Windows CI runner access |
-| Clean-machine 24-step test | Not automated | No | Isolated/clean Windows (or equivalent) environment |
+| Windows installer | Not yet | No | Windows development/build environment |
+| Windows CI job definition | Yes (job defined) | No (never executed) | GitHub Actions runner access |
+| Clean-machine harness (automatable portion) | Yes (full, passing) | Yes | None - this part is genuinely proven |
+| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset) | No | Isolated/clean Windows (or equivalent) environment + real pg_dump/pg_restore + a built, signed release artifact |
 
 This file will be updated as further P3 work lands or as any of these
 verification gaps are closed in a genuine target environment.
