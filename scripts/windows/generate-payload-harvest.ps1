@@ -47,7 +47,13 @@ function Get-DeterministicGuid([string]$seed) {
     $md5 = [System.Security.Cryptography.MD5]::Create()
     try {
         $hash = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($seed))
-        return [guid]::new($hash[0..15]).ToString()
+        # Real bug found running this against the actual 17,301-file
+        # staged payload (not assumed correct from review): PowerShell's
+        # array-slice `$hash[0..15]` returns a generic [object[]], which
+        # fails .NET overload resolution against Guid(byte[]) and falls
+        # through to Guid(string) instead, throwing a FormatException.
+        # An explicit [byte[]] cast forces the correct overload.
+        return [guid]::new([byte[]]$hash[0..15]).ToString()
     }
     finally {
         $md5.Dispose()
@@ -55,11 +61,25 @@ function Get-DeterministicGuid([string]$seed) {
 }
 
 function Get-SafeId([string]$raw, [string]$prefix) {
-    $id = $prefix + ($raw -replace '[^A-Za-z0-9_]', '_')
-    if ($id.Length -gt 68) {
-        $id = $id.Substring(0, 55) + '_' + (Get-DeterministicGuid $raw).Substring(0, 8)
-    }
-    return $id
+    # ALWAYS append a short deterministic hash suffix - two REAL
+    # collisions were found running this against the actual staged
+    # payload (not hypothetical): (1) WiX's identifier namespace is
+    # GLOBAL across every Fragment compiled together, so a bare
+    # "(root)"-seeded Id for root-level files collided between this
+    # harvest's ComponentGroup and a DIFFERENT harvest's (ApiFiles vs
+    # PostgresRuntimeFiles both producing "cmp__root_") - fixed by
+    # folding $ComponentGroupId into the seed, making every harvest's
+    # namespace distinct. (2) PostgreSQL's own share\timezone\ directory
+    # contains files like "Etc/GMT+0" and "Etc/GMT-0" whose sanitized
+    # (non-alphanumeric-stripped) Ids BOTH collapse to "Etc_GMT_0" -
+    # fixed by never relying on sanitized-name uniqueness alone; the
+    # hash suffix (derived from the real, pre-sanitization raw path)
+    # disambiguates them even though their sanitized prefixes match.
+    $namespacedSeed = "$ComponentGroupId|$raw"
+    $sanitized = ($raw -replace '[^A-Za-z0-9_]', '_')
+    if ($sanitized.Length -gt 40) { $sanitized = $sanitized.Substring(0, 40) }
+    $suffix = (Get-DeterministicGuid $namespacedSeed).Substring(0, 8)
+    return "$prefix${sanitized}_$suffix"
 }
 
 $payloadFull = (Resolve-Path $PayloadDir).Path
@@ -109,7 +129,13 @@ function Write-Node($node, $relDirPath, $indent) {
     if ($node.Files.Count -gt 0) {
         $dirSeed = if ($relDirPath) { $relDirPath } else { '(root)' }
         $componentId = Get-SafeId $dirSeed 'cmp_'
-        $guid = Get-DeterministicGuid $dirSeed
+        # Namespaced with ComponentGroupId for the same real reason as
+        # Get-SafeId's own hash suffix - a Component's Guid must be
+        # unique across the WHOLE linked build, not just within one
+        # harvest's own ComponentGroup, and a bare "(root)" seed would
+        # otherwise collide between separate harvests (ApiFiles vs.
+        # PostgresRuntimeFiles both have root-level files).
+        $guid = Get-DeterministicGuid "$ComponentGroupId|$dirSeed"
         [void]$script:sb.AppendLine("$pad  <Component Id=`"$componentId`" Directory=`"$script:currentDirRef`" Guid=`"$guid`">")
         $isFirst = $true
         foreach ($relPath in $node.Files) {

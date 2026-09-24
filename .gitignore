@@ -25,4 +25,9 @@ e2e/playwright-report/
 # for the deterministic, documented staging locations these represent.
 .build-cache/
 dist-release/
+# WiX's own local extension cache created by `wix extension add`/
+# `dotnet tool restore` against the committed .config/dotnet-tools.json -
+# machine-local, not something to commit (re-created by `dotnet tool
+# restore` + `wix extension add ... /4.0.6` per docs/WINDOWS_ACCEPTANCE_PREP.md).
+.wix/
 

@@ -50,7 +50,18 @@
 param(
     [Parameter(Mandatory = $true)][string]$PostgresZipPath,
     [string]$NodeZipPath,
-    [string]$HexyrnVersion = '1.0.0-rc1',
+    # REAL bug found compiling this for the first time (WIX1148 warning,
+    # not silently ignored): the MSI Product/Version attribute has a
+    # genuine Windows Installer SDK format requirement - numeric only
+    # (major.minor.build, each within specific ranges), no "-rc1"-style
+    # labels. -HexyrnVersion is therefore now the strict MSI-valid
+    # version used for Product.wxs/Bundle.wxs's own Version attributes
+    # (also what Windows Installer's own upgrade-detection logic
+    # compares); -ReleaseLabel is a SEPARATE, free-form string used only
+    # in the built artifact's FILENAME (e.g. "rc1"), never fed into an
+    # actual MSI/Burn Version attribute.
+    [string]$HexyrnVersion = '1.0.0.0',
+    [string]$ReleaseLabel = 'rc1',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [string]$OutDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path 'dist-release'),
     [string]$SigningCertPath,
@@ -171,14 +182,31 @@ Write-Host "PostgreSQL runtime staged at: $pgRuntimeDir ($([math]::Round($pgRunt
 
 # --- 7. Validate the staged payload ---
 Write-Phase 7 'Validate staged payload (no dev deps, no secrets, no source, no test tooling)'
-$forbiddenDirs = @('jest', 'vitest', '.git', '@types')
+# REAL FALSE-POSITIVE FOUND AND FIXED by actually running this against a
+# genuine staged payload (not assumed correct from review): a naive
+# "any directory anywhere named jest/@types" recursive search flags
+# `node_modules\pino\test\jest\` (a production LOGGING dependency's own
+# internal test FIXTURES, shipped as part of its package, never
+# executed) and `node_modules\@types\` (completely normal - @types/*
+# packages are ordinary npm packages, not "dev tooling," and their
+# presence after `npm ci --omit=dev` means some production dependency
+# genuinely declared one as a regular, non-dev dependency; pruning them
+# out would risk breaking that dependency's own type-dependent runtime
+# code in rare cases, for zero real security/size benefit). Fixed to
+# check ONLY for the test FRAMEWORKS themselves actually being
+# installed as their own top-level node_modules package - the thing
+# that would actually indicate a packaging mistake - not any
+# similarly-named nested folder belonging to a legitimate dependency.
+$forbiddenTopLevelPackages = @('jest', 'vitest', 'ts-node', 'typescript', '@types/jest', '@types/node')
 $forbiddenFound = @()
-foreach ($pattern in $forbiddenDirs) {
-    $hits = Get-ChildItem -Path $payloadDir -Recurse -Directory -Filter $pattern -ErrorAction SilentlyContinue
-    if ($hits) { $forbiddenFound += $hits.FullName }
+foreach ($pkg in $forbiddenTopLevelPackages) {
+    $candidate = Join-Path $payloadDir "node_modules\$pkg"
+    if (Test-Path $candidate) { $forbiddenFound += $candidate }
 }
+$gitDir = Join-Path $payloadDir '.git'
+if (Test-Path $gitDir) { $forbiddenFound += $gitDir }
 if ($forbiddenFound.Count -gt 0) {
-    throw "Forbidden dev/test-only directories found in the staged payload: `n$($forbiddenFound -join "`n")"
+    throw "Forbidden dev/test-only packages or repository metadata found in the staged payload: `n$($forbiddenFound -join "`n")"
 }
 $envFiles = Get-ChildItem -Path $payloadDir -Recurse -Filter '.env*' -File -Force -ErrorAction SilentlyContinue
 if ($envFiles) { throw "Found .env file(s) in staged payload: $($envFiles.FullName -join ', ')" }
@@ -230,19 +258,23 @@ Write-Host "PASS: MSI compiled: $msiPath"
 
 # --- 10. Compile Burn bundle ---
 Write-Phase 10 'Compile Burn bundle with WiX 4.0.6'
-$bundlePath = Join-Path $OutDir "HexyrnCore-$HexyrnVersion.exe"
+$bundlePath = Join-Path $OutDir "HexyrnCore-$HexyrnVersion-$ReleaseLabel.exe"
 $bundleWxs = Join-Path $RepoRoot 'installer\windows\Bundle.wxs'
-Push-Location $OutDir
-try {
-    dotnet tool run wix -- build $bundleWxs `
-        -d "HexyrnVersion=$HexyrnVersion" `
-        -ext WixToolset.Bal.wixext/4.0.6 `
-        -out $bundlePath
-    if ($LASTEXITCODE -ne 0) { throw 'wix build (Bundle.wxs) failed - see compiler output above.' }
-}
-finally {
-    Pop-Location
-}
+# Deliberately run from RepoRoot, NOT via Push-Location $OutDir - real
+# bug found compiling this for the first time: `dotnet tool run wix`
+# fails to resolve the WixToolset.Bal.wixext extension package when
+# invoked from a directory other than the one `wix extension add`/
+# `dotnet tool restore` was originally run from (a real, observed
+# `dotnet tool run` behavior, not assumed). Bundle.wxs's
+# `<MsiPackage SourceFile="Product.msi">` is still a relative path
+# though - resolved via `-b $OutDir` (WiX's own bind-path mechanism),
+# not by changing the working directory.
+dotnet tool run wix -- build $bundleWxs `
+    -d "HexyrnVersion=$HexyrnVersion" `
+    -b $OutDir `
+    -ext WixToolset.Bal.wixext/4.0.6 `
+    -out $bundlePath
+if ($LASTEXITCODE -ne 0) { throw 'wix build (Bundle.wxs) failed - see compiler output above.' }
 if (-not (Test-Path $bundlePath)) { throw "wix build reported success but $bundlePath does not exist." }
 Write-Host "PASS: Burn bundle compiled: $bundlePath"
 

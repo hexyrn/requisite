@@ -129,7 +129,6 @@
       <ComponentGroupRef Id="ApiFiles" />
       <ComponentGroupRef Id="NodeRuntimeFiles" />
       <ComponentGroupRef Id="PostgresRuntimeFiles" />
-      <ComponentRef Id="HexyrnService" />
       <ComponentRef Id="NodeRuntimeExe" />
       <ComponentRef Id="HexyrnPostgresService" />
       <ComponentRef Id="ProvisioningScripts" />
@@ -351,15 +350,15 @@
            and roles to start against) - real ordering, not aspirational
            comments. StartServices is WiX's own standard action name for
            "the point at which newly-installed services are started." -->
-      <Custom Action="SetHexyrnDataAcls" After="InstallFiles">NOT Installed OR REINSTALL</Custom>
-      <Custom Action="ProvisionHexyrnPostgres" After="SetHexyrnDataAcls">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="SetHexyrnDataAcls" After="InstallFiles" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="ProvisionHexyrnPostgres" After="SetHexyrnDataAcls" Condition="NOT Installed OR REINSTALL" />
       <!-- Purge runs during removal, after services have been asked to
            stop (After="StopServices" - WiX's own standard action for
            "services are being stopped as part of this sequence") and
            only on a genuine uninstall with the explicit opt-in flag
            set - never on an ordinary upgrade/repair, and never by
            default even on a genuine uninstall. -->
-      <Custom Action="PurgeHexyrnData" After="StopServices">REMOVE="ALL" AND HEXYRNPURGEDATA = "1"</Custom>
+      <Custom Action="PurgeHexyrnData" After="StopServices" Condition="REMOVE=&quot;ALL&quot; AND HEXYRNPURGEDATA=&quot;1&quot;" />
     </InstallExecuteSequence>
 
     <!-- ApiFiles / NodeRuntimeFiles / PostgresRuntimeFiles ComponentGroups:

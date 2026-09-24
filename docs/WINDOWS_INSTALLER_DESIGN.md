@@ -1,28 +1,32 @@
 # Windows Installer Design (P3 item 3)
 
-**Status honestly stated up front:** the PostgreSQL major version (17)
-and the PostgreSQL bundling approach are NO LONGER OPEN QUESTIONS - both
-are decided, per explicit product direction, and documented in full
-below. The WiX toolchain is NO LONGER UNAVAILABLE - WiX Toolset 4.0.6 +
-WixToolset.Util.wixext 4.0.6 + WixToolset.Bal.wixext 4.0.6 are confirmed
-installed and working on the real Windows 11 machine this RC is being
-built on (walked through interactively with the user - not this
-sandbox; see `docs/WINDOWS_ACCEPTANCE_PREP.md` for that machine's full
-verified state). What remains genuinely true: `installer/windows/
-Product.wxs` and `installer/windows/Bundle.wxs` are real, structurally
-complete WiX sources (confirmed well-formed XML via a real parser, see
-`scripts/windows/__tests__/validate-installer-source.js`) that have
-**not yet been compiled into an actual `.msi`/`.exe`** - that compile
-step, and the one remaining external artifact it depends on (PostgreSQL
-17's official binaries distribution - see "Source / distribution"
-below), are real Windows-round next steps, not done here. Classify as
-**IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING** for the design/source
-(now materially more complete than a first pass - real packaging
-scripts, real credential generation, real PostgreSQL provisioning logic,
-all independently tested this round, not just written), and **NOT
-IMPLEMENTED** for an actual compiled, signed, installed artifact. See
-`P3-ENVIRONMENT-VERIFICATION.md`'s "Windows installer" section and
-`docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact next commands.
+**Status honestly stated up front:** `installer/windows/Product.wxs` and
+`installer/windows/Bundle.wxs` GENUINELY COMPILE, on the real Windows 11
+RC build machine, with the pinned WiX 4.0.6 toolchain, using the real
+coordinator-verified PostgreSQL 17.11-4 binaries artifact - real
+`Product.msi` (63,057,272 bytes) and Burn bundle
+`HexyrnCore-1.0.0.0-rc1.exe` (60,383,947 bytes), both independently
+inspected via the Windows Installer COM API (20,200 File rows, 1,897
+Components, 2,017 Directories, both `HexyrnCore`/`HexyrnPostgreSQL`
+services registered with the exact designed Arguments/Account). Full
+exact hashes, the real compiler errors found and fixed getting here, and
+the security scan of the staged payload: see
+`P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging" section.
+
+**What genuinely remains, stated precisely, not vaguely:** the compiled
+MSI's Node.js runtime used a LOCAL compile-test stand-in (this machine's
+own NVM-managed node.exe), not yet the official, checksum-verified
+`nodejs.org` distribution - a rebuild with the real artifact is needed
+before this is a genuine release candidate. The Burn bundle's VISUAL
+uninstall-confirmation checkbox is not yet authored (the underlying
+`HEXYRNPURGEDATA` data-preservation mechanism is real and functional via
+command line already - see "Uninstall / data retention" below).
+Code-signing has not been done (no certificate available - a real,
+tracked operational gap). Nothing has been installed, uninstalled, or
+upgraded on any machine (deliberately never attempted on this
+development machine, to protect its own working PostgreSQL/Node/source
+environment - reserved for a clean, snapshotted VirtualBox VM per
+`docs/WINDOWS_ACCEPTANCE_PREP.md`).
 
 ## Why WiX Toolset - PINNED to 4.0.6, not "latest"
 
@@ -492,29 +496,33 @@ data / delete data" choice on the uninstall path specifically.
 
 ## What's needed to actually close this item
 
-1. Resolve the one remaining genuinely open "Stop condition" above (EDB
-   binaries-zip code-signing status) - the other stop condition from an
-   earlier version of this document (PostgreSQL/Docker major-version
-   alignment) is now CLOSED: both target PostgreSQL 17 (see the Docker
-   deployment's own real `postgres:17-alpine` verification this phase).
-2. Obtain the one genuine external artifact this effort has been honest
-   about needing: PostgreSQL 17's official EDB Windows binaries
-   distribution (see "Source / distribution" above for exactly where and
-   how to verify it) - and, separately, the official Node.js 20.x
-   Windows binary distribution (see "Node.js runtime packaging" above).
-3. On a real Windows machine with the pinned WiX Toolset 4.0.6 (`dotnet
-   tool restore` against the committed `.config/dotnet-tools.json` -
-   confirmed installed and working on the real Windows 11 RC build
-   machine, see `docs/WINDOWS_ACCEPTANCE_PREP.md`): compile
-   `Product.wxs`, harvest the real staged payload
-   (`scripts/windows/build-release-payload.ps1`'s output - already
-   genuinely verified this round via a real clean-checkout build), add
-   the PostgreSQL-bundling components (calling
-   `scripts/windows/provision-postgres.ps1`'s already-verified logic as
-   a custom action, not reimplementing it), compile `Bundle.wxs`, and
-   iterate until it actually installs, starts both services in the
-   correct order, and uninstalls cleanly via both paths.
-4. The Burn bundle's custom uninstall-confirmation UI (visual, real
-   Windows-round work).
-5. Real testing on a clean Windows VM (see
-   `docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact commands/sequence).
+**DONE, genuinely, this round:** the EDB binaries-zip code-signing
+status stop condition is now resolved in practice (the coordinator
+independently verified the artifact's SHA-256, which is the concrete
+mitigation this document's "Stop conditions" section above said would
+substitute for Authenticode verification if the raw binaries turned out
+to be unsigned); the PostgreSQL/Docker major-version alignment stop
+condition was already closed in an earlier round; `Product.wxs` and
+`Bundle.wxs` compile cleanly with zero errors/warnings; the real staged
+payload is harvested automatically (`generate-payload-harvest.ps1`); the
+PostgreSQL-bundling WiX components (second service, data directory) are
+real and confirmed present in the compiled MSI via direct database
+inspection; `HEXYRNPURGEDATA`'s underlying data-preservation mechanism
+is real and functional.
+
+**Still remaining, precisely:**
+1. Rebuild using the official, checksum-verified Node.js 20.x Windows
+   binary distribution (this round's compile used a local compile-test
+   stand-in - see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging"
+   section for exactly why that's fine for proving the WiX pipeline
+   correct but not fine for a real release artifact).
+2. The Burn bundle's VISUAL uninstall-confirmation checkbox UI (real,
+   visual Windows-round iteration work - the underlying mechanism
+   already works via command line).
+3. Code-signing (no certificate available yet - a genuine, tracked
+   operational gap).
+4. Real testing on a clean, snapshotted VirtualBox VM - install,
+   first-run, the full application workflow, real backup/restore via
+   the bundled `pg_dump.exe`/`pg_restore.exe`, both uninstall paths, and
+   upgrade-in-place (see `docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact
+   commands/sequence).

@@ -39,11 +39,16 @@ tracked in `P3-ENVIRONMENT-VERIFICATION.md`.
 
 ### 2.2 Windows
 
-**Not yet built.** No installer project exists yet (P3 item 3). This guide
-will be updated with the install procedure once it does; until then,
-Windows deployment requires the same manual Node.js/PostgreSQL setup as a
-bare-metal Linux install (source-code-free installation is the explicit
-goal, not yet met for Windows).
+**Compiled, not yet clean-machine tested.** The installer (WiX 4.0.6 -
+`installer/windows/Product.wxs` + `installer/windows/Bundle.wxs`)
+genuinely compiles into a real MSI + Burn bundle bundling PostgreSQL 17
+and Node.js 20 so a customer never needs to install either separately -
+see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging" section for
+exact artifact hashes/sizes and what's independently confirmed present
+inside the compiled MSI. NOT yet installed/tested on any real machine
+(deliberately reserved for a clean VirtualBox VM, never the development
+machine) - this guide will be updated with the real, tested install
+procedure once that clean-machine acceptance pass completes.
 
 ### 2.3 Manual / bare-metal
 

@@ -45,9 +45,12 @@
          with anything but there is no reason it would (freshly
          generated, distinct from Product.wxs's). -->
 
-    <bal:WixStandardBootstrapperApplication
-      LicenseUrl=""
-      SuppressOptionsUI="no" />
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+        Theme="hyperlinkLicense"
+        LicenseUrl=""
+        SuppressOptionsUI="no" />
+    </BootstrapperApplication>
     <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
          remove" flow available. The FRIENDLY, visual "keep data / delete
          data" CHECKBOX (a WixStandardBootstrapperApplication theme
