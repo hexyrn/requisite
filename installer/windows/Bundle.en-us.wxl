@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX Localization override for the Burn bundle's standard bootstrapper
+  UI (P3 item 8/9) - overrides the STOCK "Uninstall" confirmation string
+  WixStandardBootstrapperApplication shows so it explicitly tells the
+  operator their data is preserved by default, rather than leaving the
+  generic stock wording (which says nothing about data at all).
+
+  WHY A STRING OVERRIDE, NOT A CUSTOM CONTROL/CHECKBOX: a genuine
+  interactive checkbox on the uninstall page requires a full custom
+  bootstrapper-application THEME (precise pixel layout, control Ids, and
+  binding wiring) that needs visual, on-screen iteration to get right -
+  authoring one blind, with no GUI available to render and check it,
+  risks shipping something that LOOKS plausible as XML but is subtly
+  wrong in ways only a real screen would reveal. This string override is
+  the safer, still-real, WiX-documented mechanism (WixStandardBootstrapperApplication's
+  own supported localization-override pattern, e.g. from WiX's own
+  `en-us.wxl`) that needs no visual iteration to be correct, and it
+  communicates the real, ALREADY-FUNCTIONAL mechanism accurately: the
+  underlying data-preservation behaviour (installer/windows/Product.wxs's
+  HEXYRNPURGEDATA property + PurgeHexyrnData custom action, gated behind
+  an explicit `/HEXYRNPURGEDATA=1` command-line flag - see Bundle.wxs's
+  own Variable/MsiProperty) is real and already confirmed present in the
+  compiled MSI, independent of whether this specific string renders
+  exactly as intended.
+
+  A fully custom, visually-verified checkbox control remains real,
+  separate Windows-round work - not pretended to be finished here.
+-->
+<WixLocalization Culture="en-us" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="ConfirmCancelMessage" Value="Are you sure you want to cancel Hexyrn Core setup?" />
+  <!-- Overrides WixStandardBootstrapperApplication's stock uninstall
+       button/page text (Id names match WiX's own published wixstdba
+       localization string set) to be explicit about data preservation -
+       ordinary "Uninstall" never deletes the PostgreSQL database,
+       uploaded files, backups, or configuration; only an operator who
+       explicitly launches this bundle with /HEXYRNPURGEDATA=1 also
+       removes that data. -->
+  <String Id="UninstallSuccessMessage" Value="Hexyrn Core has been removed. Your database, uploaded files, backups, and configuration under %ProgramData%\Hexyrn Core\ were preserved and were NOT deleted. To permanently delete that data as well, re-run this installer with the /HEXYRNPURGEDATA=1 option." />
+</WixLocalization>

@@ -110,25 +110,23 @@ if (-not (Test-Path (Join-Path $payloadDir 'apps\api\dist\main.js'))) {
 }
 Write-Host 'PASS: application payload staged.'
 
-# --- 5. Stage the Node.js runtime (external artifact) ---
+# --- 5. Stage the Node.js runtime (external artifact, same fail-closed
+# hash-verification model as PostgreSQL's step 2 - see
+# stage-node-artifact.ps1, which replaced this step's earlier ad-hoc
+# extract-with-no-hash-check logic once the real, independently-verified
+# Node artifact became available) ---
 Write-Phase 5 'Stage Node.js runtime'
 $nodeRuntimeDir = Join-Path $payloadDir 'runtime\node'
 if ($NodeZipPath) {
-    if (-not (Test-Path $NodeZipPath)) { throw "NodeZipPath does not exist: $NodeZipPath" }
+    $nodeInfo = & (Join-Path $PSScriptRoot 'stage-node-artifact.ps1') -ZipPath $NodeZipPath -StageDir (Join-Path $buildCache 'node')
+    if (-not $nodeInfo) { throw 'Node.js artifact staging failed to return staging info.' }
     New-Item -ItemType Directory -Force -Path $nodeRuntimeDir | Out-Null
-    $nodeExtractTmp = Join-Path $buildCache 'node-extract'
-    if (Test-Path $nodeExtractTmp) { Remove-Item -Recurse -Force $nodeExtractTmp }
-    Expand-Archive -Path $NodeZipPath -DestinationPath $nodeExtractTmp -Force
-    $nodeExeFound = Get-ChildItem -Path $nodeExtractTmp -Recurse -Filter 'node.exe' -File | Select-Object -First 1
-    if (-not $nodeExeFound) { throw "Could not find node.exe inside $NodeZipPath - refusing to guess the archive layout." }
-    $nodeSrcRoot = Split-Path $nodeExeFound.FullName -Parent
-    Copy-Item -Recurse -Force "$nodeSrcRoot\*" $nodeRuntimeDir
-    $stagedNodeVersion = & (Join-Path $nodeRuntimeDir 'node.exe') --version
-    Write-Host "Staged Node runtime version: $stagedNodeVersion"
-    if ($stagedNodeVersion -notmatch '^v20\.') {
-        throw "Staged Node runtime is not v20.x (got: $stagedNodeVersion)."
-    }
-    Write-Host 'PASS: Node runtime staged.'
+    # Copies the already hash-verified, extracted files into the payload
+    # - the raw .zip itself is never copied anywhere near the payload
+    # (item 4's "do not include the ZIP itself in the installed
+    # payload"), only the real binaries it contained.
+    Copy-Item -Recurse -Force "$($nodeInfo.NodeRoot)\*" $nodeRuntimeDir
+    Write-Host "PASS: Node runtime staged (verified $($nodeInfo.Version), sha256=$($nodeInfo.Sha256))."
 }
 else {
     Write-Warning 'NO -NodeZipPath supplied - skipping Node runtime staging. installer/windows/Product.wxs''s ApiFiles harvest will NOT include a bundled Node runtime; the resulting MSI is INCOMPLETE for a real customer release (it would depend on Node being separately installed). This is reported plainly, not silently skipped: obtain the official Node.js 20.x Windows x64 binary zip from https://nodejs.org/dist/ and re-run with -NodeZipPath to close this gap.'
@@ -269,8 +267,10 @@ $bundleWxs = Join-Path $RepoRoot 'installer\windows\Bundle.wxs'
 # `<MsiPackage SourceFile="Product.msi">` is still a relative path
 # though - resolved via `-b $OutDir` (WiX's own bind-path mechanism),
 # not by changing the working directory.
+$bundleLocWxl = Join-Path $RepoRoot 'installer\windows\Bundle.en-us.wxl'
 dotnet tool run wix -- build $bundleWxs `
     -d "HexyrnVersion=$HexyrnVersion" `
+    -loc $bundleLocWxl `
     -b $OutDir `
     -ext WixToolset.Bal.wixext/4.0.6 `
     -out $bundlePath

@@ -2,27 +2,39 @@
 
 **Status honestly stated up front:** `installer/windows/Product.wxs` and
 `installer/windows/Bundle.wxs` GENUINELY COMPILE, on the real Windows 11
-RC build machine, with the pinned WiX 4.0.6 toolchain, using the real
-coordinator-verified PostgreSQL 17.11-4 binaries artifact - real
-`Product.msi` (63,057,272 bytes) and Burn bundle
-`HexyrnCore-1.0.0.0-rc1.exe` (60,383,947 bytes), both independently
-inspected via the Windows Installer COM API (20,200 File rows, 1,897
-Components, 2,017 Directories, both `HexyrnCore`/`HexyrnPostgreSQL`
-services registered with the exact designed Arguments/Account). Full
-exact hashes, the real compiler errors found and fixed getting here, and
-the security scan of the staged payload: see
-`P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging" section.
+RC build machine, with the pinned WiX 4.0.6 toolchain, using BOTH real,
+independently-verified external artifacts - PostgreSQL 17.11-4 (SHA-256
+`b9424ee7bc60b52450ff910a3630225df32e633f3cb29c1d126d9299d59aea28`) and
+Node.js 20.20.2 (SHA-256
+`dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77`), no
+compile-test stand-ins remaining. Real `Product.msi` (88,669,161 bytes)
+and Burn bundle `HexyrnCore-1.0.0.0-rc1.exe` (85,528,779 bytes), both
+independently inspected via the Windows Installer COM API (22,154 File
+rows, 2,348 Components, 2,511 Directories, both
+`HexyrnCore`/`HexyrnPostgreSQL` services registered with the exact
+designed Arguments/Account). Full exact hashes, the real compiler errors
+found and fixed getting here, and the security scan of the staged
+payload: see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging"
+section.
 
-**What genuinely remains, stated precisely, not vaguely:** the compiled
-MSI's Node.js runtime used a LOCAL compile-test stand-in (this machine's
-own NVM-managed node.exe), not yet the official, checksum-verified
-`nodejs.org` distribution - a rebuild with the real artifact is needed
-before this is a genuine release candidate. The Burn bundle's VISUAL
-uninstall-confirmation checkbox is not yet authored (the underlying
-`HEXYRNPURGEDATA` data-preservation mechanism is real and functional via
-command line already - see "Uninstall / data retention" below).
-Code-signing has not been done (no certificate available - a real,
-tracked operational gap). Nothing has been installed, uninstalled, or
+**Pre-GA technical debt, recorded explicitly:** Node.js 20 is now out of
+upstream maintenance. This RC deliberately does NOT perform a Node
+major-version migration as part of Windows packaging - separate
+modernization/security work with its own dedicated round and regression
+testing, tracked here so it isn't silently forgotten before GA.
+
+**What genuinely remains, stated precisely, not vaguely:** the Burn
+bundle's VISUAL uninstall-confirmation checkbox control is not yet
+authored (a real, WiX-documented STRING override -
+`installer/windows/Bundle.en-us.wxl` - now explains the data-preservation
+behavior in the stock uninstall-success text; the underlying
+`HEXYRNPURGEDATA` mechanism itself is real and functional via command
+line already - see "Uninstall / data retention" below; only the
+friendlier interactive checkbox, which needs on-screen visual iteration
+this sandbox cannot provide, remains). Code-signing has not been done
+(no certificate available - a real, tracked operational gap that gates
+DISTRIBUTION but not internal clean-VM functional acceptance, per
+explicit instruction). Nothing has been installed, uninstalled, or
 upgraded on any machine (deliberately never attempted on this
 development machine, to protect its own working PostgreSQL/Node/source
 environment - reserved for a clean, snapshotted VirtualBox VM per
@@ -99,20 +111,21 @@ bare `node` that would resolve through `PATH` - matching exactly how
 resolves within that image's own controlled `node:20-alpine` base, never
 some other Node install.
 
-**This is the same class of external-artifact boundary as PostgreSQL's**
-- Node.js's official Windows zip has NOT been downloaded in this
-repository or by any script here, and will not be, without a human
-explicitly fetching it (verified against Node.js's own published
-SHA-256 checksums at `https://nodejs.org/dist/v20.x.x/SHASUMS256.txt`)
-and placing it where `scripts/windows/build-release-payload.ps1`'s real
-Windows-round extension (not yet written - a real, small addition:
-extract the pinned Node zip into the staged payload's `runtime\node\`
-alongside the existing staging logic) expects it. Pin the EXACT Node
-20.x patch version this repository's own `engines.node` and the
-Docker image's `node:20-alpine` tag imply (confirmed on the real
-Windows build machine: Node.js 20.20.2 - see
-`docs/WINDOWS_ACCEPTANCE_PREP.md`'s verified toolchain state), not a
-floating "latest v20."
+**UPDATE: this external-artifact boundary is now CLOSED, the same way
+PostgreSQL's was.** The official Node.js Windows x64 binary zip
+(`node-v20.20.2-win-x64.zip`, matching this repository's `engines.node`
+and the Docker image's `node:20-alpine` tag exactly - not a floating
+"latest v20") was obtained by the coordinator/user, independently
+verified (SHA-256
+`dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77`), and
+staged via `scripts/windows/stage-node-artifact.ps1` (the same
+fail-closed hash-verification pattern as
+`scripts/windows/stage-postgres-artifact.ps1`) into
+`build-release.ps1`'s payload - real archive layout confirmed (a single
+top-level `node-v20.20.2-win-x64\` directory containing `node.exe`
+directly, plus the official `npm.cmd`/`npx.cmd`/`corepack.cmd` shims and
+their own bundled `node_modules`). The raw `.zip` itself is never copied
+into the installed payload - only the verified, extracted files.
 
 **Licensing:** Node.js itself is MIT-licensed; its bundled dependencies
 (V8, libuv, OpenSSL, etc.) carry their own permissive licenses, all
@@ -510,18 +523,22 @@ real and confirmed present in the compiled MSI via direct database
 inspection; `HEXYRNPURGEDATA`'s underlying data-preservation mechanism
 is real and functional.
 
+**ALSO DONE, this round:** rebuilt using the official, checksum-verified
+Node.js 20.20.2 Windows binary distribution - no compile-test stand-in
+remains; the compiled MSI/Bundle now contain the real official runtime
+(22,154 File rows total, up from 20,200 with the stand-in). The Burn
+bundle's uninstall-success text now explicitly explains the
+data-preservation behavior (`installer/windows/Bundle.en-us.wxl`).
+
 **Still remaining, precisely:**
-1. Rebuild using the official, checksum-verified Node.js 20.x Windows
-   binary distribution (this round's compile used a local compile-test
-   stand-in - see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging"
-   section for exactly why that's fine for proving the WiX pipeline
-   correct but not fine for a real release artifact).
-2. The Burn bundle's VISUAL uninstall-confirmation checkbox UI (real,
-   visual Windows-round iteration work - the underlying mechanism
-   already works via command line).
-3. Code-signing (no certificate available yet - a genuine, tracked
-   operational gap).
-4. Real testing on a clean, snapshotted VirtualBox VM - install,
+1. The Burn bundle's fully custom, VISUALLY-VERIFIED interactive
+   checkbox control (real, visual Windows-round iteration work - the
+   underlying mechanism and an explanatory text override both already
+   work; only the friendlier interactive control remains).
+2. Code-signing (no certificate available yet - a genuine, tracked
+   operational gap that gates distribution, not internal functional
+   acceptance).
+3. Real testing on a clean, snapshotted VirtualBox VM - install,
    first-run, the full application workflow, real backup/restore via
    the bundled `pg_dump.exe`/`pg_restore.exe`, both uninstall paths, and
    upgrade-in-place (see `docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact

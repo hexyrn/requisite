@@ -1,15 +1,18 @@
 # Windows Acceptance Preparation
 
-**Status update: the toolchain gate is now DONE, verified on the real
-Windows 11 machine (real hardware, not this sandbox) - see the exact
-verified state below.** The Windows installer sources
-(`installer/windows/Product.wxs`, `installer/windows/Bundle.wxs`) are
-implemented as far as this repository can genuinely go without the one
-remaining external artifact (real PostgreSQL 17 binaries - see
-`docs/WINDOWS_INSTALLER_DESIGN.md`'s "Source / distribution" section).
-**The Windows installer has NOT yet been compiled into an actual .msi/
-.exe. The clean-machine acceptance test has NOT been run. RC1 is NOT
-declared ready.**
+**Status update: GENUINELY COMPILES.** Both real external artifacts
+(PostgreSQL 17.11-4 and Node.js 20.20.2, both independently verified by
+SHA-256) were obtained and used for real, on the real Windows 11 RC
+build machine. `installer/windows/Product.wxs` + `installer/windows/
+Bundle.wxs` compile with the pinned WiX 4.0.6 toolchain into a real,
+independently-inspected `Product.msi` and Burn bundle `.exe` - exact
+hashes/sizes and the real compiler errors found and fixed getting here:
+see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging" section.
+**The clean-machine acceptance test (install/uninstall/upgrade on a real
+machine) has NOT been run - deliberately never attempted on this
+development machine, reserved for a clean VirtualBox VM per step 5/7
+below. RC1 is NOT declared ready; formal status remains P3 RELEASE
+ACCEPTANCE PENDING.**
 
 **Confirmed real state of the Windows 11 build/test machine** (walked
 through interactively with the user, not this sandbox): Node.js
@@ -46,18 +49,24 @@ frontend 5/5 files/22/22 tests.
   real, separate acquisition - not addressed further here; an unsigned
   `.msi`/`.exe` will trigger SmartScreen warnings and is not appropriate
   for a genuine customer-facing RC1 build).
-- **The one genuine external artifact this whole effort has been honest
-  about needing and has NOT fetched**: PostgreSQL 17's official EDB
-  Windows x86-64 **binaries** distribution (NOT the interactive
-  installer .exe - a separate "binaries" zip EDB publishes specifically
-  for bundling into another application's own installer). Obtain it
-  from `https://www.enterprisedb.com/download-postgresql-binaries`,
-  selecting PostgreSQL 17.x / Windows x86-64, and verify the download
-  against EDB's own published SHA-256 checksum before trusting it (never
-  skip this step - see `docs/WINDOWS_INSTALLER_DESIGN.md`'s "Stop
-  conditions" for the still-open question of whether these specific
-  binaries are themselves Authenticode-signed, which this checksum
-  verification does not substitute for but does mitigate).
+- **The two genuine external artifacts this whole effort needed - both
+  now obtained and independently verified, real hashes on record:**
+  - PostgreSQL 17.11-4's official EDB Windows x86-64 **binaries**
+    distribution (NOT the interactive installer .exe - a separate
+    "binaries" zip EDB publishes specifically for bundling into another
+    application's own installer), from
+    `https://www.enterprisedb.com/download-postgresql-binaries`. SHA-256
+    `b9424ee7bc60b52450ff910a3630225df32e633f3cb29c1d126d9299d59aea28`.
+  - Node.js 20.20.2's official Windows x64 binary zip, from
+    `https://nodejs.org/dist/v20.20.2/node-v20.20.2-win-x64.zip`.
+    SHA-256
+    `dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77`.
+
+  Always re-verify against the file you actually have before trusting
+  it (`Get-FileHash -Algorithm SHA256` - `scripts/windows/stage-postgres-artifact.ps1`
+  and `scripts/windows/stage-node-artifact.ps1` do this automatically
+  and fail closed on any mismatch) - never skip this step even though
+  these specific hashes are now on record here.
 
 ## 1. Install the WiX toolchain - PINNED to 4.0.6, not "latest"
 
@@ -139,40 +148,54 @@ location).
 
 ## 3. Build the Windows installer
 
-The installer SOURCE is now real and structurally complete for the
-application-only MSI (`installer/windows/Product.wxs`) plus a Burn
-bootstrapper wrapping it for the uninstall data-retention question
-(`installer/windows/Bundle.wxs`) - see both files' own header comments.
-**One genuine gap remains before this compiles into a real artifact**:
-`ApiFiles`' file harvesting (real files from the payload staged in step
-2, not hand-enumerated - see that ComponentGroup's own comment in
-Product.wxs for the exact harvest command shape) and the bundled-
-PostgreSQL WiX components (a second service, data directory, role-
-creation custom action calling `scripts/windows/provision-postgres.ps1`'s
-already-verified logic) - both marked with explicit `TODO` comments in
-`Product.wxs`, and both blocked on the one real external artifact this
-effort has been honest about needing: **PostgreSQL 17's official EDB
-Windows binaries distribution** - see this document's Prerequisites
-section above for exactly where to obtain it and how to verify it, and
-`docs/WINDOWS_INSTALLER_DESIGN.md`'s "Source / distribution" section for
-the full reasoning. Obtain that artifact, add the harvest + PostgreSQL
-components, THEN run:
+**GENUINELY COMPILES - proven, not aspirational.** Both external
+artifacts (PostgreSQL 17.11-4 and Node.js 20.20.2, both independently
+verified - see step 1's prerequisites) are used for real by the single
+documented entry point:
+
+```powershell
+.\scripts\windows\build-release.ps1 `
+  -PostgresZipPath "<path-to-postgresql-17.11-4-windows-x64-binaries.zip>" `
+  -NodeZipPath "<path-to-node-v20.20.2-win-x64.zip>" `
+  -CleanCheckout
+```
+
+This runs all 13 real steps in one invocation: verifies both artifacts'
+SHA-256 (fails closed on any mismatch), builds the application from a
+clean checkout, stages the production payload + both runtimes,
+validates the staged payload (no dev deps/secrets/source), generates the
+real WiX file harvests, compiles `Product.msi`, compiles the Burn
+bundle (`HexyrnCore-<version>-<label>.exe`), and reports exact SHA-256
+hashes. Confirmed working end to end on the real Windows 11 RC build
+machine - see `P3-ENVIRONMENT-VERIFICATION.md`'s "Windows packaging"
+section for the exact artifact hashes/sizes and the real compiler
+errors found and fixed getting here.
+
+For manual iteration on the WiX sources alone (not a real release
+build), the underlying two `wix build` invocations `build-release.ps1`
+runs are:
 
 ```powershell
 dotnet tool run wix -- build installer\windows\Product.wxs `
-  -d HexyrnVersion=1.0.0-rc1 `
+  dist-release\PayloadFiles.wxs dist-release\NodeRuntimeFiles.wxs dist-release\PostgresRuntimeFiles.wxs `
+  -d HexyrnVersion=1.0.0.0 `
+  -d PayloadDir=<staged-payload-dir> -d NodeRuntimeDir=<staged-payload-dir>\runtime\node -d PostgresRuntimeDir=<staged-payload-dir>\runtime\postgresql -d RepoRoot=<repo-root> `
   -ext WixToolset.Util.wixext/4.0.6 `
   -out dist-release\Product.msi
 
 dotnet tool run wix -- build installer\windows\Bundle.wxs `
-  -d HexyrnVersion=1.0.0-rc1 `
+  -d HexyrnVersion=1.0.0.0 `
+  -loc installer\windows\Bundle.en-us.wxl `
+  -b dist-release `
   -ext WixToolset.Bal.wixext/4.0.6 `
-  -out dist-release\HexyrnCore-1.0.0-rc1.exe
+  -out dist-release\HexyrnCore-1.0.0.0-rc1.exe
 ```
 
-(Two separate `wix build` invocations - Bundle.wxs's `<MsiPackage
-SourceFile="Product.msi"/>` references the first command's output by
-relative path, so build the MSI first.)
+(Two separate `wix build` invocations, both run from the repository
+ROOT, never a subdirectory - `dotnet tool run wix` fails to resolve the
+`WixToolset.Bal.wixext` extension when invoked from elsewhere, a real
+bug found this round; `Bundle.wxs`'s relative `Product.msi` reference is
+resolved via `-b dist-release`, not by changing directories.)
 
 ## 4. Verify the artifact / signature
 
@@ -182,8 +205,8 @@ that's what gets signed and manifested:
 
 ```powershell
 # Code-sign the built bundle (requires the real signing certificate):
-signtool sign /f <path-to-cert.pfx> /p <cert-password> /fd sha256 /tr http://timestamp.digicert.com /td sha256 dist-release\HexyrnCore-1.0.0-rc1.exe
-signtool verify /pa dist-release\HexyrnCore-1.0.0-rc1.exe
+signtool sign /f <path-to-cert.pfx> /p <cert-password> /fd sha256 /tr http://timestamp.digicert.com /td sha256 dist-release\HexyrnCore-1.0.0.0-rc1.exe
+signtool verify /pa dist-release\HexyrnCore-1.0.0.0-rc1.exe
 
 # Generate the release manifest with the REAL production release-signing
 # key (never the default test key - see generate-release-manifest.ts's
@@ -191,14 +214,14 @@ signtool verify /pa dist-release\HexyrnCore-1.0.0-rc1.exe
 # SEPARATE key domain from TLS/licence signing - see docs/RELEASE_SIGNING.md):
 cd apps\api
 npx ts-node scripts\generate-release-manifest.ts `
-  --artifact ..\dist-release\HexyrnCore-1.0.0-rc1.exe `
+  --artifact ..\dist-release\HexyrnCore-1.0.0.0-rc1.exe `
   --product-id hexyrn-core `
   --version 1.0.0-rc1 `
   --requires-core-version ">=1.0.0-rc1" `
   --artifact-type windows-installer `
   --signing-key-pem-file <path-to-REAL-release-signing-private-key.pem> `
   --signing-key-id <real-key-id> `
-  --out ..\dist-release\HexyrnCore-1.0.0-rc1.manifest.json
+  --out ..\dist-release\HexyrnCore-1.0.0.0-rc1.manifest.json
 cd ..\..
 ```
 
@@ -235,8 +258,8 @@ Deliberately NOT the whole repository - the point of this step is
 proving what a REAL CUSTOMER receives installs and works, not that "the
 dev environment can run it":
 
-- `dist-release\HexyrnCore-1.0.0-rc1.exe` (the signed Burn bundle)
-- `dist-release\HexyrnCore-1.0.0-rc1.manifest.json`
+- `dist-release\HexyrnCore-1.0.0.0-rc1.exe` (the signed Burn bundle)
+- `dist-release\HexyrnCore-1.0.0.0-rc1.manifest.json`
 - A copy of `docs/OPERATOR_GUIDE.md` (what a real customer would read)
 - The acceptance checklist below (this document, or a printed/copied
   version of it)
@@ -252,7 +275,7 @@ Inside the clean VM, WITHOUT installing Node.js, PostgreSQL, or anything
 else the installer itself should be providing (that's exactly what's
 being tested - a real SME administrator's machine):
 
-1. Run the signed `HexyrnCore-1.0.0-rc1.exe` (the Burn bundle - it
+1. Run the signed `HexyrnCore-1.0.0.0-rc1.exe` (the Burn bundle - it
    installs `Product.msi` internally). Confirm: PostgreSQL 17 installs
    (verify the exact version - `postgres --version` from the bundled
    `bin\` directory must report 17.x, never a different major version),
