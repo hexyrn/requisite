@@ -1,17 +1,30 @@
 # Windows Installer Design (P3 item 3)
 
-**Status honestly stated up front:** this is design groundwork, not a
-built or tested installer. `installer/windows/Product.wxs` is a real WiX
-Toolset v4 source file that makes every concrete decision an installer
-needs, but it has never been compiled (no WiX toolchain - `candle.exe`,
-`light.exe`, `wix.exe` - is available in this development environment)
-and there is no Windows GUI session available here to click through an
-install/uninstall even if an `.msi` existed. Classify this as
-**IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING** for the design/source,
-and **NOT IMPLEMENTED** for an actual working installer. See
-`P3-ENVIRONMENT-VERIFICATION.md`'s "Windows installer" section.
+**Status honestly stated up front:** the PostgreSQL major version (17)
+and the PostgreSQL bundling approach are NO LONGER OPEN QUESTIONS - both
+are decided, per explicit product direction, and documented in full
+below. The WiX toolchain is NO LONGER UNAVAILABLE - WiX Toolset 4.0.6 +
+WixToolset.Util.wixext 4.0.6 + WixToolset.Bal.wixext 4.0.6 are confirmed
+installed and working on the real Windows 11 machine this RC is being
+built on (walked through interactively with the user - not this
+sandbox; see `docs/WINDOWS_ACCEPTANCE_PREP.md` for that machine's full
+verified state). What remains genuinely true: `installer/windows/
+Product.wxs` and `installer/windows/Bundle.wxs` are real, structurally
+complete WiX sources (confirmed well-formed XML via a real parser, see
+`scripts/windows/__tests__/validate-installer-source.js`) that have
+**not yet been compiled into an actual `.msi`/`.exe`** - that compile
+step, and the one remaining external artifact it depends on (PostgreSQL
+17's official binaries distribution - see "Source / distribution"
+below), are real Windows-round next steps, not done here. Classify as
+**IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING** for the design/source
+(now materially more complete than a first pass - real packaging
+scripts, real credential generation, real PostgreSQL provisioning logic,
+all independently tested this round, not just written), and **NOT
+IMPLEMENTED** for an actual compiled, signed, installed artifact. See
+`P3-ENVIRONMENT-VERIFICATION.md`'s "Windows installer" section and
+`docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact next commands.
 
-## Why WiX Toolset v4
+## Why WiX Toolset - PINNED to 4.0.6, not "latest"
 
 Chosen over NSIS/Inno Setup for one concrete reason: WiX produces a real
 `.msi`, which integrates with Windows' own "Programs and Features"
@@ -22,16 +35,89 @@ installing/updating it. NSIS/Inno Setup produce a bespoke `.exe`
 installer that works fine for a single-user desktop app but doesn't get
 the same enterprise-deployment integration for free.
 
-## Packaging strategy: same build output as Docker
+**Version pin, not a detail:** this RC targets WiX Toolset **4.0.6**
+specifically, with `WixToolset.Util.wixext` and `WixToolset.Bal.wixext`
+also pinned to 4.0.6 - see `.config/dotnet-tools.json` (a committed
+local tool manifest, so `dotnet tool restore` reproduces this exact
+toolchain on any machine) and `docs/WINDOWS_ACCEPTANCE_PREP.md`'s
+install command. This is a real, deliberate decision, not an arbitrary
+one: an earlier unpinned `dotnet tool install --global wix` on the real
+RC build machine resolved to **WiX 7**, which pulled in an OSMF EULA
+acceptance requirement this RC does not want to take on. We returned to
+4.0.6 deliberately. Do not "helpfully" upgrade this project to WiX 7
+without a separate, explicit decision to accept that EULA.
 
-The installer packages `apps/api/dist` + `apps/api/node_modules` +
-`packages/*/dist` - the exact same production build output
-`apps/api/Dockerfile`'s runtime stage packages (see that Dockerfile's own
-comments about the npm-workspace-symlink build-ordering bug found and
-fixed this phase - the same build process applies here). Deliberately
-one build pipeline, two distribution mechanisms, not a second
-independently-maintained Windows build that could drift out of sync with
-what's actually tested via Docker.
+## Packaging strategy: same build output as Docker, via a real reproducible script
+
+The installer packages the SAME production build output
+`apps/api/Dockerfile`'s runtime stage packages - compiled `apps/api/dist`,
+production-only `node_modules`, `packages/*/dist`, `apps/web/dist` (see
+that Dockerfile's own comments about the npm-workspace-symlink
+build-ordering bug found and fixed this phase - the same build process
+applies here). Deliberately one build pipeline, two distribution
+mechanisms, not a second independently-maintained Windows build that
+could drift out of sync with what's actually tested via Docker.
+
+**Reproducibility, concretely, not just as a stated goal:**
+`scripts/windows/build-release-payload.ps1` (new this round) is a real,
+tested script that does this - `git clone` into a clean workspace
+outside OneDrive (see "OneDrive / clean build workspace" in
+`docs/WINDOWS_ACCEPTANCE_PREP.md` for why that matters), `npm ci`, build
+every workspace in the CORRECT dependency order (`packages/*` before
+`apps/*` - a real ordering bug in the root `package.json`'s own `build`
+script was found and fixed this round getting this script to work on a
+genuinely clean checkout, not just an already-built working tree),
+re-run typecheck/lint against that build, `npm ci --omit=dev` to prune
+to production-only dependencies, then stage everything into a clean
+output directory with an explicit check that no source `.ts` files or
+`.env` files leaked into the staged payload. Verified end to end via a
+real clean-checkout run - see this round's commit history for the exact
+before/after evidence (98.9MB production-only `node_modules`, real
+`main.js`/`index.html` present, zero stray source/secret files).
+
+## Node.js runtime packaging
+
+**A customer installation must not depend on Node.js already being
+installed globally**, and the Hexyrn Core Windows Service must execute
+against a Hexyrn-controlled runtime, not whatever `node.exe` happens to
+be on `PATH` (which could be a different, untested Node major version,
+or nothing at all).
+
+**Strategy: bundle the official Node.js Windows x64 binary distribution**
+(`node-v20.x.x-win-x64.zip` from `https://nodejs.org/dist/` - the
+Node.js Foundation's own official release artifacts, MIT-licensed,
+genuinely redistributable) alongside the application payload under
+`C:\Program Files\Hexyrn Core\runtime\node\`, and register the Hexyrn
+Core Windows Service (`Product.wxs`'s `ServiceInstall`) to launch
+`runtime\node\node.exe apps\api\dist\main.js` by its FULL PATH, never a
+bare `node` that would resolve through `PATH` - matching exactly how
+`apps/api/Dockerfile`'s `CMD ["node", "dist/main.js"]` already only ever
+resolves within that image's own controlled `node:20-alpine` base, never
+some other Node install.
+
+**This is the same class of external-artifact boundary as PostgreSQL's**
+- Node.js's official Windows zip has NOT been downloaded in this
+repository or by any script here, and will not be, without a human
+explicitly fetching it (verified against Node.js's own published
+SHA-256 checksums at `https://nodejs.org/dist/v20.x.x/SHASUMS256.txt`)
+and placing it where `scripts/windows/build-release-payload.ps1`'s real
+Windows-round extension (not yet written - a real, small addition:
+extract the pinned Node zip into the staged payload's `runtime\node\`
+alongside the existing staging logic) expects it. Pin the EXACT Node
+20.x patch version this repository's own `engines.node` and the
+Docker image's `node:20-alpine` tag imply (confirmed on the real
+Windows build machine: Node.js 20.20.2 - see
+`docs/WINDOWS_ACCEPTANCE_PREP.md`'s verified toolchain state), not a
+floating "latest v20."
+
+**Licensing:** Node.js itself is MIT-licensed; its bundled dependencies
+(V8, libuv, OpenSSL, etc.) carry their own permissive licenses, all
+compatible with redistribution - Node.js's own official Windows binary
+distribution exists specifically to be redistributed by downstream
+projects, this is not a novel or legally uncertain use. Bundle the
+official distribution's `LICENSE` file into the installer payload
+alongside PostgreSQL's own `COPYRIGHT` file (see the PostgreSQL section
+below) for the same reason.
 
 ## PostgreSQL bundling strategy - DECIDED (per explicit product direction)
 
@@ -236,7 +322,59 @@ None of the above changes or removes the existing Docker deployment path
 (`docker-compose.prod.yml`, genuinely verified this phase) - it remains
 a fully supported "advanced" deployment option for operators who prefer
 it, exactly as the explicit requirement states. The Windows installer is
-an ADDITIONAL, more turnkey path, not a replacement.
+an ADDITIONAL, more turnkey path, not a replacement. An "advanced
+external database" installer path (point the Windows installer at an
+operator-managed PostgreSQL instance instead of bundling one) is a real,
+separate option worth offering alongside the turnkey bundled path -
+tracked here as a genuine future enhancement, not designed further in
+this document since the DEFAULT/primary path (bundled PostgreSQL) is
+what was explicitly directed and is the harder problem to get right
+first.
+
+### Existing PostgreSQL installations - safe detection, not silent reuse
+
+**The installer must never assume a `postgres`/`pg_ctl` found on `PATH`,
+or a PostgreSQL service already running on port 5432, belongs to
+Hexyrn.** A customer machine may already run an unrelated PostgreSQL
+instance (their own database for some other application). The design:
+
+- **Hexyrn's managed installation has an unambiguous identity**: the
+  Windows Service is specifically named `HexyrnPostgreSQL` (not
+  `postgresql-x64-17` or any name EDB's own installer might use), its
+  data directory is specifically `%ProgramData%\Hexyrn Core\
+  postgresql-data\` (not `C:\Program Files\PostgreSQL\17\data`, EDB
+  installer's own default), and it listens on a port the installer
+  itself picks and records (see "Port strategy" above) rather than
+  assuming 5432 is free or belongs to it.
+- **Fresh-install detection**: before running `initdb`, the installer
+  checks specifically for a Windows Service named `HexyrnPostgreSQL` and
+  for the specific data directory above - NOT for "any PostgreSQL
+  service" or "anything listening on 5432." If neither exists, this is
+  genuinely a fresh install; proceed with `initdb` into a directory
+  `scripts/windows/provision-postgres.ps1` already refuses to run
+  against if it already exists (see that script's real, tested guard -
+  "refusing to initdb over an existing directory").
+- **Upgrade detection (a DIFFERENT installed Hexyrn version) is
+  SEPARATE from detecting an unrelated PostgreSQL install**: if
+  `HexyrnPostgreSQL` already exists as a service with Hexyrn's own data
+  directory present, this is an upgrade of Hexyrn's OWN managed
+  instance - handled by "Upgrade implications" above (never re-run
+  `initdb`, never touch the data directory). If some OTHER PostgreSQL
+  service/instance is detected (any name/port that isn't
+  `HexyrnPostgreSQL` + the Hexyrn data directory), the installer must
+  leave it completely alone - never stop it, never reuse its port
+  without checking availability first, never touch its credentials or
+  data.
+- **Port collision handling**: if the installer's intended port (5432 by
+  default) is already bound by something else, `scripts/windows/
+  provision-postgres.ps1`'s real `postgresql.conf` hardening step (see
+  its `-Port` parameter) picks a different, recorded port rather than
+  failing outright or - worse - silently trying to connect to whatever
+  already owns 5432 as if it were Hexyrn's own database. The exact
+  UI/detection flow for surfacing this choice to the operator during
+  install is real Windows-round work (a Burn bundle UI decision, same
+  category as the uninstall data-retention question) - not finalized
+  further in this document.
 
 ### Stop conditions - documented, not yet hit, watch for these on the real Windows round
 
@@ -278,46 +416,105 @@ if bundling creates a concrete problem:
   Not a new category of obligation, just a second deployment path
   carrying the same one.
 
-## Windows Service account
+## Windows Service account - DECIDED: per-service virtual accounts
 
-`Product.wxs` currently uses `Account="LocalSystem"` as a conservative
-placeholder that is guaranteed to work everywhere. A real release should
-use TWO dedicated least-privilege service accounts instead (one for the
-Hexyrn Core application service, one for the bundled PostgreSQL service -
-matching the same "don't run as more-privileged than necessary"
-reasoning already applied to `hexyrn_app`/`hexyrn_backup`'s restricted
-Postgres roles, and to `apps/api/Dockerfile`'s non-root container user).
-Not finalized here - the right mechanism (a machine-local service
-account the installer creates vs. requiring the operator to supply one
-via Active Directory in an enterprise deployment) is real Windows-
-environment implementation work, not a design question this document
-needs to resolve further now that the bundling decision itself is made.
+**`Product.wxs` no longer uses `Account="LocalSystem"`** - it now uses
+`Account="NT SERVICE\HexyrnCore"`, a Windows **virtual service account**
+(per-service SID), with `NT SERVICE\HexyrnPostgreSQL` planned identically
+for the bundled PostgreSQL service once its components are added (see
+that file's TODO comment). This is the genuine least-privilege mechanism
+Windows provides for exactly this case, not a placeholder:
+
+- The Service Control Manager creates the identity automatically the
+  first time the service starts (available on every Windows
+  version/edition this product targets - Vista/Server 2008 onward, so no
+  compatibility concern for Windows 10/11 Home or Server).
+- It cannot interactively log on, has no password to generate, store,
+  rotate, or leak - closing an entire class of credential-management
+  problem a manually-created local/domain service account would create.
+- It gets a real, distinct SID (`NT SERVICE\HexyrnCore` and `NT
+  SERVICE\HexyrnPostgreSQL` are genuinely different identities, not the
+  same account with two names) that filesystem/registry ACLs can target
+  specifically - e.g. granting `NT SERVICE\HexyrnCore` write access to
+  `%ProgramData%\Hexyrn Core\storage\`/`backups\`/`config\` without
+  granting the same to the PostgreSQL service identity, and vice versa
+  for `postgresql-data\`.
+- Matches the same "don't run as more-privileged than necessary"
+  reasoning already applied to `hexyrn_app`/`hexyrn_backup`'s restricted
+  Postgres roles and `apps/api/Dockerfile`'s non-root container user -
+  the Windows service model now carries the identical philosophy, not a
+  weaker one just because it's a different OS.
+
+**Filesystem ACLs (real Windows-round implementation step, exact
+mechanism decided here, not yet executed since it needs a real install
+to run `icacls` against):**
+- `%ProgramData%\Hexyrn Core\storage\`, `backups\`, `config\`: `NT
+  SERVICE\HexyrnCore` gets Modify; `NT SERVICE\HexyrnPostgreSQL` gets no
+  access (it has no reason to read the application's own config/storage).
+- `%ProgramData%\Hexyrn Core\postgresql-data\`: `NT
+  SERVICE\HexyrnPostgreSQL` gets Full Control (PostgreSQL's own
+  requirement - it must own its data directory); `NT SERVICE\HexyrnCore`
+  gets NO direct filesystem access to this directory at all - the
+  application only ever talks to PostgreSQL over its loopback TCP
+  connection with its own `hexyrn_app`/`hexyrn_backup` role credentials,
+  exactly like the Docker deployment where the api container has no
+  filesystem access to postgres's data volume either.
+- `C:\Program Files\Hexyrn Core\`: read+execute only for both service
+  identities (the application/database binaries are not meant to be
+  writable by the running services themselves - matches the same
+  "Program Files is read-mostly" reasoning `Product.wxs` already states
+  for why data lives under ProgramData instead).
+- Service-control permissions: only Administrators may
+  start/stop/reconfigure either service (the Windows default for a
+  service installed by an elevated MSI - not weakened).
 
 ## Uninstall / data retention
 
 Mirrors `scripts/uninstall-docker.sh`'s design (see
 `docs/OPERATOR_GUIDE.md` §15), not reinvented separately: removing the
 application must not silently delete `storage/`, `backups/`,
-`config/`, or (now that PostgreSQL is bundled) `postgresql-data/` under
-`%ProgramData%\Hexyrn Core` unless the operator explicitly says so a
-second time. A bare WiX `.msi` cannot show that kind of confirmation
-dialog sequence on its own - this needs a WiX Burn bundle (a small
-bootstrapper EXE wrapping the MSI) with a custom UI sequence asking,
-specifically, about the database directory now that bundling is the
-decided direction, not a hypothetical "one database or two" question.
+`config/`, or `postgresql-data/` under `%ProgramData%\Hexyrn Core`
+unless the operator explicitly says so a second time.
+
+**This is now real WiX source, not just a stated design**:
+`installer/windows/Bundle.wxs` is a genuine WiX Burn bootstrapper
+(confirmed well-formed XML, see this round's validation script) wrapping
+`Product.msi` specifically BECAUSE a bare MSI cannot show this kind of
+confirmation dialog sequence on its own - implementing the correct
+architecture per the explicit instruction not to weaken this
+requirement for convenience, rather than trying to force a bare MSI to
+do something it structurally cannot. What's real: the bundle exists,
+references the real MSI output, and is the correct architectural point
+for this UI. What's NOT yet written (real Windows-round, visual-
+iteration work, not authored blind - see `Bundle.wxs`'s own header
+comment): the actual custom dialog XAML/theme presenting the "keep
+data / delete data" choice on the uninstall path specifically.
 
 ## What's needed to actually close this item
 
-1. Resolve the two "Stop conditions" open questions above for real
-   (EDB binaries-zip code-signing status; PostgreSQL/Docker major-
-   version alignment) before finalizing the exact bundling mechanism.
-2. A real Windows machine with the WiX Toolset v4 installed
-   (`dotnet tool install --global wix`) to compile `Product.wxs`,
-   harvest the real `apps/api/dist`/`node_modules` file list (via `wix
-   build`'s directory harvesting, not hand-enumeration), add the
-   PostgreSQL-bundling components described above, and iterate until it
-   actually installs, starts both services, and uninstalls cleanly.
-3. A WiX Burn bundle for the uninstall/data-retention confirmation UI
-   described above.
-4. Real testing on a clean Windows VM (see
+1. Resolve the one remaining genuinely open "Stop condition" above (EDB
+   binaries-zip code-signing status) - the other stop condition from an
+   earlier version of this document (PostgreSQL/Docker major-version
+   alignment) is now CLOSED: both target PostgreSQL 17 (see the Docker
+   deployment's own real `postgres:17-alpine` verification this phase).
+2. Obtain the one genuine external artifact this effort has been honest
+   about needing: PostgreSQL 17's official EDB Windows binaries
+   distribution (see "Source / distribution" above for exactly where and
+   how to verify it) - and, separately, the official Node.js 20.x
+   Windows binary distribution (see "Node.js runtime packaging" above).
+3. On a real Windows machine with the pinned WiX Toolset 4.0.6 (`dotnet
+   tool restore` against the committed `.config/dotnet-tools.json` -
+   confirmed installed and working on the real Windows 11 RC build
+   machine, see `docs/WINDOWS_ACCEPTANCE_PREP.md`): compile
+   `Product.wxs`, harvest the real staged payload
+   (`scripts/windows/build-release-payload.ps1`'s output - already
+   genuinely verified this round via a real clean-checkout build), add
+   the PostgreSQL-bundling components (calling
+   `scripts/windows/provision-postgres.ps1`'s already-verified logic as
+   a custom action, not reimplementing it), compile `Bundle.wxs`, and
+   iterate until it actually installs, starts both services in the
+   correct order, and uninstalls cleanly via both paths.
+4. The Burn bundle's custom uninstall-confirmation UI (visual, real
+   Windows-round work).
+5. Real testing on a clean Windows VM (see
    `docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact commands/sequence).

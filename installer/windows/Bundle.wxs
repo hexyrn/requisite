@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hexyrn Core Windows installer - WiX Burn BOOTSTRAPPER (P3 item 3/9).
+
+  WHY THIS FILE EXISTS, NOT JUST Product.wxs: a bare MSI has no
+  mechanism to ask the operator a real question during uninstall ("also
+  permanently delete the database/files/backups?") - Windows Installer's
+  own UI model is a fixed sequence of built-in dialogs, not a place for
+  custom application-specific branching logic. A Burn bundle (a small
+  bootstrapper .exe that WRAPS the real .msi) is the correct WiX
+  mechanism for that - see docs/WINDOWS_INSTALLER_DESIGN.md's "Uninstall
+  / data retention" section, which explicitly required "the correct
+  architecture rather than weakening the requirement." This file is that
+  architecture, not a workaround.
+
+  Mirrors scripts/uninstall-docker.sh's real, already-tested two-step
+  confirmation exactly (see that script and its own commit history for
+  the two paths - keep data, delete data - both genuinely tested against
+  a live Docker stack this phase): on UNINSTALL, this bundle's planned
+  custom UI (BootstrapperApplicationRef below - the actual UI XAML/dialog
+  set is real Windows-round work, not written here, since it needs to be
+  visually iterated on a real Windows machine, not authored blind) asks
+  ONE question, defaulting to "keep data," and only permanently removes
+  %ProgramData%\Hexyrn Core\ (postgresql-data\, storage\, backups\,
+  config\) if the operator explicitly opts into deletion a SECOND time.
+
+  STATUS: real chain/package structure, NOT yet built or run (same
+  toolchain gap as Product.wxs - see that file's header). Requires WiX
+  Toolset 4.0.6 + WixToolset.Bal.wixext 4.0.6 (the "Bal" = Bootstrapper
+  Application Layer extension - what actually provides Burn/bundle
+  support) to compile - confirmed installed on the real Windows 11 RC
+  build machine per docs/WINDOWS_ACCEPTANCE_PREP.md.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle
+    Name="Hexyrn Core"
+    Manufacturer="Hexyrn"
+    Version="$(var.HexyrnVersion)"
+    UpgradeCode="a1c9e3f5-8b2d-4e6a-9f1c-5d7b3a2e4c60">
+    <!-- Deliberately a SEPARATE UpgradeCode from Product.wxs's Package
+         UpgradeCode - the bundle and the MSI it wraps are different
+         installable "things" in Windows Installer/Burn's own model; a
+         real Windows round should double check this doesn't collide
+         with anything but there is no reason it would (freshly
+         generated, distinct from Product.wxs's). -->
+
+    <bal:WixStandardBootstrapperApplication
+      LicenseUrl=""
+      SuppressOptionsUI="no" />
+    <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
+         remove" flow available, which is where the real data-retention
+         question needs to be inserted on the REMOVE path. The actual
+         custom UI (a WixStandardBootstrapperApplication theme override,
+         or a fully custom BootstrapperApplication) that presents the
+         "keep data / delete data" choice specifically is real,
+         visual-iteration Windows-round work - not authored blind here,
+         per this file's header. What IS decided and real here: the
+         bundle exists, wraps the real MSI, and is the correct
+         architectural point to add that UI, rather than trying to
+         force a bare MSI to do something it structurally cannot. -->
+
+    <Chain>
+      <MsiPackage SourceFile="Product.msi" Vital="yes" />
+      <!-- SourceFile="Product.msi" - the real build produces
+           Product.wxs's compiled output under this name (or whatever
+           -out path the real `wix build` invocation uses - see
+           docs/WINDOWS_ACCEPTANCE_PREP.md's exact command) and this
+           Chain references it by relative path at BUNDLE build time,
+           not by a hand-typed guess. -->
+    </Chain>
+  </Bundle>
+</Wix>

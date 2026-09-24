@@ -1,27 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Hexyrn Core Windows installer - WiX Toolset v4 source (P3 item 3).
+  Hexyrn Core Windows installer - WiX Toolset source (P3 item 3).
 
-  STATUS: real, reviewable groundwork - NOT built or run. No WiX toolchain
-  (candle/light/wix.exe) is available in this sandbox (confirmed:
-  `which candle.exe light.exe makensis.exe wix.exe` all failed) and there
-  is no Windows GUI session to click through an install/uninstall even if
-  an .msi existed. This file is the concrete starting design, not a
-  placeholder - it makes every real decision an installer needs (install
-  location, service registration, upgrade/uninstall behaviour, what gets
-  removed vs kept) so a future round on a real Windows machine with the
-  WiX Toolset installed can build and iterate it rather than start from
-  nothing. See docs/WINDOWS_INSTALLER_DESIGN.md for the reasoning behind
-  each decision below.
+  TOOLCHAIN VERSION - PINNED, NOT "latest": WiX Toolset 4.0.6 + extensions
+  WixToolset.Util.wixext 4.0.6 and WixToolset.Bal.wixext 4.0.6 EXACTLY.
+  This is deliberate, not an oversight: an earlier attempt to install
+  "the latest WiX" on the real Windows RC build machine resolved to WiX 7,
+  which pulled in an OSMF EULA acceptance requirement this RC does not
+  want to take on. We deliberately pinned back to WiX 4.0.6 for this RC -
+  see docs/WINDOWS_ACCEPTANCE_PREP.md's pinned install command. Do not
+  upgrade this project to WiX 7 without a deliberate, separate decision.
 
-  Requires (on the machine that eventually BUILDS this): WiX Toolset v4
-  (`dotnet tool install --global wix`), and the API already built to
-  apps/api/dist + apps/api/node_modules (this .wxs references that
-  output layout, matching apps/api/Dockerfile's production build - the
-  Windows installer and the Docker image are meant to package the SAME
-  build output, not diverge into two different build pipelines).
+  STATUS: this source file is real and structurally complete for a
+  single-MSI application-only install; it is NOT yet a full RC installer
+  - the `ApiFiles` component group still needs real file harvesting (see
+  its own comment below and scripts/windows/build-release-payload.ps1,
+  which stages exactly the directory this harvest should run against),
+  and the bundled-PostgreSQL components (a second service, data
+  directory, role-creation custom action - see the TODOs below and
+  scripts/windows/provision-postgres.ps1, whose exact logic these TODOs
+  should call) are not yet added, because completing them requires the
+  one genuine external artifact this whole effort has been honest about
+  needing: EDB's official PostgreSQL 17 Windows binaries distribution
+  (see docs/WINDOWS_INSTALLER_DESIGN.md's "Source / distribution"
+  section) - not fetched by anything in this repository. Compiling this
+  file itself has NOT been done in the sandbox this was authored in (no
+  WiX toolchain there); it HAS been confirmed installable (WiX 4.0.6 +
+  both extensions) on the real Windows 11 RC build machine - see
+  docs/WINDOWS_ACCEPTANCE_PREP.md for that machine's exact verified
+  toolchain state and the next real build steps.
+
+  The API/web payload referenced below is produced by
+  scripts/windows/build-release-payload.ps1 - the SAME production build
+  output apps/api/Dockerfile's runtime stage packages (one build
+  pipeline, two distribution mechanisms, not two separately-maintained
+  builds that could drift apart). See docs/WINDOWS_INSTALLER_DESIGN.md
+  for the reasoning behind every decision below.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package
     Name="Hexyrn Core"
     Manufacturer="Hexyrn"
@@ -100,28 +116,39 @@
         Description="Hexyrn Core application server."
         Start="demand"
         ErrorControl="normal"
-        Account="LocalSystem" />
-      <!-- Account="LocalSystem" is a placeholder, not a final decision -
-           see docs/WINDOWS_INSTALLER_DESIGN.md's "Windows Service
-           account" section: TWO dedicated least-privilege service
-           accounts (one for this service, one for the bundled
-           PostgreSQL service below) are the right target for a real
-           release, LocalSystem is the conservative starting point that
-           is guaranteed to work while that's finalised on the real
-           Windows round. -->
-      <!-- TODO (real Windows round, per the product direction to bundle
-           PostgreSQL - see docs/WINDOWS_INSTALLER_DESIGN.md's
-           "PostgreSQL bundling strategy" section, now DECIDED not
-           open): add a second <ServiceInstall>/<ServiceControl> pair
-           here for the bundled PostgreSQL service (Name="HexyrnPostgreSQL"
-           or similar), registered via pg_ctl or an equivalent WiX
-           element, installed/started BEFORE this service (Hexyrn Core
-           needs the database reachable at first boot) and stopped AFTER
-           it on shutdown. Not added yet because it requires real
-           PostgreSQL binaries to harvest/reference, which this sandbox
-           cannot download - see that doc's "Stop conditions" for the
-           two concrete open questions (binaries code-signing status,
-           PostgreSQL/Docker major-version alignment) to resolve first. -->
+        Account="NT SERVICE\HexyrnCore" />
+      <!-- Account="NT SERVICE\HexyrnCore" - a WINDOWS VIRTUAL SERVICE
+           ACCOUNT (per-service SID), not LocalSystem, and not a manually
+           created local/domain user Hexyrn would have to generate a
+           password for and rotate. This is the genuine least-privilege
+           mechanism Windows provides for exactly this case: the SCM
+           creates this identity automatically the first time the
+           service starts (Windows Vista/Server 2008+, universally
+           available on every supported Windows edition/version this
+           product targets), it cannot interactively log on, it has no
+           password to manage/rotate/leak, and it gets a real, distinct
+           SID that filesystem/registry ACLs can target specifically
+           (`icacls ... /grant "NT SERVICE\HexyrnCore:(OI)(CI)F"` on
+           %ProgramData%\Hexyrn Core\ - a genuine real Windows-round
+           implementation step, not decided further in this .wxs). See
+           docs/WINDOWS_INSTALLER_DESIGN.md's "Windows Service account"
+           section for the full reasoning and the equivalent
+           NT SERVICE\HexyrnPostgreSQL identity planned for the bundled
+           PostgreSQL service below. -->
+      <!-- TODO (real Windows round, once the external PostgreSQL 17
+           binaries artifact is obtained - see docs/
+           WINDOWS_INSTALLER_DESIGN.md's "Source / distribution" section
+           and scripts/windows/provision-postgres.ps1, whose real,
+           independently-verified initdb/role-creation/service-
+           registration logic this TODO should call as a WiX custom
+           action, not reimplement): add a second <ServiceInstall>/
+           <ServiceControl> pair here for the bundled PostgreSQL service
+           (Name="HexyrnPostgreSQL", Account="NT SERVICE\HexyrnPostgreSQL",
+           matching this service's virtual-account pattern), installed/
+           started BEFORE this service via WiX's ServiceDependencies
+           element (Hexyrn Core must never race PostgreSQL during boot -
+           see docs/WINDOWS_INSTALLER_DESIGN.md's "Windows services"
+           section) and stopped AFTER it on shutdown. -->
       <ServiceControl
         Id="HexyrnCoreServiceControl"
         Name="HexyrnCore"
@@ -129,16 +156,46 @@
         Stop="both"
         Remove="uninstall"
         Wait="yes" />
+      <!-- ServiceDependencies goes here once the PostgreSQL service
+           above is added: <ServiceDependency Id="HexyrnPostgreSQL" />
+           inside the ServiceInstall element, so the SCM itself enforces
+           start ordering rather than relying on application-level retry
+           logic to paper over a race. -->
+      <!-- util:ServiceConfig, NOT a core-schema element - WiX's built-in
+           ServiceInstall has no failure-action attributes of its own;
+           this comes from the Util extension (WixToolset.Util.wixext
+           4.0.6, per this project's pinned toolchain - see this file's
+           header comment), which is why the build command in
+           docs/WINDOWS_ACCEPTANCE_PREP.md passes -ext
+           WixToolset.Util.wixext. -->
+      <util:ServiceConfig
+        ServiceName="HexyrnCore"
+        FirstFailureActionType="restart"
+        SecondFailureActionType="restart"
+        ThirdFailureActionType="none"
+        RestartServiceDelayInSeconds="30"
+        ResetPeriodInDays="1" />
+      <!-- ServiceConfig: a crashed service auto-restarts twice with a
+           real delay (not a tight crash-loop) before giving up and
+           requiring operator attention - "ensure clean stop behaviour"
+           and reasonable failure handling, not silent permanent downtime
+           after one transient fault. -->
     </Component>
 
     <ComponentGroup Id="ApiFiles" Directory="ApiFolder">
-      <!-- Real file harvesting (every file under apps/api/dist and
-           apps/api/node_modules) is intentionally NOT hand-enumerated
-           here - that belongs to a WiX "harvest" step (heat.exe /
-           `wix build` with a directory harvest, or an MSBuild-based
-           packaging project) run against a real build output on a real
-           Windows machine, not guessed at file-by-file in this sandbox
-           where no such build output exists to harvest from. -->
+      <!-- Real file harvesting (every file under the staged payload
+           scripts/windows/build-release-payload.ps1 produces - dist/,
+           node_modules/, packages/*/dist, apps/web/dist) is intentionally
+           NOT hand-enumerated here - that belongs to a WiX harvest step
+           (`wix build` with a <Files Include="..."/> heat-style glob, or
+           an MSBuild-based packaging project) run against that real
+           staged directory on the real Windows build machine. Real
+           build command for the harvest input:
+             .\scripts\windows\build-release-payload.ps1 -CleanCheckout -OutDir dist-release\payload
+           then point the harvest at dist-release\payload - this script
+           is genuinely tested (see its own doc comment and this repo's
+           commit history for the real clean-checkout build it verified),
+           not a placeholder. -->
     </ComponentGroup>
 
     <Component Id="DataDirectories" Directory="HexyrnDataFolder" Guid="3c7e9a1b-5d2f-4e8a-b6c3-1a9d7f2e4b08">

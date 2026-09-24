@@ -1,144 +1,233 @@
 # Windows Acceptance Preparation
 
-**Status: preparation only.** Nothing in this document has been executed
-- there is no WiX toolchain, no Windows GUI session, and no Windows
-Sandbox/VM available in this sandboxed environment (confirmed directly:
-`candle.exe`/`light.exe`/`wix.exe` all absent from `PATH`). This
-document exists so the exact steps are ready to run on a real Windows
-machine, not to claim they have passed. **The Windows installer has NOT
-been built. The clean-machine acceptance test has NOT been run on
-Windows. RC1 is NOT declared ready.**
+**Status update: the toolchain gate is now DONE, verified on the real
+Windows 11 machine (real hardware, not this sandbox) - see the exact
+verified state below.** The Windows installer sources
+(`installer/windows/Product.wxs`, `installer/windows/Bundle.wxs`) are
+implemented as far as this repository can genuinely go without the one
+remaining external artifact (real PostgreSQL 17 binaries - see
+`docs/WINDOWS_INSTALLER_DESIGN.md`'s "Source / distribution" section).
+**The Windows installer has NOT yet been compiled into an actual .msi/
+.exe. The clean-machine acceptance test has NOT been run. RC1 is NOT
+declared ready.**
+
+**Confirmed real state of the Windows 11 build/test machine** (walked
+through interactively with the user, not this sandbox): Node.js
+20.20.2, npm 10.8.2, PostgreSQL 17.11 (native install), WiX Toolset
+4.0.6, WixToolset.Bal.wixext 4.0.6, WixToolset.Util.wixext 4.0.6, `npm
+ci` succeeds, production build succeeds, typecheck succeeds, lint 0
+errors/1 documented warning, backend 68/68 suites/495/495 tests,
+frontend 5/5 files/22/22 tests.
 
 ## Prerequisites (once, on the Windows build/test machine)
 
-- Windows 10/11 or Windows Server 2019+, with Developer Mode or an
-  admin account (WiX and service installation both need elevated
-  privileges).
+- Windows 10/11 (Home edition is fine for ordinary installation - no
+  Hyper-V/Windows Sandbox/domain membership/Server-only functionality is
+  required to INSTALL the product; those are only needed for the
+  separate clean-machine ACCEPTANCE TEST below, which runs in its own
+  VM, not on this build machine) or Windows Server 2019+, with an admin
+  account (WiX and service installation both need elevated privileges).
 - .NET SDK 6.0+ (`dotnet --version`) - required to install the WiX
-  Toolset v4 as a global tool.
+  Toolset as a local tool.
 - Node.js 20.x and npm (matching this repository's `engines.node`
-  constraint in `package.json`) - to build Hexyrn Core/Requisite.
+  constraint in `package.json`).
 - Git, to clone/pull this repository.
-- (For step 5) Windows Sandbox enabled (`Optional Features` →
-  "Windows Sandbox" - Windows 10/11 Pro/Enterprise only) OR a
-  Hyper-V/VirtualBox VM with a clean Windows install and no prior
-  Hexyrn state.
+- PostgreSQL 17 installed natively on THIS build machine (separate from
+  what gets bundled into the installer) - needed to run the backend's
+  real Postgres integration tests as part of verifying the build itself,
+  per step 2 below.
+- (For step 5) A separate clean Windows VM - VirtualBox or Hyper-V - NOT
+  Windows Sandbox (Windows Sandbox is convenient but resets on every
+  close, which makes it awkward for the multi-step, evidence-recording
+  acceptance sequence in step 7; a snapshotted VM you can roll back to
+  "clean" and re-run is the better fit here, and matches what the
+  coordinator/user's own acceptance environment is - VirtualBox).
 - A code-signing certificate for the installer artifact itself (a
   real, separate acquisition - not addressed further here; an unsigned
-  `.msi` will trigger SmartScreen warnings and is not appropriate for a
-  genuine customer-facing RC1 build).
+  `.msi`/`.exe` will trigger SmartScreen warnings and is not appropriate
+  for a genuine customer-facing RC1 build).
+- **The one genuine external artifact this whole effort has been honest
+  about needing and has NOT fetched**: PostgreSQL 17's official EDB
+  Windows x86-64 **binaries** distribution (NOT the interactive
+  installer .exe - a separate "binaries" zip EDB publishes specifically
+  for bundling into another application's own installer). Obtain it
+  from `https://www.enterprisedb.com/download-postgresql-binaries`,
+  selecting PostgreSQL 17.x / Windows x86-64, and verify the download
+  against EDB's own published SHA-256 checksum before trusting it (never
+  skip this step - see `docs/WINDOWS_INSTALLER_DESIGN.md`'s "Stop
+  conditions" for the still-open question of whether these specific
+  binaries are themselves Authenticode-signed, which this checksum
+  verification does not substitute for but does mitigate).
 
-## 1. Install the WiX toolchain
+## 1. Install the WiX toolchain - PINNED to 4.0.6, not "latest"
+
+**Do not run an unpinned `dotnet tool install --global wix`** - that is
+exactly what previously resolved to WiX 7 on this project's own real
+build machine and pulled in an OSMF EULA-acceptance requirement this RC
+deliberately avoids. Pin every version explicitly:
 
 ```powershell
-dotnet tool install --global wix
-wix --version   # confirm it installed
-wix extension add WixToolset.Util.wixext
-wix extension add WixToolset.Bal.wixext   # needed for the Burn bundle (uninstall data-retention UI)
+dotnet new tool-manifest             # once per repo checkout, if not already present
+dotnet tool install --local wix --version 4.0.6
+dotnet tool run wix -- --version     # confirm: should print 4.0.6, not 7.x
+dotnet tool run wix -- extension add WixToolset.Util.wixext/4.0.6
+dotnet tool run wix -- extension add WixToolset.Bal.wixext/4.0.6   # needed for the Burn bundle (installer/windows/Bundle.wxs, uninstall data-retention UI)
 ```
+
+(A local tool manifest, not `--global`, is deliberate too - it pins the
+exact version PER REPOSITORY CHECKOUT in `.config/dotnet-tools.json`,
+which should be committed, so a future `dotnet tool restore` on any
+machine reproduces the exact same 4.0.6 toolchain rather than whatever
+happens to be globally installed.)
 
 ## 2. Build Hexyrn Core + Requisite RC1
 
-From the repository root:
+Use the real, tested packaging script (`scripts/windows/build-release-payload.ps1`,
+verified this round via an actual clean-checkout build - see its own
+doc comment and this repository's commit history) rather than the
+manual steps this section used to describe by hand:
 
 ```powershell
-npm ci
-npm run build   # builds every workspace: packages/shared-types, packages/app-sdk,
-                # packages/design-system, apps/api, apps/web
+.\scripts\windows\build-release-payload.ps1 -CleanCheckout -OutDir dist-release\payload
 ```
 
-Confirm the real build outputs exist before packaging:
+This clones a fresh checkout (bypassing OneDrive entirely for the build
+itself - see "OneDrive / clean build workspace" below), runs `npm ci`,
+builds every workspace in the correct dependency order (`build:packages`
+then `apps/api`+`apps/web` - see the real build-ordering bug this round
+found and fixed in the root `package.json`), re-runs typecheck and lint
+against THIS build, then stages the production-only payload (compiled
+`dist/`, production-only `node_modules` via `npm ci --omit=dev` after
+building, `packages/*/dist`, `apps/web/dist`) into `dist-release\payload`
+- verified to contain zero stray `.ts` source files and zero `.env`
+files.
+
+Separately, run the full test suite (not part of the payload script
+itself, since it's slower and the payload script's own typecheck/lint
+gate is enough for routine iteration - run this before a REAL release
+build specifically):
 
 ```powershell
-dir apps\api\dist\main.js
-dir apps\web\dist\index.html
-dir packages\app-sdk\dist\index.js
-dir packages\shared-types\dist\index.js
-```
-
-Run the full verification suite one more time on THIS machine before
-packaging anything (do not trust a prior machine's results for the
-artifact you're about to sign and ship):
-
-```powershell
-npm run typecheck
-npm run lint
 cd apps\api; npx jest --runInBand; cd ..\..
 cd apps\web; npx vitest run; cd ..\..
 ```
 
-`apps\api`'s Jest suite needs a real PostgreSQL instance reachable via
-`TEST_DATABASE_URL` (see `.env.example`) - install PostgreSQL 17
-natively on this build machine for this step specifically (this is
-testing the BUILD, not the bundled-Postgres installer's own behavior,
-which is a separate, later verification once the installer's Postgres-
-bundling components are built per `docs/WINDOWS_INSTALLER_DESIGN.md`).
+`apps\api`'s Jest suite needs a real PostgreSQL 17 instance reachable
+via `TEST_DATABASE_URL` (see `.env.example`) on THIS build machine
+(separate from whatever gets bundled into the installer for customers -
+this is testing the BUILD, not the bundled-Postgres installer's own
+provisioning, which step 3 below covers with
+`scripts/windows/provision-postgres.ps1`).
+
+### OneDrive / clean build workspace
+
+This repository's own working checkout is under OneDrive, which has
+already caused a real `npm ci` EPERM lock (OneDrive's own sync grabbing
+a file npm was mid-write to) and separately caused Docker Desktop
+file-sync errors on `node_modules\.bin\*` during this phase's own work.
+**These are development-workspace annoyances, not customer runtime
+behavior** - do not confuse them with anything the shipped product does.
+`-CleanCheckout` above exists specifically so a real release build never
+depends on OneDrive's sync timing: it `git clone`s into
+`$env:TEMP\hexyrn-release-build-<random>` (outside OneDrive) and does
+every `npm ci`/build/prune step there. For belt-and-braces on a machine
+where OneDrive continues to cause problems even for the clone step
+itself, clone manually into a non-OneDrive path first (e.g.
+`C:\build\hexyrn`) and run the payload script there without
+`-CleanCheckout` (it will build in place, in that already-clean
+location).
 
 ## 3. Build the Windows installer
 
-**Not yet fully buildable** - `installer/windows/Product.wxs` needs two
-things added first, both flagged as `TODO` comments directly in that
-file:
-1. Real file harvesting of `apps/api/dist`/`node_modules`/
-   `packages/*/dist` into the `ApiFiles` component group (`wix build`
-   supports directory harvesting - do not hand-enumerate).
-2. The bundled-PostgreSQL components described in
-   `docs/WINDOWS_INSTALLER_DESIGN.md` (a second `ServiceInstall`, the
-   `initdb`/role-creation custom actions, the PostgreSQL data directory).
-
-Once those are added, the actual build command (WiX v4 syntax):
+The installer SOURCE is now real and structurally complete for the
+application-only MSI (`installer/windows/Product.wxs`) plus a Burn
+bootstrapper wrapping it for the uninstall data-retention question
+(`installer/windows/Bundle.wxs`) - see both files' own header comments.
+**One genuine gap remains before this compiles into a real artifact**:
+`ApiFiles`' file harvesting (real files from the payload staged in step
+2, not hand-enumerated - see that ComponentGroup's own comment in
+Product.wxs for the exact harvest command shape) and the bundled-
+PostgreSQL WiX components (a second service, data directory, role-
+creation custom action calling `scripts/windows/provision-postgres.ps1`'s
+already-verified logic) - both marked with explicit `TODO` comments in
+`Product.wxs`, and both blocked on the one real external artifact this
+effort has been honest about needing: **PostgreSQL 17's official EDB
+Windows binaries distribution** - see this document's Prerequisites
+section above for exactly where to obtain it and how to verify it, and
+`docs/WINDOWS_INSTALLER_DESIGN.md`'s "Source / distribution" section for
+the full reasoning. Obtain that artifact, add the harvest + PostgreSQL
+components, THEN run:
 
 ```powershell
-wix build installer\windows\Product.wxs `
+dotnet tool run wix -- build installer\windows\Product.wxs `
   -d HexyrnVersion=1.0.0-rc1 `
-  -d ApiDistPath=apps\api\dist `
-  -ext WixToolset.Util.wixext `
-  -ext WixToolset.Bal.wixext `
-  -out dist-release\HexyrnCore-1.0.0-rc1.msi
+  -ext WixToolset.Util.wixext/4.0.6 `
+  -out dist-release\Product.msi
+
+dotnet tool run wix -- build installer\windows\Bundle.wxs `
+  -d HexyrnVersion=1.0.0-rc1 `
+  -ext WixToolset.Bal.wixext/4.0.6 `
+  -out dist-release\HexyrnCore-1.0.0-rc1.exe
 ```
 
-(The Burn bundle wrapping this `.msi` for the uninstall data-retention
-UI is a separate `.wxs`/build step, not yet written - see
-`docs/WINDOWS_INSTALLER_DESIGN.md`'s "Uninstall / data retention"
-section.)
+(Two separate `wix build` invocations - Bundle.wxs's `<MsiPackage
+SourceFile="Product.msi"/>` references the first command's output by
+relative path, so build the MSI first.)
 
 ## 4. Verify the artifact / signature
 
-```powershell
-# Code-sign the built MSI (requires the real signing certificate):
-signtool sign /f <path-to-cert.pfx> /p <cert-password> /fd sha256 /tr http://timestamp.digicert.com /td sha256 dist-release\HexyrnCore-1.0.0-rc1.msi
-signtool verify /pa dist-release\HexyrnCore-1.0.0-rc1.msi
+The customer-facing artifact is the Burn bundle's `.exe` (it wraps and
+launches the `.msi` - a customer never runs `Product.msi` directly), so
+that's what gets signed and manifested:
 
-# Generate the release manifest with the REAL production signing key
-# (never the default test key - see generate-release-manifest.ts's own
-# loud warning if you forget --signing-key-pem-file):
+```powershell
+# Code-sign the built bundle (requires the real signing certificate):
+signtool sign /f <path-to-cert.pfx> /p <cert-password> /fd sha256 /tr http://timestamp.digicert.com /td sha256 dist-release\HexyrnCore-1.0.0-rc1.exe
+signtool verify /pa dist-release\HexyrnCore-1.0.0-rc1.exe
+
+# Generate the release manifest with the REAL production release-signing
+# key (never the default test key - see generate-release-manifest.ts's
+# own loud warning if --signing-key-pem-file is omitted; this is a
+# SEPARATE key domain from TLS/licence signing - see docs/RELEASE_SIGNING.md):
 cd apps\api
 npx ts-node scripts\generate-release-manifest.ts `
-  --artifact ..\dist-release\HexyrnCore-1.0.0-rc1.msi `
+  --artifact ..\dist-release\HexyrnCore-1.0.0-rc1.exe `
   --product-id hexyrn-core `
   --version 1.0.0-rc1 `
   --requires-core-version ">=1.0.0-rc1" `
   --artifact-type windows-installer `
-  --signing-key-pem-file <path-to-real-release-signing-private-key.pem> `
+  --signing-key-pem-file <path-to-REAL-release-signing-private-key.pem> `
   --signing-key-id <real-key-id> `
   --out ..\dist-release\HexyrnCore-1.0.0-rc1.manifest.json
 cd ..\..
 ```
 
-## 5. Launch Windows Sandbox/VM
+If the real signing certificate/key isn't available yet: this is exactly
+the kind of external operational blocker the coordinator's instructions
+say to document rather than fake - run the build/harvest/compile steps
+above, confirm the unsigned artifact's contents are correct (step below),
+and treat code-signing + manifest-signing as a separate, tracked
+operational acceptance item, not something to skip past with a fabricated
+signature.
 
-Windows Sandbox (fast, disposable, built into Windows 10/11 Pro):
+## 5. Launch a clean VirtualBox VM
 
-```powershell
-# From an elevated PowerShell, enable it once if not already:
-Enable-WindowsOptionalFeature -Online -FeatureName "Containers-DisposableClientVM" -All
-# Then just launch:
-WindowsSandbox.exe
-```
+Per the coordinator's own environment: a snapshotted **VirtualBox** VM
+with a clean Windows install and no prior Hexyrn/PostgreSQL/Node state,
+not Windows Sandbox (Sandbox resets on every close, which is awkward for
+this section's multi-step, evidence-recording sequence - a VM you
+snapshot BEFORE install and can roll back to repeatedly is the better
+fit here). Windows Home is fine as the guest OS - the installer itself
+must not require Hyper-V/Server-only features to install (only this
+outer acceptance-testing VM needs virtualization, which is a property of
+the TEST environment, not a requirement the installer imposes on a real
+customer's machine).
 
-Or a Hyper-V VM from a clean Windows ISO, snapshotted BEFORE any Hexyrn
-installation so the acceptance test can be re-run repeatedly from a
-genuinely clean state.
+1. Create the VM, install a clean supported Windows edition, take NO
+   further action inside it yet.
+2. **Snapshot immediately** (before step 6 below) - this is what lets
+   the acceptance test in step 7 be re-run from genuinely clean state as
+   many times as needed, rather than only once.
 
 ## 6. Transfer only the release artifact and acceptance harness
 
@@ -146,32 +235,43 @@ Deliberately NOT the whole repository - the point of this step is
 proving what a REAL CUSTOMER receives installs and works, not that "the
 dev environment can run it":
 
-- `dist-release\HexyrnCore-1.0.0-rc1.msi`
+- `dist-release\HexyrnCore-1.0.0-rc1.exe` (the signed Burn bundle)
 - `dist-release\HexyrnCore-1.0.0-rc1.manifest.json`
 - A copy of `docs/OPERATOR_GUIDE.md` (what a real customer would read)
 - The acceptance checklist below (this document, or a printed/copied
   version of it)
 
-Windows Sandbox supports drag-and-drop from the host, or a mapped
-folder via its config XML's `<MappedFolders>` - use a READ-ONLY mapping
-for the artifact so the sandbox environment can't accidentally write
-back into the host's build output.
+VirtualBox's Shared Folders (read-only) or simple drag-and-drop (with
+Guest Additions installed) both work - use a READ-ONLY share for the
+artifact so the guest VM can't accidentally write back into the host's
+build output.
 
 ## 7. Execute the clean-machine acceptance test
 
-Inside the clean sandbox/VM, WITHOUT installing Node.js, PostgreSQL, or
-anything else the installer itself should be providing (that's exactly
-what's being tested - a real SME administrator's machine):
+Inside the clean VM, WITHOUT installing Node.js, PostgreSQL, or anything
+else the installer itself should be providing (that's exactly what's
+being tested - a real SME administrator's machine):
 
-1. Run the signed `.msi`. Confirm: PostgreSQL 17 installs, initializes,
-   and starts as its own Windows Service; the three Postgres roles
-   (`hexyrn`/`hexyrn_app`/`hexyrn_backup`) are created with the correct
-   privileges (verify via `psql` from the bundled `bin\` directory -
-   `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname
-   LIKE 'hexyrn%'` should show exactly the same three-row result this
-   phase already proved in Docker); migrations run; the Hexyrn Core
-   Windows Service starts and is reachable at `https://localhost/`
-   (or whatever port/TLS the installer configures).
+1. Run the signed `HexyrnCore-1.0.0-rc1.exe` (the Burn bundle - it
+   installs `Product.msi` internally). Confirm: PostgreSQL 17 installs
+   (verify the exact version - `postgres --version` from the bundled
+   `bin\` directory must report 17.x, never a different major version),
+   initializes, and starts as its own Windows Service (`HexyrnPostgreSQL`,
+   running as the `NT SERVICE\HexyrnPostgreSQL` virtual account - check
+   via Services.msc or `sc.exe qc HexyrnPostgreSQL`); the three Postgres
+   roles (`hexyrn`/`hexyrn_app`/`hexyrn_backup`) are created with the
+   correct privileges (verify via `psql` from the bundled `bin\`
+   directory - `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles
+   WHERE rolname LIKE 'hexyrn%'` should show exactly the same three-row
+   result this phase already proved in Docker AND on this Windows
+   machine's own isolated test instance - see this phase's commit
+   history for that direct verification); migrations run; the Hexyrn
+   Core Windows Service (`HexyrnCore`, running as `NT SERVICE\HexyrnCore`)
+   starts and is reachable at `https://localhost/` (or whatever port/TLS
+   the installer configures); confirm `HexyrnPostgreSQL` genuinely starts
+   BEFORE `HexyrnCore` (check service dependency ordering, or just that
+   Core doesn't crash-loop on a cold boot where both are set to
+   auto-start).
 2. Complete first-run bootstrap (`docs/OPERATOR_GUIDE.md`).
 3. Run through the SAME sequence
    `clean-machine-harness.integration.spec.ts` automates against this
@@ -199,7 +299,9 @@ what's being tested - a real SME administrator's machine):
    in `P3-ENVIRONMENT-VERIFICATION.md`.
 
 Only after all of the above genuinely passes, on a genuinely clean
-machine, with a genuinely signed artifact, should RC1 be considered for
-release-candidate declaration - and that declaration itself is a
-business decision for the coordinator/user, not something this
-preparation document makes on its own.
+machine, with a genuinely signed artifact, should the status change from
+**P3 RELEASE ACCEPTANCE PENDING** to **"Hexyrn Core 1.0 + Requisite 1.0
+RC1 - ready for first-customer acceptance testing"** - not GA, not "RC1
+ready" on its own, and that status change itself is a business decision
+for the coordinator/user to make once this evidence exists, not
+something this preparation document declares on its own.
