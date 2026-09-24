@@ -18,3 +18,11 @@ e2e/fixtures/seed-output.json
 e2e/test-results/
 e2e/playwright-report/
 
+# Windows release build staging (P3 item 3) - third-party artifacts (the
+# ~380MB PostgreSQL binaries zip and its extracted contents, the bundled
+# Node.js runtime zip) and build output. NEVER commit these - see
+# docs/WINDOWS_INSTALLER_DESIGN.md's "Reproducible build staging" section
+# for the deterministic, documented staging locations these represent.
+.build-cache/
+dist-release/
+

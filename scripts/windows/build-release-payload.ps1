@@ -52,12 +52,27 @@
 param(
     [string]$SourceDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [string]$OutDir = (Join-Path (Get-Location) 'dist-release\payload'),
-    [switch]$CleanCheckout
+    [switch]$CleanCheckout,
+    [switch]$IAcknowledgeThisPrunesDevDependencies
 )
 
 $ErrorActionPreference = 'Stop'
 
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
+
+# REAL SAFETY GUARD, added after a genuine incident: running this script
+# WITHOUT -CleanCheckout against a live development working tree runs
+# `npm ci --omit=dev` IN PLACE, which strips typescript/eslint/jest/
+# vitest/ts-node etc. out of the developer's own node_modules - this
+# happened for real during this project's own Windows-installer work
+# (build-release-payload.ps1 was run without -CleanCheckout, silently
+# broke `npx tsc`/`npx eslint` in the live dev environment, and had to
+# be recovered with a plain `npm ci`). Refuse outright unless the
+# operator either uses -CleanCheckout (the safe, recommended path) or
+# explicitly acknowledges the risk with -IAcknowledgeThisPrunesDevDependencies.
+if (-not $CleanCheckout -and -not $IAcknowledgeThisPrunesDevDependencies) {
+    throw "Refusing to build in place without -CleanCheckout - this WILL run 'npm ci --omit=dev' directly in $SourceDir and strip its devDependencies (a real incident, not a hypothetical one - see this script's own comment). Pass -CleanCheckout for a real, safe release build, or -IAcknowledgeThisPrunesDevDependencies if you specifically intend to prune this exact working tree's node_modules."
+}
 
 $buildRoot = $SourceDir
 if ($CleanCheckout) {

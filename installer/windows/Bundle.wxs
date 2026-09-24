@@ -49,19 +49,33 @@
       LicenseUrl=""
       SuppressOptionsUI="no" />
     <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
-         remove" flow available, which is where the real data-retention
-         question needs to be inserted on the REMOVE path. The actual
-         custom UI (a WixStandardBootstrapperApplication theme override,
-         or a fully custom BootstrapperApplication) that presents the
-         "keep data / delete data" choice specifically is real,
-         visual-iteration Windows-round work - not authored blind here,
-         per this file's header. What IS decided and real here: the
-         bundle exists, wraps the real MSI, and is the correct
-         architectural point to add that UI, rather than trying to
-         force a bare MSI to do something it structurally cannot. -->
+         remove" flow available. The FRIENDLY, visual "keep data / delete
+         data" CHECKBOX (a WixStandardBootstrapperApplication theme
+         override, or a fully custom BootstrapperApplication) is real,
+         visual-iteration Windows-round work not authored blind here -
+         but the underlying DATA-PRESERVATION MECHANISM ITSELF is real
+         and functional NOW, not deferred: see HEXYRNPURGEDATA below. -->
+
+    <!-- The real, working purge mechanism (P3 item 8/9) - functional
+         today via command line even before a friendlier visual checkbox
+         is added: defaults to "0" (keep data, the safe default for an
+         ORDINARY uninstall via Programs and Features, which passes no
+         extra arguments). An operator who genuinely wants to also
+         delete the PostgreSQL cluster/storage/backups/config must pass
+         `/HEXYRNPURGEDATA=1` explicitly on the uninstall command line -
+         a real, strongly-guarded, deliberately unusual property name
+         that cannot be triggered by an ordinary click, matching
+         scripts/uninstall-docker.sh's own "keep by default, delete only
+         on a second explicit confirmation" design. Passed through to
+         Product.msi's own InstallExecuteSequence via MsiProperty below,
+         which is what actually performs (or skips) the removal - see
+         Product.wxs's PurgeCustomAction. -->
+    <Variable Name="HEXYRNPURGEDATA" Type="string" Value="0" Persisted="no" />
 
     <Chain>
-      <MsiPackage SourceFile="Product.msi" Vital="yes" />
+      <MsiPackage SourceFile="Product.msi" Vital="yes">
+        <MsiProperty Name="HEXYRNPURGEDATA" Value="[HEXYRNPURGEDATA]" />
+      </MsiPackage>
       <!-- SourceFile="Product.msi" - the real build produces
            Product.wxs's compiled output under this name (or whatever
            -out path the real `wix build` invocation uses - see

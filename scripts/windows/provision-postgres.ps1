@@ -117,8 +117,22 @@ if (-not $Credentials) {
     $Credentials = & $credScript -NoAcl -WhatIf:$false -OutFile (Join-Path (Split-Path $DataDir -Parent) 'config\database.env')
 }
 
+if (Test-Path (Join-Path $DataDir 'PG_VERSION')) {
+    # A real, already-initialized Hexyrn-managed cluster - this is an
+    # MSI repair/reconfigure/upgrade re-run of this custom action, NOT a
+    # fresh install. Skip initdb/role-creation entirely rather than
+    # touching an existing cluster - the exact "do not silently reuse/
+    # destroy an existing cluster" requirement, applied to HEXYRN'S OWN
+    # previously-provisioned instance too, not only to unrelated ones.
+    Write-Step "DataDir '$DataDir' already contains an initialized PostgreSQL cluster (PG_VERSION present) - this is an idempotent re-run (MSI repair/upgrade), not a fresh install. Skipping initdb/role-creation; the existing cluster and its credentials are left untouched."
+    Write-Host "`nProvisioning skipped (already provisioned). Data directory: $DataDir"
+    return
+}
 if (Test-Path $DataDir) {
-    throw "DataDir '$DataDir' already exists - refusing to initdb over an existing directory (this is exactly the 'do not silently reuse/destroy an existing cluster' requirement - see docs/WINDOWS_INSTALLER_DESIGN.md's 'Existing PostgreSQL installations' section). Remove it explicitly first if this is genuinely a fresh test."
+    $existingItems = Get-ChildItem -Path $DataDir -Force -ErrorAction SilentlyContinue
+    if ($existingItems) {
+        throw "DataDir '$DataDir' already exists and is non-empty but has no PG_VERSION file (not a valid PostgreSQL cluster) - refusing to initdb into it blindly. Investigate and remove it explicitly first if this is genuinely meant to be a fresh install."
+    }
 }
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
