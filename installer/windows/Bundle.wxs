@@ -51,7 +51,7 @@
         LicenseUrl=""
         SuppressOptionsUI="no"
         LaunchTarget="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
-        LaunchArguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ProgramFiles64Folder]Hexyrn Core\scripts\Open-Hexyrn.ps1&quot;"
+        LaunchArguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ProgramFiles64Folder]Hexyrn Core\scripts\Open-Hexyrn.ps1&quot; -Port [HEXYRNWEBPORT]"
         LaunchHidden="yes" />
     </BootstrapperApplication>
     <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
@@ -77,10 +77,13 @@
          which is what actually performs (or skips) the removal - see
          Product.wxs's PurgeCustomAction. -->
     <Variable Name="HEXYRNPURGEDATA" Type="string" Value="0" Persisted="no" />
+    <!-- Web port; default 3000. Override on the command line: Requisite-Setup.exe HEXYRNWEBPORT=8080 -->
+    <Variable Name="HEXYRNWEBPORT" Type="string" Value="3000" />
 
     <Chain>
       <MsiPackage SourceFile="Product.msi" Vital="yes">
         <MsiProperty Name="HEXYRNPURGEDATA" Value="[HEXYRNPURGEDATA]" />
+        <MsiProperty Name="HEXYRNWEBPORT" Value="[HEXYRNWEBPORT]" />
       </MsiPackage>
       <!-- SourceFile="Product.msi" - the real build produces
            Product.wxs's compiled output under this name (or whatever

@@ -15,7 +15,7 @@
   Deliberately builds into a FRESH CLONE under a clean workspace (default:
   $env:TEMP\hexyrn-release-build), not in place inside the developer's own
   repository checkout - see the -SourceDir/-CleanCheckout parameters and
-  docs/WINDOWS_ACCEPTANCE_PREP.md's "OneDrive / clean build workspace"
+  docs/internal/WINDOWS_ACCEPTANCE_PREP.md's "OneDrive / clean build workspace"
   section for why: this repository currently lives under OneDrive, which
   has already caused a real `npm ci` EPERM lock (OneDrive's own file
   sync grabbing a lock on a file npm is mid-write to) and Docker
@@ -38,7 +38,7 @@
   first and builds FROM THAT clone, rather than building in place from a
   developer's own (possibly OneDrive-synced, possibly dirty) working
   tree. Strongly recommended for an actual release build - see
-  docs/WINDOWS_ACCEPTANCE_PREP.md.
+  docs/internal/WINDOWS_ACCEPTANCE_PREP.md.
 
 .EXAMPLE
   # Real release build, from a clean git clone, into .\dist-release\payload

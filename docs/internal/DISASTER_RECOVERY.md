@@ -1,12 +1,17 @@
 # Disaster recovery procedures (P3 item 20)
 
+> **Internal / developer document. Not for customers.** Requisite is delivered to customers only as the Windows installer
+> (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
+> and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
+
+
 Precise, scenario-by-scenario. Where a scenario is untestable without a
 real target environment, that's stated explicitly - see
 `P3-ENVIRONMENT-VERIFICATION.md`.
 
 ## 1. Server lost, backup available
 
-1. Provision a new server matching §1 of `docs/OPERATOR_GUIDE.md`'s
+1. Provision a new server matching §1 of `docs/internal/OPERATOR_GUIDE.md`'s
    system requirements.
 2. Install Hexyrn Core fresh (do NOT bootstrap - restoring will populate
    the database, and re-bootstrapping first would create a conflicting

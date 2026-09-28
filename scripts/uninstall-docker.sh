@@ -7,7 +7,7 @@
 # without anyone having to say so out loud.
 #
 # What this does NOT do: touch a native (non-Docker) install, or a future
-# Windows installer's uninstall path (see docs/OPERATOR_GUIDE.md and this
+# Windows installer's uninstall path (see docs/internal/OPERATOR_GUIDE.md and this
 # phase's Windows installer groundwork notes - a real Windows uninstaller
 # is separate, unstarted work).
 set -eu

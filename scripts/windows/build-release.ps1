@@ -34,7 +34,7 @@
 .PARAMETER NodeZipPath
   Path to the official Node.js 20.x Windows x64 binary ZIP (required for
   step 5). Not fetched by this script - see
-  docs/WINDOWS_INSTALLER_DESIGN.md's "Node.js runtime packaging" section.
+  docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Node.js runtime packaging" section.
 
 .PARAMETER SigningCertPath / SigningCertPassword
   Optional. If supplied, step 13 code-signs the built artifacts via
@@ -178,7 +178,7 @@ foreach ($dir in $pgRequiredDirs) {
     Copy-Item -Recurse -Force $src (Join-Path $pgRuntimeDir $dir)
 }
 # License files (real, required for redistribution - see
-# docs/WINDOWS_INSTALLER_DESIGN.md's "Licensing" note): the PostgreSQL
+# docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Licensing" note): the PostgreSQL
 # License itself (server_license.txt - permissive, genuinely
 # redistributable) plus the commandline-tools third-party notices
 # (covers pg_dump/pg_restore/psql's own dependencies). Deliberately NOT

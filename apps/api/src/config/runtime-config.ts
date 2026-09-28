@@ -46,7 +46,7 @@ export function buildRuntimeConfig(
   const licenceKey = input.licencePublicKey.trim().replace(/\r?\n/g, '\\n');
   if (!licenceKey) {
     throw new Error(
-      'no licence public key: this installer was built without one. Rebuild with -LicencePublicKeyFile (see docs/WINDOWS_INSTALLER_DESIGN.md).',
+      'no licence public key: this installer was built without one. Rebuild with -LicencePublicKeyFile (see docs/internal/WINDOWS_INSTALLER_DESIGN.md).',
     );
   }
   if (!Number.isInteger(input.webPort) || input.webPort < 1 || input.webPort > 65535)

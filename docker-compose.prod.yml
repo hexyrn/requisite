@@ -51,7 +51,7 @@
 services:
   # PostgreSQL 17 - Hexyrn's officially supported database major version
   # for Core/Requisite 1.0, aligned with the Windows installer's
-  # bundled-PostgreSQL design (docs/WINDOWS_INSTALLER_DESIGN.md).
+  # bundled-PostgreSQL design (docs/internal/WINDOWS_INSTALLER_DESIGN.md).
   # Genuinely rebuilt and re-verified end to end against this exact image
   # - see P3-ENVIRONMENT-VERIFICATION.md's "PostgreSQL 17 alignment"
   # section for the real evidence (migrations, role privileges,
@@ -76,7 +76,7 @@ services:
     # Deliberately NOT publishing 5432 to the host - only `api` (on the
     # same Compose network) can reach Postgres, matching the "database
     # not exposed to the public internet" baseline in
-    # docs/FIRST_CUSTOMER_SECURITY_CHECKLIST.md.
+    # docs/internal/FIRST_CUSTOMER_SECURITY_CHECKLIST.md.
 
   # One-shot migration runner, applied before `api` starts (item 3: a
   # fresh deployment must have its schema in place before the app tries

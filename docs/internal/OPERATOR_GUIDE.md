@@ -1,5 +1,10 @@
 # Hexyrn Core - Operator Guide (P3 item 41)
 
+> **Internal / developer document. Not for customers.** Requisite is delivered to customers only as the Windows installer
+> (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
+> and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
+
+
 For a competent SME IT administrator installing, running, and maintaining
 a self-hosted Hexyrn deployment. No source-code knowledge required for any
 procedure below. Where a procedure's real-environment verification is
@@ -16,7 +21,7 @@ confirm."
   version for Core/Requisite 1.0 (`docker-compose.yml`/
   `docker-compose.prod.yml`'s `postgres:17-alpine` image, and the version
   the Windows installer's bundled-PostgreSQL design targets - see
-  `docs/WINDOWS_INSTALLER_DESIGN.md`). Not tested against other major
+  `docs/internal/WINDOWS_INSTALLER_DESIGN.md`). Not tested against other major
   versions.
 - **Package manager**: npm (workspaces) - the only supported one; no
   yarn/pnpm lockfile is maintained.
@@ -27,7 +32,7 @@ confirm."
 
 ### 2.1 Docker (recommended today)
 
-See `docs/DOCKER_DEPLOYMENT.md` for the full role-security model
+See `docs/internal/DOCKER_ROLE_MODEL.md` for the full role-security model
 (`hexyrn` migration role vs restricted `hexyrn_app` runtime role) and
 `docker-compose.yml` for the current dev/test compose file. **[VERIFICATION
 PENDING - no Docker daemon available in the sandbox this was authored

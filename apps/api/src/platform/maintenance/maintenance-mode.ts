@@ -16,7 +16,7 @@ import { Pool } from 'pg';
  * RESTART during maintenance mode would lose the in-memory flag, which is
  * an accepted limitation for a single-process v1 (a restart mid-update is
  * already an exceptional, manually-investigated situation per
- * docs/OPERATOR_GUIDE.md §7's "migration/health-check failure leaves you
+ * docs/internal/OPERATOR_GUIDE.md §7's "migration/health-check failure leaves you
  * in maintenance mode - restore a backup" guidance).
  *
  * WHAT IS ALLOWED THROUGH while maintenance mode is active:

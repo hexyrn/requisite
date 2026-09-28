@@ -12,7 +12,7 @@
   This script requires PostgreSQL 17 binaries (initdb.exe, postgres.exe,
   pg_ctl.exe, psql.exe, pg_dump.exe, pg_restore.exe) to already exist at
   -PgBinPath. It does NOT download them. Per
-  docs/WINDOWS_INSTALLER_DESIGN.md's "Source / distribution" section, the
+  docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Source / distribution" section, the
   real Windows installer must bundle EDB's official PostgreSQL 17
   Windows x86-64 binaries distribution (the "binaries" zip - distinct
   from EDB's interactive installer .exe - published at
@@ -55,13 +55,13 @@
 
 .PARAMETER DataDir
   Where the new, ISOLATED cluster's data directory is initialized.
-  Defaults to a location under docs/WINDOWS_INSTALLER_DESIGN.md's
+  Defaults to a location under docs/internal/WINDOWS_INSTALLER_DESIGN.md's
   documented %ProgramData%\Hexyrn Core\postgresql-data\ path - pass a
   different -DataDir for local testing so a test run never touches a
   real installation's actual data directory.
 
 .PARAMETER Port
-  Loopback-only port (matches docs/WINDOWS_INSTALLER_DESIGN.md's "Port
+  Loopback-only port (matches docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Port
   strategy" section - never bound to a public interface). Defaults to
   5432; pass a different port for local testing to avoid colliding with
   an already-running PostgreSQL instance on the same machine (a REAL
@@ -76,7 +76,7 @@
 .PARAMETER RegisterService
   If set, registers the new cluster as its own Windows Service via
   `pg_ctl register` (separate from any other PostgreSQL service already
-  on the machine - see docs/WINDOWS_INSTALLER_DESIGN.md's "Existing
+  on the machine - see docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Existing
   PostgreSQL installations" section). Requires an elevated shell.
 #>
 [CmdletBinding()]
@@ -314,7 +314,7 @@ if ($RegisterService) {
     # Runs under a virtual service account (NT SERVICE\HexyrnPostgreSQL) -
     # see installer/windows/Product.wxs's ServiceInstall for the same
     # pattern applied to the Hexyrn Core application service, and
-    # docs/WINDOWS_INSTALLER_DESIGN.md's "Windows Service account"
+    # docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Windows Service account"
     # section for why a virtual per-service SID is the correct
     # least-privilege target on Windows (no shared credential to manage,
     # no interactive-logon capability, a real distinct identity ACLs can

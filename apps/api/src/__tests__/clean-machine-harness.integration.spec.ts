@@ -44,7 +44,7 @@ import { BootstrapService } from '../bootstrap/bootstrap.service';
  *
  * Steps genuinely NOT covered here, and why: Windows installer
  * install/launch/uninstall (no Windows environment - see
- * docs/WINDOWS_INSTALLER_DESIGN.md, which has real WiX source but no
+ * docs/internal/WINDOWS_INSTALLER_DESIGN.md, which has real WiX source but no
  * toolchain to build it here), signature verification of a REAL
  * downloaded release artifact (no artifact has been built yet). Real
  * pg_dump/pg_restore execution and a real `docker compose up` are BOTH

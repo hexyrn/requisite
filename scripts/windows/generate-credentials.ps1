@@ -31,7 +31,7 @@
   Where the generated config is written, as a flat KEY=VALUE file (the
   same shape a real .env file/production environment-variable set would
   use). Defaults to a path under $env:ProgramData matching
-  docs/WINDOWS_INSTALLER_DESIGN.md's documented location.
+  docs/internal/WINDOWS_INSTALLER_DESIGN.md's documented location.
 
 .PARAMETER WhatIf
   Generates and validates everything, but does not write the output file

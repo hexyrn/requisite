@@ -1,12 +1,17 @@
 # First-customer deployment runbook (P3 item 21)
 
+> **Internal / developer document. Not for customers.** Requisite is delivered to customers only as the Windows installer
+> (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
+> and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
+
+
 Operational checklist for deploying Hexyrn Core + Requisite to an actual
-paying customer, distinct from the general `docs/OPERATOR_GUIDE.md`
+paying customer, distinct from the general `docs/internal/OPERATOR_GUIDE.md`
 reference documentation - this is the sequence to follow, in order, once.
 
 ## Pre-deployment requirements
 
-- [ ] Customer's server/environment meets `docs/OPERATOR_GUIDE.md` §1
+- [ ] Customer's server/environment meets `docs/internal/OPERATOR_GUIDE.md` §1
       (Node 20, PostgreSQL 17 - Hexyrn's officially supported version for
       Core/Requisite 1.0 - sufficient disk for database + uploads +
       backups).
@@ -25,7 +30,7 @@ reference documentation - this is the sequence to follow, in order, once.
 
 ## Installation
 
-- [ ] Follow `docs/OPERATOR_GUIDE.md` §2 (Docker or manual, per what the
+- [ ] Follow `docs/internal/OPERATOR_GUIDE.md` §2 (Docker or manual, per what the
       customer's environment supports - Windows installer not yet
       available, see `P3-ENVIRONMENT-VERIFICATION.md`).
 - [ ] Confirm `NODE_ENV=production` and every required secret is set
@@ -88,13 +93,13 @@ reference documentation - this is the sequence to follow, in order, once.
 
 ## Security verification
 
-- [ ] Run through `docs/FIRST_CUSTOMER_SECURITY_CHECKLIST.md` in full.
+- [ ] Run through `docs/internal/FIRST_CUSTOMER_SECURITY_CHECKLIST.md` in full.
 
 ## Customer handover
 
-- [ ] Provide the customer: their owner login, `docs/OPERATOR_GUIDE.md`,
+- [ ] Provide the customer: their owner login, `docs/internal/OPERATOR_GUIDE.md`,
       `docs/REQUISITE_ADMIN_GUIDE.md`, `docs/REQUISITE_USER_GUIDE.md`,
       and this runbook's completed checklist as a record of what was
       verified.
 - [ ] Confirm the customer knows how to reach support and generate a
-      support bundle (`docs/OPERATOR_GUIDE.md` §13) if they need to.
+      support bundle (`docs/internal/OPERATOR_GUIDE.md` §13) if they need to.

@@ -42,7 +42,7 @@ Docker round.
   enrolling session verified. Tests: bypass attempt, pre-MFA logout, no self-lockout after enrolment.
 - **Logout never revoked the server session.** The SPA sent `Content-Type: application/json` with no body; Fastify
   returns 400; the UI redirected to `/login` anyway. Same bug broke every body-less POST from the UI.
-- **Dependency remediation** (`docs/DEPENDENCY_REMEDIATION.md`, updated): NestJS 11.2.6, Fastify 5.12.5, Kysely 0.28.17,
+- **Dependency remediation** (`docs/internal/DEPENDENCY_REMEDIATION.md`, updated): NestJS 11.2.6, Fastify 5.12.5, Kysely 0.28.17,
   React Router 7.18.4, etc. NestJS 12 / Kysely 0.29 are ESM-only, so the CommonJS-compatible fixed lines were chosen.
 
 **Correctness / UX**
@@ -84,7 +84,7 @@ regression tooling: consider Playwright screenshot comparison once the look sett
 ## Deployment readiness pass (Docker verified end to end)
 
 Verified by running the real production stack (PostgreSQL 17 + Caddy HTTPS) and driving it in a browser; see
-`docs/RUNNING.md` for the run guide and the exact list of what was and was not verified. Problems found and fixed:
+`docs/internal/DEVELOPER_DOCKER_RUNBOOK.md` for the run guide and the exact list of what was and was not verified. Problems found and fixed:
 
 - **A fresh install could not use Requisite at all.** Nothing enabled the app for an organisation or gave the Owner its
   permissions (only test/seed code did). Licence import now activates on first import (audited, one transaction);
@@ -118,7 +118,7 @@ Windows installer: unchanged and still unverified; its service environment is no
 
 ```bash
 npm ci
-# Postgres with a non-superuser owner role `hexyrn` (see docs/SETUP.md / .env.example); then:
+# Postgres with a non-superuser owner role `hexyrn` (see docs/internal/SETUP.md / .env.example); then:
 export TEST_DATABASE_URL=postgres://hexyrn:<pw>@localhost:<port>/hexyrn_core_test
 npm test                              # backend (skips DB suites, loudly, if TEST_DATABASE_URL is unset)
 npm run test --workspace apps/web
@@ -152,5 +152,5 @@ Browse the UI at `http://localhost:5173`, not `127.0.0.1`: the API's origin allo
 2. Node 20 -> 22 migration as one change: Dockerfiles, CI `NODE_VERSION`, installer Node artifact + pinned SHA-256,
    `engines`, then Vite 8 / Vitest 5 (closes the remaining audit findings).
 3. Build the next suite app on this foundation (`docs/DESIGN_SYSTEM.md`, `docs/APP_SDK.md`), and add browser E2E for MFA login/enrolment and for the admin screens (health, backup, update, licence, SMTP, support bundle).
-4. Clean-VM Windows acceptance test per `docs/WINDOWS_ACCEPTANCE_PREP.md`.
+4. Clean-VM Windows acceptance test per `docs/internal/WINDOWS_ACCEPTANCE_PREP.md`.
 5. Legal/privacy surfaces (needs a business decision).

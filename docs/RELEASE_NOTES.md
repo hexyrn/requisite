@@ -46,7 +46,7 @@ remains before general availability.
 - **Docker deployment path connected to Postgres as a superuser** -
   silently defeated Row-Level Security for any self-hosted Docker
   deployment even though every RLS test passed (a superuser bypasses
-  `FORCE ROW LEVEL SECURITY`). Fixed with a two-role split (`docs/DOCKER_DEPLOYMENT.md`);
+  `FORCE ROW LEVEL SECURITY`). Fixed with a two-role split (`docs/internal/DOCKER_ROLE_MODEL.md`);
   native/manual Postgres installs were unaffected.
 - **Webhook delivery had no SSRF protection** - would fetch any
   admin-configured URL including localhost, private network ranges, and
@@ -86,7 +86,7 @@ rollback.
 Licensed major version 1 has a perpetual right to use per the signed
 licence file; support/security-fix entitlement is tracked separately
 (`supportExpiresAt`) and never gates runtime functionality - see
-`docs/OPERATOR_GUIDE.md` §8.
+`docs/internal/OPERATOR_GUIDE.md` §8.
 
 ---
 

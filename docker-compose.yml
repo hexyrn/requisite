@@ -22,7 +22,7 @@
 # P3-ENVIRONMENT-VERIFICATION.md's "PostgreSQL 17 alignment" section for
 # the exact verification evidence. Previously postgres:16-alpine; aligned
 # to 17 to match the Windows installer's bundled-PostgreSQL design
-# (docs/WINDOWS_INSTALLER_DESIGN.md), which targets 17, and the version
+# (docs/internal/WINDOWS_INSTALLER_DESIGN.md), which targets 17, and the version
 # this whole phase's real pg_dump/pg_restore acceptance testing was
 # proven against (`pg_dump (PostgreSQL) 17.11`).
 version: '3.8'

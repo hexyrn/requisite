@@ -1,7 +1,7 @@
 # Hexyrn Requisite - Administrator Guide (P3 item 42)
 
 For the administrator configuring Requisite after it has been licensed and
-enabled (see `docs/OPERATOR_GUIDE.md` §8 for licence import). Assumes
+enabled (see `docs/internal/OPERATOR_GUIDE.md` §8 for licence import). Assumes
 Hexyrn Core is already installed and bootstrapped.
 
 ## Licence
@@ -9,7 +9,7 @@ Hexyrn Core is already installed and bootstrapped.
 `Administration -> Applications -> Requisite -> Licence`. Shows licence
 validity, licensed major version, support-expiry status, and Core
 compatibility independently - a perpetual licence keeps Requisite fully
-working even with expired support (see `docs/OPERATOR_GUIDE.md` §8).
+working even with expired support (see `docs/internal/OPERATOR_GUIDE.md` §8).
 
 ## Permissions
 
@@ -73,7 +73,7 @@ Requisite-specific bulk-upload screen.
 
 Requisition submission/approval/rejection/PO-issuance events route through
 Core's Notification framework (in-app + email channel, per-user
-preferences) - see `docs/OPERATOR_GUIDE.md` §3 for SMTP setup; without
+preferences) - see `docs/internal/OPERATOR_GUIDE.md` §3 for SMTP setup; without
 SMTP configured, in-app notifications still work and invitation/reset
 links are shared manually.
 

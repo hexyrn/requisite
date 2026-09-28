@@ -38,7 +38,7 @@ explicit instruction). Nothing has been installed, uninstalled, or
 upgraded on any machine (deliberately never attempted on this
 development machine, to protect its own working PostgreSQL/Node/source
 environment - reserved for a clean, snapshotted VirtualBox VM per
-`docs/WINDOWS_ACCEPTANCE_PREP.md`).
+`docs/internal/WINDOWS_ACCEPTANCE_PREP.md`).
 
 ## Why WiX Toolset - PINNED to 4.0.6, not "latest"
 
@@ -55,7 +55,7 @@ the same enterprise-deployment integration for free.
 specifically, with `WixToolset.Util.wixext` and `WixToolset.Bal.wixext`
 also pinned to 4.0.6 - see `.config/dotnet-tools.json` (a committed
 local tool manifest, so `dotnet tool restore` reproduces this exact
-toolchain on any machine) and `docs/WINDOWS_ACCEPTANCE_PREP.md`'s
+toolchain on any machine) and `docs/internal/WINDOWS_ACCEPTANCE_PREP.md`'s
 install command. This is a real, deliberate decision, not an arbitrary
 one: an earlier unpinned `dotnet tool install --global wix` on the real
 RC build machine resolved to **WiX 7**, which pulled in an OSMF EULA
@@ -78,7 +78,7 @@ could drift out of sync with what's actually tested via Docker.
 `scripts/windows/build-release-payload.ps1` (new this round) is a real,
 tested script that does this - `git clone` into a clean workspace
 outside OneDrive (see "OneDrive / clean build workspace" in
-`docs/WINDOWS_ACCEPTANCE_PREP.md` for why that matters), `npm ci`, build
+`docs/internal/WINDOWS_ACCEPTANCE_PREP.md` for why that matters), `npm ci`, build
 every workspace in the CORRECT dependency order (`packages/*` before
 `apps/*` - a real ordering bug in the root `package.json`'s own `build`
 script was found and fixed this round getting this script to work on a
@@ -489,7 +489,7 @@ SERVICE\HexyrnPostgreSQL` gets Full Control (PostgreSQL's own
 ## Uninstall / data retention
 
 Mirrors `scripts/uninstall-docker.sh`'s design (see
-`docs/OPERATOR_GUIDE.md` §15), not reinvented separately: removing the
+`docs/internal/OPERATOR_GUIDE.md` §15), not reinvented separately: removing the
 application must not silently delete `storage/`, `backups/`,
 `config/`, or `postgresql-data/` under `%ProgramData%\Hexyrn Core`
 unless the operator explicitly says so a second time.
@@ -543,5 +543,5 @@ data-preservation behavior (`installer/windows/Bundle.en-us.wxl`).
 3. Real testing on a clean, snapshotted VirtualBox VM - install,
    first-run, the full application workflow, real backup/restore via
    the bundled `pg_dump.exe`/`pg_restore.exe`, both uninstall paths, and
-   upgrade-in-place (see `docs/WINDOWS_ACCEPTANCE_PREP.md` for the exact
+   upgrade-in-place (see `docs/internal/WINDOWS_ACCEPTANCE_PREP.md` for the exact
    commands/sequence).

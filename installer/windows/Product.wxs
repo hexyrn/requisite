@@ -267,6 +267,7 @@
       <File Id="HexyrnCommonScript" Source="$(var.RepoRoot)\scripts\windows\Hexyrn-Common.ps1" />
       <File Id="EnableLanAccessScript" Source="$(var.RepoRoot)\scripts\windows\Enable-LanAccess.ps1" />
       <File Id="SupportBundleScript" Source="$(var.RepoRoot)\scripts\windows\Get-SupportBundle.ps1" />
+      <File Id="ResetPasswordScript" Source="$(var.RepoRoot)\scripts\windows\Reset-Password.ps1" />
       <File Id="RemoveDataScript" Source="$(var.RepoRoot)\scripts\windows\Remove-RequisiteData.ps1" />
     </Component>
 

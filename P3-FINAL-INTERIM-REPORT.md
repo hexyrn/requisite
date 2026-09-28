@@ -35,7 +35,7 @@ needed before implementation can proceed or be judged complete).
 
 ## 3. Windows installer
 
-**IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING** (design/source only). Real WiX Toolset v4 source (`installer/windows/Product.wxs`) and design doc (`docs/WINDOWS_INSTALLER_DESIGN.md`) exist, covering install layout, service registration, and uninstall design. Never compiled — no WiX toolchain in this environment (confirmed: `candle.exe`/`light.exe`/`wix.exe` all absent). Contains one **BLOCKED-DECISION-REQUIRED** sub-item: whether to bundle PostgreSQL or require a pre-installed instance — documented with full trade-offs, not defaulted silently.
+**IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING** (design/source only). Real WiX Toolset v4 source (`installer/windows/Product.wxs`) and design doc (`docs/internal/WINDOWS_INSTALLER_DESIGN.md`) exist, covering install layout, service registration, and uninstall design. Never compiled — no WiX toolchain in this environment (confirmed: `candle.exe`/`light.exe`/`wix.exe` all absent). Contains one **BLOCKED-DECISION-REQUIRED** sub-item: whether to bundle PostgreSQL or require a pre-installed instance — documented with full trade-offs, not defaulted silently.
 
 ## 4. Docker deployment
 
@@ -131,7 +131,7 @@ needed before implementation can proceed or be judged complete).
 
 ## 27. Support lifecycle model
 
-**VERIFIED.** `supportExpired`/`licenceValid`/`active` independently tracked in `getLicenceDetail()`, documented in `docs/FIRST_CUSTOMER_RUNBOOK.md`.
+**VERIFIED.** `supportExpired`/`licenceValid`/`active` independently tracked in `getLicenceDetail()`, documented in `docs/internal/FIRST_CUSTOMER_RUNBOOK.md`.
 
 ## 28. Versioning
 
@@ -163,7 +163,7 @@ needed before implementation can proceed or be judged complete).
 
 ## 35. Dependency/supply-chain security
 
-> **Update 2026-09-28:** superseded - production dependencies now audit clean (0 vulnerabilities); see `docs/DEPENDENCY_REMEDIATION.md` and `docs/DEVELOPMENT_STATUS.md`.
+> **Update 2026-09-28:** superseded - production dependencies now audit clean (0 vulnerabilities); see `docs/internal/DEPENDENCY_REMEDIATION.md` and `docs/DEVELOPMENT_STATUS.md`.
 
 **IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING.** `npm audit` run during this round's Docker builds surfaced existing (pre-P3) vulnerabilities in transitive dependencies (12-20, moderate/high/critical) — noted, not newly introduced by this round's work, but not remediated either; a genuine `npm audit fix`/dependency-upgrade pass is real, separate, outstanding work.
 
@@ -185,7 +185,7 @@ needed before implementation can proceed or be judged complete).
 
 ## 40. Operator documentation
 
-**VERIFIED.** `docs/OPERATOR_GUIDE.md` (updated this round for uninstall), `docs/DOCKER_DEPLOYMENT.md`, `docs/DISASTER_RECOVERY.md`, `docs/RATE_LIMITING.md`, `docs/WINDOWS_INSTALLER_DESIGN.md` (new this round).
+**VERIFIED.** `docs/internal/OPERATOR_GUIDE.md` (updated this round for uninstall), `docs/internal/DOCKER_ROLE_MODEL.md`, `docs/DISASTER_RECOVERY.md`, `docs/RATE_LIMITING.md`, `docs/internal/WINDOWS_INSTALLER_DESIGN.md` (new this round).
 
 ## 41. Requisite admin guide
 

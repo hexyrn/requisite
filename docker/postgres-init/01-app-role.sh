@@ -13,13 +13,13 @@
 # non-superuser role - only the Docker path had this gap).
 #
 # Postgres only runs docker-entrypoint-initdb.d/* on an EMPTY data
-# directory - see docs/DOCKER_DEPLOYMENT.md for what that means for
+# directory - see docs/internal/DOCKER_ROLE_MODEL.md for what that means for
 # existing installs that predate this script. Runs as the POSTGRES_USER
 # superuser (that's how initdb scripts are invoked) and creates
 # `hexyrn_app`: a login role with NOSUPERUSER and NOBYPASSRLS, granted just
 # enough to run the application. It does not own any table itself -
 # migrations still run as the superuser/bootstrap role
-# (docs/DOCKER_DEPLOYMENT.md), since owning tables is a materially larger
+# (docs/internal/DOCKER_ROLE_MODEL.md), since owning tables is a materially larger
 # privilege than being permitted to read/write rows subject to RLS, and
 # ownership is not required for the runtime role's job.
 # ALSO creates `hexyrn_backup`: a SEPARATE, narrowly-scoped role with

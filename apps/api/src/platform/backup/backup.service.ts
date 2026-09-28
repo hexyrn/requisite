@@ -390,7 +390,7 @@ export async function restoreBackup(options: RestoreBackupOptions): Promise<Rest
  * needs for anything else it does. Restoring assumes the target database
  * already has the correct schema applied via the ordinary migration
  * runner (a genuine prerequisite of any restore - see restoreBackup()'s
- * orchestration and docs/OPERATOR_GUIDE.md §6), so only DATA needs to
+ * orchestration and docs/internal/OPERATOR_GUIDE.md §6), so only DATA needs to
  * round-trip through backup/restore. This also directly determines what
  * privilege the backup role needs: `--data-only` only ever issues
  * `COPY ... TO/FROM stdout` (SELECT/INSERT/DELETE row access, gated by

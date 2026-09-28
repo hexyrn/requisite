@@ -4,7 +4,7 @@
   artifact (P3 item 3/6) into a deterministic, gitignored build-cache
   location - the one genuine external artifact this whole Windows
   packaging effort has been honest about needing (see
-  docs/WINDOWS_INSTALLER_DESIGN.md's "Source / distribution" section).
+  docs/internal/WINDOWS_INSTALLER_DESIGN.md's "Source / distribution" section).
 
 .DESCRIPTION
   Fails closed: if the supplied ZIP's SHA-256 does not match the pinned,
@@ -57,7 +57,7 @@ $ErrorActionPreference = 'Stop'
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 if (-not (Test-Path $ZipPath)) {
-    throw "PostgreSQL artifact not found at: $ZipPath`nThis script does not download PostgreSQL binaries - see docs/WINDOWS_INSTALLER_DESIGN.md's 'Source / distribution' section for where to obtain the official EDB Windows binaries zip."
+    throw "PostgreSQL artifact not found at: $ZipPath`nThis script does not download PostgreSQL binaries - see docs/internal/WINDOWS_INSTALLER_DESIGN.md's 'Source / distribution' section for where to obtain the official EDB Windows binaries zip."
 }
 
 Write-Step "Verifying SHA-256 of $ZipPath (FAIL CLOSED on mismatch - never proceed with an unverified third-party binary artifact)"

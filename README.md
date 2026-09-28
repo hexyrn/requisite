@@ -29,7 +29,7 @@ docs/
 
 ## Quick start
 
-**Deploying or just want to run it?** Follow **[`docs/RUNNING.md`](docs/RUNNING.md)** (Docker Compose, HTTPS, licensing, backups).
+**Deploying or just want to run it?** Follow **[`docs/internal/DEVELOPER_DOCKER_RUNBOOK.md`](docs/internal/DEVELOPER_DOCKER_RUNBOOK.md)** (Docker Compose, HTTPS, licensing, backups).
 The steps below are for local development.
 
 Prerequisites: Node.js 20+, Docker (for local Postgres).

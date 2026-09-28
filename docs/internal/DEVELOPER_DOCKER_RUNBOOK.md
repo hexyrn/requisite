@@ -1,5 +1,10 @@
 # Running Hexyrn
 
+> **Internal / developer document. Not for customers.** Requisite is delivered to customers only as the Windows installer
+> (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
+> and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
+
+
 Three ways to run it. **Docker (A) is the supported deployment path** and the only one verified end to end.
 
 |                                    | For                                                 | Status                                        |
@@ -167,7 +172,7 @@ npm run test --workspace e2e             # E2E_CHROMIUM_PATH=<chrome> to use an 
 
 `installer/windows` builds an MSI and an EXE bundle that include Node and PostgreSQL. They compile, but have **never
 been installed on a clean machine**, are unsigned, and the service configuration is not fully wired (see
-`docs/WINDOWS_ACCEPTANCE_PREP.md`). Use Docker Desktop on Windows instead until that acceptance test is done.
+`docs/internal/WINDOWS_ACCEPTANCE_PREP.md`). Use Docker Desktop on Windows instead until that acceptance test is done.
 
 ---
 

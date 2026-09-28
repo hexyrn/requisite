@@ -44,7 +44,7 @@ $ErrorActionPreference = 'Stop'
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 if (-not (Test-Path $ZipPath)) {
-    throw "Node.js artifact not found at: $ZipPath`nThis script does not download Node.js binaries - see docs/WINDOWS_INSTALLER_DESIGN.md's 'Node.js runtime packaging' section for where to obtain the official nodejs.org Windows x64 zip."
+    throw "Node.js artifact not found at: $ZipPath`nThis script does not download Node.js binaries - see docs/internal/WINDOWS_INSTALLER_DESIGN.md's 'Node.js runtime packaging' section for where to obtain the official nodejs.org Windows x64 zip."
 }
 
 Write-Step "Verifying SHA-256 of $ZipPath (FAIL CLOSED on mismatch - never proceed with an unverified third-party binary artifact)"

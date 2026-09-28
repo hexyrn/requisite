@@ -261,7 +261,7 @@ dev environment can run it":
 
 - `dist-release\HexyrnCore-1.0.0.0-rc1.exe` (the signed Burn bundle)
 - `dist-release\HexyrnCore-1.0.0.0-rc1.manifest.json`
-- A copy of `docs/OPERATOR_GUIDE.md` (what a real customer would read)
+- A copy of `docs/internal/OPERATOR_GUIDE.md` (what a real customer would read)
 - The acceptance checklist below (this document, or a printed/copied
   version of it)
 
@@ -296,7 +296,7 @@ WHERE rolname LIKE 'hexyrn%'` should show exactly the same three-row
    BEFORE `HexyrnCore` (check service dependency ordering, or just that
    Core doesn't crash-loop on a cold boot where both are set to
    auto-start).
-2. Complete first-run bootstrap (`docs/OPERATOR_GUIDE.md`).
+2. Complete first-run bootstrap (`docs/internal/OPERATOR_GUIDE.md`).
 3. Run through the SAME sequence
    `clean-machine-harness.integration.spec.ts` automates against this
    sandbox's Postgres, but for REAL through the actual installed

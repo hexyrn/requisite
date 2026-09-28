@@ -43,7 +43,7 @@ early-return behaviour, re-run clean this round).
 
 `installer/windows/Product.wxs` (this round's new groundwork) currently
 uses `Account="LocalSystem"` for the Windows Service - explicitly flagged
-in `docs/WINDOWS_INSTALLER_DESIGN.md` as a placeholder, not a final
+in `docs/internal/WINDOWS_INSTALLER_DESIGN.md` as a placeholder, not a final
 decision, pending the PostgreSQL-bundling choice. Not yet built or run,
 so this is a documented open item, not a "checked, no issue" line.
 
@@ -138,5 +138,5 @@ pass) that this pass re-verified is genuinely still wired up after the
 new code landed, rather than assuming it must be. The one real, still-
 open item from this pass is the Windows installer's placeholder service
 account (`LocalSystem`), already tracked in
-`docs/WINDOWS_INSTALLER_DESIGN.md` as unresolved pending a product
+`docs/internal/WINDOWS_INSTALLER_DESIGN.md` as unresolved pending a product
 decision - not a regression, a documented gap in unbuilt groundwork.
