@@ -10,6 +10,7 @@ import { PasswordResetService } from './auth/password-reset.service';
 import { PasswordResetController } from './auth/password-reset.controller';
 import { InvitationService } from './auth/invitation.service';
 import { InvitationController } from './auth/invitation.controller';
+import { UsersAdminController } from './auth/users-admin.controller';
 import { BootstrapService } from './bootstrap/bootstrap.service';
 import { BootstrapController } from './bootstrap/bootstrap.controller';
 import { InstallationService } from './bootstrap/installation.service';
@@ -45,6 +46,7 @@ import { RequisiteAppModule } from './apps/requisite/requisite.module';
     AuthController,
     PasswordResetController,
     InvitationController,
+    UsersAdminController,
     OrganisationController,
     HealthController,
     AppStateController,

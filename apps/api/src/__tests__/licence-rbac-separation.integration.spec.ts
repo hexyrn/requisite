@@ -145,4 +145,52 @@ describeIfDb('licence import cannot bypass permissions (real HTTP + real Postgre
     const ownerList = await owner.get('/api/v1/requisite/suppliers');
     expect(ownerList.status).toBe(200);
   });
+  it('the users and roles directory needs users.manage and never exposes credentials', async () => {
+    const plain = await makeUser('nodir@sep.test', []);
+    expect((await plain.agent.get('/api/v1/users')).status).toBe(403);
+    expect((await plain.agent.get('/api/v1/roles')).status).toBe(403);
+
+    const manager = await makeUser('mgr@sep.test', [CORE_PERMISSIONS.USERS_MANAGE]);
+    const users = await manager.agent.get('/api/v1/users');
+    expect(users.status).toBe(200);
+    expect(users.body.users.map((u: any) => u.email)).toEqual(
+      expect.arrayContaining(['owner@sep.test', 'mgr@sep.test']),
+    );
+    expect(JSON.stringify(users.body)).not.toMatch(/password|secret|recovery/i);
+    const owner = users.body.users.find((u: any) => u.email === 'owner@sep.test');
+    expect(owner.roles).toContain('Owner');
+    const roles = await manager.agent.get('/api/v1/roles');
+    expect(roles.body.roles.map((r: any) => r.name)).toContain('Owner');
+  });
+  it('activation creates starter roles; a Requester can raise requisitions but cannot manage suppliers or administer', async () => {
+    const owner = request.agent(server());
+    const login = await owner
+      .post('/api/v1/auth/login')
+      .send({ email: 'owner@sep.test', password: 'owner-separation-password-1' });
+    const roles = await owner.get('/api/v1/roles');
+    const names = roles.body.roles.map((r: any) => r.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Requisite - Requester',
+        'Requisite - Approver',
+        'Requisite - Buyer',
+      ]),
+    );
+    void login;
+    const requesterPerms = await withOrgContext(
+      orgId,
+      (db) =>
+        db
+          .selectFrom('role_permissions')
+          .innerJoin('roles', 'roles.id', 'role_permissions.role_id')
+          .select('role_permissions.permission_key')
+          .where('roles.name', '=', 'Requisite - Requester')
+          .execute(),
+      pool,
+    );
+    expect(requesterPerms.map((p) => p.permission_key)).not.toContain('requisite.suppliers.manage');
+    expect(requesterPerms.map((p) => p.permission_key)).not.toContain(
+      'requisite.requisitions.approve',
+    );
+  });
 });

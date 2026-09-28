@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadEnvFile, parseEnvFile, resolveEnvFilePath } from '../env-file';
@@ -38,7 +38,7 @@ describe('env-file (how a Windows service gets its settings)', () => {
     const programData = mkdtempSync(join(tmpdir(), 'hx-pd-'));
     expect(resolveEnvFilePath({ ProgramData: programData } as any, 'win32')).toBeUndefined(); // no file yet
     const cfgDir = join(programData, 'Hexyrn Core', 'config');
-    require('fs').mkdirSync(cfgDir, { recursive: true });
+    mkdirSync(cfgDir, { recursive: true });
     writeFileSync(join(cfgDir, 'hexyrn.env'), 'X=1\n');
     expect(resolveEnvFilePath({ ProgramData: programData } as any, 'win32')).toBe(
       join(cfgDir, 'hexyrn.env'),

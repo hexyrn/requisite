@@ -19,6 +19,44 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
     'Purchasing and procurement control: requisitions, approvals, purchase orders, and goods receipt.',
   brand: { color: '#0f766e', icon: 'cart' },
 
+  roleTemplates: [
+    {
+      name: 'Requisite - Requester',
+      permissions: [
+        'requisite.suppliers.view',
+        'requisite.requisitions.view',
+        'requisite.requisitions.create',
+        'requisite.requisitions.edit',
+        'requisite.requisitions.submit',
+        'requisite.requisitions.cancel',
+        'requisite.purchase-orders.view',
+      ],
+    },
+    {
+      name: 'Requisite - Approver',
+      permissions: [
+        'requisite.requisitions.view',
+        'requisite.requisitions.approve',
+        'requisite.purchase-orders.view',
+        'requisite.reports.view',
+      ],
+    },
+    {
+      name: 'Requisite - Buyer',
+      permissions: [
+        'requisite.suppliers.view',
+        'requisite.suppliers.manage',
+        'requisite.requisitions.view',
+        'requisite.purchase-orders.view',
+        'requisite.purchase-orders.create',
+        'requisite.purchase-orders.issue',
+        'requisite.goods-receipts.view',
+        'requisite.goods-receipts.create',
+        'requisite.rfqs.manage',
+        'requisite.reports.view',
+      ],
+    },
+  ],
   permissions: [
     { key: 'requisite.suppliers.view', label: 'View suppliers' },
     { key: 'requisite.suppliers.manage', label: 'Create/edit/deactivate suppliers' },

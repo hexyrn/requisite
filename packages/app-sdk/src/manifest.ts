@@ -87,6 +87,13 @@ export interface AppBrand {
   icon?: string;
 }
 
+/** A ready-made role an organisation gets when the app is first activated, so access can be given without designing roles from scratch. */
+export interface AppRoleTemplate {
+  name: string;
+  /** Must all be permission keys declared by the same manifest. */
+  permissions: string[];
+}
+
 export interface HexyrnAppManifest {
   /** Reverse-DNS, e.g. 'com.hexyrn.requisite'. Globally stable identifier. */
   appId: string;
@@ -97,6 +104,8 @@ export interface HexyrnAppManifest {
   requiresCoreVersion: string;
   description?: string;
   brand?: AppBrand;
+  /** Optional starter roles created (never overwritten) on first activation; the Owner role still gets every permission. */
+  roleTemplates?: AppRoleTemplate[];
   /** Internal/test apps (e.g. the reference app) are never shown in the suite launcher. */
   internal?: boolean;
 

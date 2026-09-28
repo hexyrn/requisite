@@ -1,3 +1,6 @@
+import { join as nodeJoin } from 'path';
+import { tmpdir as nodeTmpdir } from 'os';
+import * as fs from 'fs';
 import { Pool } from 'pg';
 import { setUpTestDatabase } from '../../test-utils/test-db';
 import { attachPoolErrorHandler } from '../../db/pool';
@@ -142,8 +145,7 @@ describeIfDb('Bootstrap: the setup token survives a restart before setup is comp
 
 describeIfDb('Bootstrap: the plaintext setup-code file', () => {
   let pool: Pool;
-  const file = require('path').join(require('os').tmpdir(), `hx-token-${process.pid}.txt`);
-  const fs = require('fs');
+  const file = nodeJoin(nodeTmpdir(), `hx-token-${process.pid}.txt`);
 
   beforeAll(async () => {
     pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));

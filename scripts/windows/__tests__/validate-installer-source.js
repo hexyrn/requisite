@@ -68,10 +68,14 @@ check('Product.wxs and Bundle.wxs are well-formed XML', () => {
     assert(xml.trim().startsWith('<?xml'), `${f} does not start with an XML declaration`);
     if (havePowerShell) {
       const script = `try { [xml](Get-Content '${path.join(REPO_ROOT, f)}' -Raw) | Out-Null; Write-Output 'OK' } catch { Write-Output "ERROR: $($_.Exception.Message)" }`;
-      const out = execFileSync('powershell', ['-NoProfile', '-Command', script], { encoding: 'utf8' }).trim();
+      const out = execFileSync('powershell', ['-NoProfile', '-Command', script], {
+        encoding: 'utf8',
+      }).trim();
       assert(out === 'OK', `${f} failed real XML parsing: ${out}`);
     } else {
-      console.warn(`  (no powershell available - only checked ${f} starts with an XML declaration, not full well-formedness)`);
+      console.warn(
+        `  (no powershell available - only checked ${f} starts with an XML declaration, not full well-formedness)`,
+      );
     }
   }
 });
@@ -79,9 +83,18 @@ check('Product.wxs and Bundle.wxs are well-formed XML', () => {
 check('Installer source targets PostgreSQL 17, never 16', () => {
   const productWxs = read('installer/windows/Product.wxs');
   const designDoc = read('docs/WINDOWS_INSTALLER_DESIGN.md');
-  assert(!/postgres(ql)?[\s:]*16\b/i.test(productWxs.replace(/PostgreSQL\/17/g, '')), 'Product.wxs references PostgreSQL 16');
-  assert(/PostgreSQL 17/.test(designDoc), 'WINDOWS_INSTALLER_DESIGN.md does not mention PostgreSQL 17');
-  assert(!/postgres:16-alpine/.test(designDoc), 'WINDOWS_INSTALLER_DESIGN.md still references postgres:16-alpine');
+  assert(
+    !/postgres(ql)?[\s:]*16\b/i.test(productWxs.replace(/PostgreSQL\/17/g, '')),
+    'Product.wxs references PostgreSQL 16',
+  );
+  assert(
+    /PostgreSQL 17/.test(designDoc),
+    'WINDOWS_INSTALLER_DESIGN.md does not mention PostgreSQL 17',
+  );
+  assert(
+    !/postgres:16-alpine/.test(designDoc),
+    'WINDOWS_INSTALLER_DESIGN.md still references postgres:16-alpine',
+  );
 });
 
 check('No hard-coded production secrets/passwords in installer sources or Windows scripts', () => {
@@ -92,63 +105,127 @@ check('No hard-coded production secrets/passwords in installer sources or Window
     'scripts/windows/generate-credentials.ps1',
     'scripts/windows/provision-postgres.ps1',
   ];
-  const suspiciousPatterns = [/password\s*=\s*['"][^$][^'"]{4,}['"]/i, /-----BEGIN (RSA |EC )?PRIVATE KEY-----/];
+  const suspiciousPatterns = [
+    /password\s*=\s*['"][^$][^'"]{4,}['"]/i,
+    /-----BEGIN (RSA |EC )?PRIVATE KEY-----/,
+  ];
   for (const f of filesToScan) {
     const content = read(f);
     for (const pattern of suspiciousPatterns) {
-      assert(!pattern.test(content), `${f} contains what looks like a hard-coded secret (matched ${pattern})`);
+      assert(
+        !pattern.test(content),
+        `${f} contains what looks like a hard-coded secret (matched ${pattern})`,
+      );
     }
   }
 });
 
 check('Service account is not the LocalSystem placeholder', () => {
   const productWxs = read('installer/windows/Product.wxs');
-  assert(/Account="NT SERVICE\\HexyrnCore"/.test(productWxs), 'Product.wxs ServiceInstall Account is not set to the NT SERVICE virtual account');
-  assert(!/Account="LocalSystem"/.test(productWxs), 'Product.wxs still has a live Account="LocalSystem" (should be the NT SERVICE virtual account)');
+  assert(
+    /Account="NT SERVICE\\HexyrnCore"/.test(productWxs),
+    'Product.wxs ServiceInstall Account is not set to the NT SERVICE virtual account',
+  );
+  assert(
+    !/Account="LocalSystem"/.test(productWxs),
+    'Product.wxs still has a live Account="LocalSystem" (should be the NT SERVICE virtual account)',
+  );
 });
 
-check('WiX toolchain version is pinned to 4.0.6 in acceptance prep docs, not an unpinned "latest"', () => {
-  const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
-  assert(/wix@4\.0\.6|--version 4\.0\.6/.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md does not pin the wix CLI install to 4.0.6');
-  assert(/WixToolset\.Util\.wixext\/4\.0\.6|WixToolset\.Util\.wixext@4\.0\.6/.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md does not pin WixToolset.Util.wixext to 4.0.6');
-  assert(/WixToolset\.Bal\.wixext\/4\.0\.6|WixToolset\.Bal\.wixext@4\.0\.6/.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md does not pin WixToolset.Bal.wixext to 4.0.6');
-  assert(!/dotnet tool install --global wix\s*$/m.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md still has an unpinned `dotnet tool install --global wix` (would resolve to latest/WiX 7)');
-});
+check(
+  'WiX toolchain version is pinned to 4.0.6 in acceptance prep docs, not an unpinned "latest"',
+  () => {
+    const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
+    assert(
+      /wix@4\.0\.6|--version 4\.0\.6/.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md does not pin the wix CLI install to 4.0.6',
+    );
+    assert(
+      /WixToolset\.Util\.wixext\/4\.0\.6|WixToolset\.Util\.wixext@4\.0\.6/.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md does not pin WixToolset.Util.wixext to 4.0.6',
+    );
+    assert(
+      /WixToolset\.Bal\.wixext\/4\.0\.6|WixToolset\.Bal\.wixext@4\.0\.6/.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md does not pin WixToolset.Bal.wixext to 4.0.6',
+    );
+    assert(
+      !/dotnet tool install --global wix\s*$/m.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md still has an unpinned `dotnet tool install --global wix` (would resolve to latest/WiX 7)',
+    );
+  },
+);
 
-check('Root package.json build script builds packages/* before apps/* (topological ordering fix)', () => {
-  const pkg = JSON.parse(read('package.json'));
-  const buildScript = pkg.scripts && pkg.scripts.build;
-  assert(buildScript, 'package.json has no "build" script');
-  assert(buildScript.includes('build:packages'), '"build" script does not reference "build:packages" - the topological-ordering fix may have regressed');
-  const buildPackagesScript = pkg.scripts['build:packages'];
-  assert(buildPackagesScript && /shared-types/.test(buildPackagesScript) && /app-sdk/.test(buildPackagesScript), '"build:packages" does not build shared-types/app-sdk');
-});
+check(
+  'Root package.json build script builds packages/* before apps/* (topological ordering fix)',
+  () => {
+    const pkg = JSON.parse(read('package.json'));
+    const buildScript = pkg.scripts && pkg.scripts.build;
+    assert(buildScript, 'package.json has no "build" script');
+    assert(
+      buildScript.includes('build:packages'),
+      '"build" script does not reference "build:packages" - the topological-ordering fix may have regressed',
+    );
+    const buildPackagesScript = pkg.scripts['build:packages'];
+    assert(
+      buildPackagesScript &&
+        /shared-types/.test(buildPackagesScript) &&
+        /app-sdk/.test(buildPackagesScript),
+      '"build:packages" does not build shared-types/app-sdk',
+    );
+  },
+);
 
-check('No test/dev-only signing or licence trust material referenced as if it were production in installer docs', () => {
-  const designDoc = read('docs/WINDOWS_INSTALLER_DESIGN.md');
-  const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
-  // The acceptance prep doc's signing step must reference a REAL cert/key
-  // placeholder path, never the repo's own committed TEST keys.
-  assert(!/TEST_RELEASE_PRIVATE_KEY|TEST_LICENSE_PRIVATE_KEY/.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md references a committed TEST signing key as if used for the real signed artifact');
-  assert(/real.*(signing|release).*key/i.test(prep), 'WINDOWS_ACCEPTANCE_PREP.md does not explicitly call out using the REAL production signing key');
-  void designDoc;
-});
+check(
+  'No test/dev-only signing or licence trust material referenced as if it were production in installer docs',
+  () => {
+    const designDoc = read('docs/WINDOWS_INSTALLER_DESIGN.md');
+    const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
+    // The acceptance prep doc's signing step must reference a REAL cert/key
+    // placeholder path, never the repo's own committed TEST keys.
+    assert(
+      !/TEST_RELEASE_PRIVATE_KEY|TEST_LICENSE_PRIVATE_KEY/.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md references a committed TEST signing key as if used for the real signed artifact',
+    );
+    assert(
+      /real.*(signing|release).*key/i.test(prep),
+      'WINDOWS_ACCEPTANCE_PREP.md does not explicitly call out using the REAL production signing key',
+    );
+    void designDoc;
+  },
+);
 
-check('The registered service runs the file the payload actually contains (payload keeps apps/api/dist/main.js under ApiFolder)', () => {
-  const wxs = read('installer/windows/Product.wxs');
-  const payload = read('scripts/windows/build-release-payload.ps1');
-  assert(/\$apiOut\s*=\s*Join-Path \$OutDir 'apps\\api'/.test(payload), 'payload staging no longer places the API under apps\\api - update the service path together with it');
-  // The service's command line now lives in RequisiteService.xml (WinSW), checked in the WinSW check below;
-  // Product.wxs must not re-introduce the old direct path that does not exist after install.
-  assert(!wxs.includes('[ApiFolder]dist\\main.js'), 'Product.wxs must not reference [ApiFolder]dist\\main.js: the harvested payload keeps the apps\\api prefix');
-});
+check(
+  'The registered service runs the file the payload actually contains (payload keeps apps/api/dist/main.js under ApiFolder)',
+  () => {
+    const wxs = read('installer/windows/Product.wxs');
+    const payload = read('scripts/windows/build-release-payload.ps1');
+    assert(
+      /\$apiOut\s*=\s*Join-Path \$OutDir 'apps\\api'/.test(payload),
+      'payload staging no longer places the API under apps\\api - update the service path together with it',
+    );
+    // The service's command line now lives in RequisiteService.xml (WinSW), checked in the WinSW check below;
+    // Product.wxs must not re-introduce the old direct path that does not exist after install.
+    assert(
+      !wxs.includes('[ApiFolder]dist\\main.js'),
+      'Product.wxs must not reference [ApiFolder]dist\\main.js: the harvested payload keeps the apps\\api prefix',
+    );
+  },
+);
 
-check('No MSI custom-action command line ends a quoted argument with a directory property (a trailing backslash escapes the closing quote)', () => {
-  const wxs = read('installer/windows/Product.wxs');
-  // cmd.exe built-ins (rmdir, net) parse differently; powershell.exe and icacls use CommandLineToArgvW rules.
-  const bad = (wxs.match(/ExeCommand="[^"]*"/g) || []).filter((c) => /powershell\.exe|icacls/.test(c) && /\[[A-Za-z0-9]*Folder\]&quot;/.test(c));
-  assert(bad.length === 0, `directory property directly before a closing quote in: ${bad[0] && bad[0].slice(0, 120)} - append "." (and normalise in the script)`);
-});
+check(
+  'No MSI custom-action command line ends a quoted argument with a directory property (a trailing backslash escapes the closing quote)',
+  () => {
+    const wxs = read('installer/windows/Product.wxs');
+    // cmd.exe built-ins (rmdir, net) parse differently; powershell.exe and icacls use CommandLineToArgvW rules.
+    const bad = (wxs.match(/ExeCommand="[^"]*"/g) || []).filter(
+      (c) => /powershell\.exe|icacls/.test(c) && /\[[A-Za-z0-9]*Folder\]&quot;/.test(c),
+    );
+    assert(
+      bad.length === 0,
+      `directory property directly before a closing quote in: ${bad[0] && bad[0].slice(0, 120)} - append "." (and normalise in the script)`,
+    );
+  },
+);
 
 check('Provisioning migrates, writes the runtime settings file, and ships what it needs', () => {
   const wxs = read('installer/windows/Product.wxs');
@@ -159,51 +236,112 @@ check('Provisioning migrates, writes the runtime settings file, and ships what i
     assert(wxs.includes(arg), `ProvisionHexyrnPostgres custom action does not pass ${arg}`);
   }
   assert(/write-runtime-config\.js/.test(prov), 'provision-postgres.ps1 does not write hexyrn.env');
-  assert(/LicencePublicKeyFile/.test(build) && /Mandatory\s*=\s*\$true\)\]\[string\]\$LicencePublicKeyFile/.test(build), 'build-release.ps1 must REQUIRE -LicencePublicKeyFile (an installer without it cannot start in production)');
-  assert(wxs.includes('licence-public-key.txt') && wxs.includes('Open-Hexyrn.ps1'), 'Product.wxs does not install the licence key file / launcher script');
-  assert(fs.existsSync(path.join(REPO_ROOT, 'scripts/windows/Open-Hexyrn.ps1')), 'scripts/windows/Open-Hexyrn.ps1 is missing');
-  assert(/SECRET_ENCRYPTION_MASTER_KEY/.test(creds), 'generate-credentials.ps1 must generate SECRET_ENCRYPTION_MASTER_KEY');
+  assert(
+    /LicencePublicKeyFile/.test(build) &&
+      /Mandatory\s*=\s*\$true\)\]\[string\]\$LicencePublicKeyFile/.test(build),
+    'build-release.ps1 must REQUIRE -LicencePublicKeyFile (an installer without it cannot start in production)',
+  );
+  assert(
+    wxs.includes('licence-public-key.txt') && wxs.includes('Open-Hexyrn.ps1'),
+    'Product.wxs does not install the licence key file / launcher script',
+  );
+  assert(
+    fs.existsSync(path.join(REPO_ROOT, 'scripts/windows/Open-Hexyrn.ps1')),
+    'scripts/windows/Open-Hexyrn.ps1 is missing',
+  );
+  assert(
+    /SECRET_ENCRYPTION_MASTER_KEY/.test(creds),
+    'generate-credentials.ps1 must generate SECRET_ENCRYPTION_MASTER_KEY',
+  );
 });
 
-check('Services are real Windows services: WinSW hosts the app, pg_ctl runservice hosts PostgreSQL; both start automatically', () => {
-  const wxs = read('installer/windows/Product.wxs');
-  const components = wxs.match(/<Component\b[\s\S]*?<\/Component>/g) || [];
-  const withService = components.filter((c) => /<ServiceInstall\b/.test(c));
-  assert(withService.length === 2, `expected exactly 2 ServiceInstall components (app + database), found ${withService.length}`);
-  for (const c of withService) {
-    assert(!/Id="NodeExe"/.test(c) && !/Id="PostgresExe"/.test(c), 'node.exe/postgres.exe must never be a service image: neither speaks the Windows service protocol (Windows kills them with error 1053)');
-    assert(/Start="auto"/.test(c), 'every Requisite service must have Start="auto"');
-  }
-  const app = withService.find((c) => /Name="HexyrnCore"/.test(c));
-  const db = withService.find((c) => /Name="HexyrnPostgreSQL"/.test(c));
-  assert(app && /RequisiteService\.exe/.test(app) && /RequisiteService\.xml/.test(app), 'app service must be the WinSW exe with its xml');
-  assert(app && /ServiceDependency Id="HexyrnPostgreSQL"/.test(app), 'app service must depend on the database service');
-  assert(db && /pg_ctl\.exe/.test(db) && /runservice/.test(db), 'database service must run through pg_ctl runservice');
-  assert(db && /\]\.&quot;/.test(db), 'the runservice data-dir argument must end in "." (trailing backslash would escape the quote)');
-  assert(/NT SERVICE\\HexyrnCore/.test(app) && /NT SERVICE\\HexyrnPostgreSQL/.test(db), 'services must run as virtual service accounts, not LocalSystem');
-});
+check(
+  'Services are real Windows services: WinSW hosts the app, pg_ctl runservice hosts PostgreSQL; both start automatically',
+  () => {
+    const wxs = read('installer/windows/Product.wxs');
+    const components = wxs.match(/<Component\b[\s\S]*?<\/Component>/g) || [];
+    const withService = components.filter((c) => /<ServiceInstall\b/.test(c));
+    assert(
+      withService.length === 2,
+      `expected exactly 2 ServiceInstall components (app + database), found ${withService.length}`,
+    );
+    for (const c of withService) {
+      assert(
+        !/Id="NodeExe"/.test(c) && !/Id="PostgresExe"/.test(c),
+        'node.exe/postgres.exe must never be a service image: neither speaks the Windows service protocol (Windows kills them with error 1053)',
+      );
+      assert(/Start="auto"/.test(c), 'every Requisite service must have Start="auto"');
+    }
+    const app = withService.find((c) => /Name="HexyrnCore"/.test(c));
+    const db = withService.find((c) => /Name="HexyrnPostgreSQL"/.test(c));
+    assert(
+      app && /RequisiteService\.exe/.test(app) && /RequisiteService\.xml/.test(app),
+      'app service must be the WinSW exe with its xml',
+    );
+    assert(
+      app && /ServiceDependency Id="HexyrnPostgreSQL"/.test(app),
+      'app service must depend on the database service',
+    );
+    assert(
+      db && /pg_ctl\.exe/.test(db) && /runservice/.test(db),
+      'database service must run through pg_ctl runservice',
+    );
+    assert(
+      db && /\]\.&quot;/.test(db),
+      'the runservice data-dir argument must end in "." (trailing backslash would escape the quote)',
+    );
+    assert(
+      /NT SERVICE\\HexyrnCore/.test(app) && /NT SERVICE\\HexyrnPostgreSQL/.test(db),
+      'services must run as virtual service accounts, not LocalSystem',
+    );
+  },
+);
 
-check('pg_ctl.exe is attached to the harvester-generated bin directory, and that id is what the harvester really produces', () => {
-  const wxs = read('installer/windows/Product.wxs');
-  const build = read('scripts/windows/build-release.ps1');
-  const crypto = require('crypto');
-  const md5 = crypto.createHash('md5').update('PostgresRuntimeFiles|bin', 'utf8').digest();
-  const first8 = Buffer.from([md5[3], md5[2], md5[1], md5[0]]).toString('hex'); // .NET Guid(byte[]) field order
-  const expected = `dir_bin_${first8}`;
-  assert(wxs.includes(`Directory="${expected}"`), `Product.wxs must attach pg_ctl.exe to ${expected} (the id generate-payload-harvest.ps1 produces for PostgresRuntimeFiles|bin); the harvester's id scheme changed?`);
-  assert(/-ExcludeRelativePaths @\('bin\\pg_ctl\.exe'\)/.test(build), 'the PostgreSQL harvest must exclude bin\\pg_ctl.exe (it is hand-authored as the service image)');
-  assert(/stage-winsw-artifact\.ps1/.test(build) && /WinSwExe=/.test(build), 'build-release.ps1 must stage and pass the verified WinSW exe');
-});
+check(
+  'pg_ctl.exe is attached to the harvester-generated bin directory, and that id is what the harvester really produces',
+  () => {
+    const wxs = read('installer/windows/Product.wxs');
+    const build = read('scripts/windows/build-release.ps1');
+    const crypto = require('crypto');
+    const md5 = crypto.createHash('md5').update('PostgresRuntimeFiles|bin', 'utf8').digest();
+    const first8 = Buffer.from([md5[3], md5[2], md5[1], md5[0]]).toString('hex'); // .NET Guid(byte[]) field order
+    const expected = `dir_bin_${first8}`;
+    assert(
+      wxs.includes(`Directory="${expected}"`),
+      `Product.wxs must attach pg_ctl.exe to ${expected} (the id generate-payload-harvest.ps1 produces for PostgresRuntimeFiles|bin); the harvester's id scheme changed?`,
+    );
+    assert(
+      /-ExcludeRelativePaths @\('bin\\pg_ctl\.exe'\)/.test(build),
+      'the PostgreSQL harvest must exclude bin\\pg_ctl.exe (it is hand-authored as the service image)',
+    );
+    assert(
+      /stage-winsw-artifact\.ps1/.test(build) && /WinSwExe=/.test(build),
+      'build-release.ps1 must stage and pass the verified WinSW exe',
+    );
+  },
+);
 
-check('WinSW config runs the payload layout that is actually installed and carries no secrets', () => {
-  const xml = read('installer/windows/RequisiteService.xml');
-  assert(xml.includes('%BASE%\\..\\api\\apps\\api\\dist\\main.js'), 'service arguments must point at api\\apps\\api\\dist\\main.js');
-  assert(xml.includes('%BASE%\\..\\node\\node.exe'), 'service must run the bundled node.exe, never a node from PATH');
-  assert(/HEXYRN_ENV_FILE/.test(xml), 'service must point the app at its settings file');
-  const xmlNoComments = xml.replace(/<!--[\s\S]*?-->/g, '').replace(/HEXYRN_ENV_FILE/g, '');
-  assert(!/PASSWORD|SECRET|TOKEN|postgres:\/\//i.test(xmlNoComments), 'RequisiteService.xml must not contain secrets');
-  assert(/roll-by-size/.test(xml), 'service output must go to rolling log files');
-});
+check(
+  'WinSW config runs the payload layout that is actually installed and carries no secrets',
+  () => {
+    const xml = read('installer/windows/RequisiteService.xml');
+    assert(
+      xml.includes('%BASE%\\..\\api\\apps\\api\\dist\\main.js'),
+      'service arguments must point at api\\apps\\api\\dist\\main.js',
+    );
+    assert(
+      xml.includes('%BASE%\\..\\node\\node.exe'),
+      'service must run the bundled node.exe, never a node from PATH',
+    );
+    assert(/HEXYRN_ENV_FILE/.test(xml), 'service must point the app at its settings file');
+    const xmlNoComments = xml.replace(/<!--[\s\S]*?-->/g, '').replace(/HEXYRN_ENV_FILE/g, '');
+    assert(
+      !/PASSWORD|SECRET|TOKEN|postgres:\/\//i.test(xmlNoComments),
+      'RequisiteService.xml must not contain secrets',
+    );
+    assert(/roll-by-size/.test(xml), 'service output must go to rolling log files');
+  },
+);
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED.`);

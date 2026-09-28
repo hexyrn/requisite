@@ -72,6 +72,7 @@ export function buildRuntimeConfig(
     ['SECRET_ENCRYPTION_MASTER_KEY', creds.SECRET_ENCRYPTION_MASTER_KEY],
     ['HEXYRN_SESSION_SECRET', creds.HEXYRN_SESSION_SECRET],
     ['HEXYRN_LICENSE_PUBLIC_KEY', licenceKey],
+    ['HEXYRN_PUBLIC_URL', `http://localhost:${input.webPort}`],
     ['ALLOWED_ORIGINS', `http://localhost:${input.webPort},http://127.0.0.1:${input.webPort}`],
     // Browsers treat http://localhost as a secure context and accept Secure cookies there.
     ['COOKIE_SECURE', 'true'],

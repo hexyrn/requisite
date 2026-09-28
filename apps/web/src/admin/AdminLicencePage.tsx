@@ -138,7 +138,7 @@ export function AdminLicencePage() {
             }}
           >
             <label style={{ fontSize: 13, fontWeight: 600 }}>
-              Licence file contents
+              Pasted licence text
               <textarea
                 value={licenceJson}
                 onChange={(e) => setLicenceJson(e.target.value)}

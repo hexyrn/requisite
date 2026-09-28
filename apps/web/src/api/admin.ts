@@ -134,3 +134,45 @@ export const healthApi = {
   getHealth: () => request<SystemHealth>('/system/health'),
   getDiagnostics: () => request<Record<string, unknown>>('/system/diagnostics'),
 };
+
+// --- Users & roles (apps/api/src/auth/users-admin.controller.ts, invitation.controller.ts) ---
+export interface DirectoryUser {
+  id: string;
+  email: string;
+  isActive: boolean;
+  mfaEnabled: boolean;
+  roles: string[];
+}
+export interface DirectoryRole {
+  id: string;
+  name: string;
+  permissionCount: number;
+}
+
+export const usersApi = {
+  listUsers: () => request<{ users: DirectoryUser[] }>('/users'),
+  listRoles: () => request<{ roles: DirectoryRole[] }>('/roles'),
+  invite: (email: string, roleIds: string[]) =>
+    request<{ invitationId: string; invitationUrlForAdmin?: string }>('/auth/invitations', {
+      method: 'POST',
+      body: JSON.stringify({ email, roleIds }),
+    }),
+  resetMfa: (userId: string) =>
+    request<unknown>(`/auth/users/${encodeURIComponent(userId)}/mfa/reset`, { method: 'POST' }),
+};
+
+// --- Own account security (apps/api/src/auth/auth.controller.ts) ---
+export const securityApi = {
+  beginMfa: () =>
+    request<{ secret: string; otpauthUrl: string }>('/auth/mfa/enroll/begin', { method: 'POST' }),
+  confirmMfa: (secret: string, code: string) =>
+    request<{ enabled: boolean; recoveryCodes: string[] }>('/auth/mfa/enroll/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ secret, code }),
+    }),
+  acceptInvitation: (token: string, password: string) =>
+    request<{ userAccountId: string }>('/auth/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+};

@@ -1,3 +1,6 @@
+import { AcceptInvitationPage } from './pages/AcceptInvitationPage';
+import { AccountSecurityPage } from './pages/AccountSecurityPage';
+import { AdminUsersPage } from './admin/AdminUsersPage';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -32,6 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/setup" element={<BootstrapWizardPage />} />
+        <Route path="/setup/accept-invitation" element={<AcceptInvitationPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/mfa" element={<MfaChallengePage />} />
         <Route path="/" element={<AuthenticatedShell />}>
@@ -54,9 +58,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="backup" element={<AdminBackupPage />} />
             <Route path="update" element={<AdminUpdatePage />} />
             <Route path="licence" element={<AdminLicencePage />} />
+            <Route path="users" element={<AdminUsersPage />} />
             <Route path="smtp" element={<AdminSmtpPage />} />
             <Route path="support-bundle" element={<AdminSupportBundlePage />} />
           </Route>
+          <Route path="account/security" element={<AccountSecurityPage />} />
           <Route index element={<HomePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

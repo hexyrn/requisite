@@ -4,6 +4,7 @@ import { InvitationService } from './invitation.service';
 import { InstallationRepository } from '../bootstrap/installation.repository';
 import { withOrgContext } from '../db/org-context';
 import { PublicRoute } from '../http/session-auth.guard';
+import { resolvePublicBaseUrl } from '../config/public-url';
 import { RequirePermission } from '../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../rbac/permissions';
 import { RoleRepository } from '../rbac/role.repository';
@@ -40,7 +41,7 @@ export class InvitationController {
     const organisationId = (req as any).currentOrganisationId;
     const actor = (req as any).currentUser;
     const roleIds = body.roleIds ?? [];
-    const baseUrl = `${req.protocol}://${req.hostname}`;
+    const baseUrl = resolvePublicBaseUrl(req.protocol, req.headers.host);
 
     return withOrgContext(organisationId, async (db) => {
       if (roleIds.length > 0) {

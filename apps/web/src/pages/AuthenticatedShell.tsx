@@ -107,9 +107,13 @@ export function AuthenticatedShell() {
           state && (
             <>
               <AppSwitcher currentBasePath={currentBasePath} />
-              <span className="hx-muted hx-topbar__org" title="Signed in as">
+              <Link
+                to="/account/security"
+                className="hx-muted hx-topbar__org"
+                title="Account security"
+              >
                 {state.userEmail}
-              </span>
+              </Link>
               <Button variant="ghost" onClick={onLogout}>
                 Log out
               </Button>

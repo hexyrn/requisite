@@ -274,6 +274,33 @@ export class ApplicationRegistryService {
         .onConflict((oc) => oc.doNothing())
         .execute();
     }
+
+    // Starter roles from the manifest, so an administrator can invite colleagues with sensible access
+    // straight away. Only created here (first activation); existing roles are never modified.
+    const manifest = installed?.manifest as unknown as HexyrnAppManifest | undefined;
+    const declared = new Set((manifest?.permissions ?? []).map((p) => p.key));
+    for (const template of manifest?.roleTemplates ?? []) {
+      const keys = template.permissions.filter((k) => declared.has(k));
+      const role = await db
+        .insertInto('roles')
+        .values({ organisation_id: organisationId, name: template.name, is_system_role: false })
+        .onConflict((oc) => oc.columns(['organisation_id', 'name']).doNothing())
+        .returning('id')
+        .executeTakeFirst();
+      if (role && keys.length) {
+        await db
+          .insertInto('role_permissions')
+          .values(
+            keys.map((k) => ({
+              organisation_id: organisationId,
+              role_id: role.id,
+              permission_key: k,
+            })),
+          )
+          .onConflict((oc) => oc.doNothing())
+          .execute();
+      }
+    }
     return true;
   }
 

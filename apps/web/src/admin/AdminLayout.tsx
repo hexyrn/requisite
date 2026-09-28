@@ -15,6 +15,7 @@ const TABS: Array<{ to: string; label: string }> = [
   { to: '/admin/backup', label: 'Backup & Restore' },
   { to: '/admin/update', label: 'Updates' },
   { to: '/admin/licence', label: 'Licence' },
+  { to: '/admin/users', label: 'Users' },
   { to: '/admin/smtp', label: 'SMTP' },
   { to: '/admin/support-bundle', label: 'Support Bundle' },
 ];
