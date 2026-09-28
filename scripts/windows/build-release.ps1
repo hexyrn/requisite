@@ -74,11 +74,16 @@ param(
     [string]$OutDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path 'dist-release'),
     [string]$SigningCertPath,
     [string]$SigningCertPassword,
+    # A RELEASE build is the customer artifact Requisite-Setup.exe. It must be Authenticode-signed:
+    # -Release without -SigningCertPath fails. Without -Release the output is Requisite-Setup-UNSIGNED-TEST.exe,
+    # which must never be given to customers. See docs/WINDOWS_SIGNING.md.
+    [switch]$Release,
     [switch]$SkipCompile,
     [switch]$CleanCheckout
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Release -and -not $SigningCertPath) { throw '-Release builds the customer installer and must be signed: pass -SigningCertPath (see docs/WINDOWS_SIGNING.md). For an internal test build, omit -Release.' }
 function Write-Phase($n, $msg) { Write-Host "`n########## STEP $n : $msg ##########" -ForegroundColor Yellow }
 
 $buildCache = Join-Path $RepoRoot '.build-cache'
@@ -271,9 +276,17 @@ if ($LASTEXITCODE -ne 0) { throw 'wix build (Product.wxs) failed - see compiler 
 if (-not (Test-Path $msiPath)) { throw "wix build reported success but $msiPath does not exist." }
 Write-Host "PASS: MSI compiled: $msiPath"
 
+# The MSI inside the bundle is signed too (SmartScreen / Explorer show the publisher for both).
+if ($SigningCertPath) {
+    if (-not (Test-Path $SigningCertPath)) { throw "SigningCertPath does not exist: $SigningCertPath" }
+    & signtool.exe sign /f $SigningCertPath /p $SigningCertPassword /fd sha256 /tr http://timestamp.digicert.com /td sha256 $msiPath
+    if ($LASTEXITCODE -ne 0) { throw 'signtool sign (MSI) failed.' }
+}
+
 # --- 10. Compile Burn bundle ---
 Write-Phase 10 'Compile Burn bundle with WiX 4.0.6'
-$bundlePath = Join-Path $OutDir "HexyrnCore-$HexyrnVersion-$ReleaseLabel.exe"
+$bundleName = if ($Release) { 'Requisite-Setup.exe' } else { 'Requisite-Setup-UNSIGNED-TEST.exe' }
+$bundlePath = Join-Path $OutDir $bundleName
 $bundleWxs = Join-Path $RepoRoot 'installer\windows\Bundle.wxs'
 # Deliberately run from RepoRoot, NOT via Push-Location $OutDir - real
 # bug found compiling this for the first time: `dotnet tool run wix`
@@ -307,16 +320,25 @@ Write-Host "Bundle: $bundlePath ($([math]::Round($bundleInfo.Length / 1MB, 1)) M
 # --- 13. Optional signing ---
 Write-Phase 13 'Optional Authenticode signing'
 if ($SigningCertPath) {
-    if (-not (Test-Path $SigningCertPath)) { throw "SigningCertPath does not exist: $SigningCertPath" }
+    # A Burn bundle carries its own engine: detach it, sign the engine, reattach, then sign the bundle.
+    $engine = Join-Path $OutDir 'burn-engine.exe'
+    dotnet tool run wix -- burn detach $bundlePath -engine $engine
+    if ($LASTEXITCODE -ne 0) { throw 'wix burn detach failed.' }
+    & signtool.exe sign /f $SigningCertPath /p $SigningCertPassword /fd sha256 /tr http://timestamp.digicert.com /td sha256 $engine
+    if ($LASTEXITCODE -ne 0) { throw 'signtool sign (engine) failed.' }
+    dotnet tool run wix -- burn reattach $bundlePath -engine $engine -o $bundlePath
+    if ($LASTEXITCODE -ne 0) { throw 'wix burn reattach failed.' }
+    Remove-Item $engine -Force
     & signtool.exe sign /f $SigningCertPath /p $SigningCertPassword /fd sha256 /tr http://timestamp.digicert.com /td sha256 $bundlePath
-    if ($LASTEXITCODE -ne 0) { throw 'signtool sign failed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'signtool sign (bundle) failed.' }
     & signtool.exe verify /pa $bundlePath
+    if ($LASTEXITCODE -ne 0) { throw 'Signature verification failed.' }
     Write-Host 'PASS: bundle signed and verified.'
     $bundleHash = (Get-FileHash $bundlePath -Algorithm SHA256).Hash
     Write-Host "Post-signing SHA-256: $bundleHash"
 }
 else {
-    Write-Warning 'No -SigningCertPath supplied - built artifacts are UNSIGNED. This is a real, tracked operational gap for a customer-facing release (SmartScreen will warn) - not faked here. Sign separately once a real code-signing certificate is available.'
+    Write-Warning 'UNSIGNED TEST BUILD (Requisite-Setup-UNSIGNED-TEST.exe): do not give this to customers; Windows SmartScreen will warn. Build with -Release -SigningCertPath for the customer installer.'
 }
 
 Write-Host "`n=== Build complete ==="

@@ -264,6 +264,10 @@
       <File Id="ProvisionPostgresScript" Source="$(var.RepoRoot)\scripts\windows\provision-postgres.ps1" KeyPath="yes" />
       <File Id="GenerateCredentialsScript" Source="$(var.RepoRoot)\scripts\windows\generate-credentials.ps1" />
       <File Id="OpenHexyrnScript" Source="$(var.RepoRoot)\scripts\windows\Open-Hexyrn.ps1" />
+      <File Id="HexyrnCommonScript" Source="$(var.RepoRoot)\scripts\windows\Hexyrn-Common.ps1" />
+      <File Id="EnableLanAccessScript" Source="$(var.RepoRoot)\scripts\windows\Enable-LanAccess.ps1" />
+      <File Id="SupportBundleScript" Source="$(var.RepoRoot)\scripts\windows\Get-SupportBundle.ps1" />
+      <File Id="RemoveDataScript" Source="$(var.RepoRoot)\scripts\windows\Remove-RequisiteData.ps1" />
     </Component>
 
     <!-- The provisioning CUSTOM ACTION itself. Execute="deferred" +
@@ -401,7 +405,7 @@
       <Directory Id="HexyrnMenuFolder" Name="Hexyrn Core" />
     </StandardDirectory>
     <Component Id="StartMenuShortcuts" Directory="HexyrnMenuFolder" Guid="6d8f0a2c-4e6a-4c8e-a0c2-4d6f8a0c2e33">
-      <Shortcut Id="OpenHexyrnShortcut" Name="Hexyrn Core" Description="Open Hexyrn Core in your browser"
+      <Shortcut Id="OpenHexyrnShortcut" Name="Requisite" Description="Open Requisite in your browser"
                 Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
                 Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ScriptsFolder]Open-Hexyrn.ps1&quot; -Port [HEXYRNWEBPORT]" />
       <RemoveFolder Id="RemoveHexyrnMenuFolder" On="uninstall" />

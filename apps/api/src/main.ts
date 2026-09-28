@@ -40,6 +40,7 @@ import { ImportHandlerRegistryService } from './platform/import/import-row-handl
 import { EventSchemaService } from './platform/events/event-schema.service';
 import { assertProductionConfigOrThrow } from './config/production-config-check';
 import { registerStaticWeb } from './config/static-web';
+import { loadTlsOptions } from './config/tls';
 
 async function bootstrap() {
   // P3 item 39: fail fast and loudly with NODE_ENV=production and a
@@ -49,7 +50,11 @@ async function bootstrap() {
   // doc comment for the exact failure modes this closes).
   assertProductionConfigOrThrow();
 
-  const adapter = new FastifyAdapter({ trustProxy: parseTrustedProxies() });
+  const tls = loadTlsOptions();
+  const adapter = new FastifyAdapter({
+    trustProxy: parseTrustedProxies(),
+    ...(tls ? { https: tls } : {}),
+  });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   await app.register(fastifyCookie as any);
@@ -214,7 +219,7 @@ async function bootstrap() {
   // so a single-PC install is not reachable from the network unless the operator chooses.
   await app.listen(port, process.env.HOST ?? '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`Hexyrn Core API listening on port ${port}`);
+  console.log(`Hexyrn Core API listening on port ${port}${tls ? ' (HTTPS)' : ''}`);
 
   // Windows service stop (WinSW sends Ctrl+C / SIGBREAK) and container stop (SIGTERM): finish in-flight
   // requests and release the database pool before exiting, so a stop or reboot never cuts a write short.

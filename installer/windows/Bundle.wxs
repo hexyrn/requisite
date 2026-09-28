@@ -34,7 +34,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
   <Bundle
-    Name="Hexyrn Core"
+    Name="Requisite"
     Manufacturer="Hexyrn"
     Version="$(var.HexyrnVersion)"
     UpgradeCode="a1c9e3f5-8b2d-4e6a-9f1c-5d7b3a2e4c60">
@@ -49,7 +49,10 @@
       <bal:WixStandardBootstrapperApplication
         Theme="hyperlinkLicense"
         LicenseUrl=""
-        SuppressOptionsUI="no" />
+        SuppressOptionsUI="no"
+        LaunchTarget="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+        LaunchArguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ProgramFiles64Folder]Hexyrn Core\scripts\Open-Hexyrn.ps1&quot;"
+        LaunchHidden="yes" />
     </BootstrapperApplication>
     <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
          remove" flow available. The FRIENDLY, visual "keep data / delete

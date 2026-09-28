@@ -13,7 +13,13 @@
 param([int]$Port = 3000)
 
 $ErrorActionPreference = 'Stop'
+# Non-secret, world-readable pointer written by Enable-LanAccess.ps1 when HTTPS/LAN access is on.
+$publicUrlFile = Join-Path $env:ProgramData 'Hexyrn Core\public-url.txt'
 $base = "http://localhost:$Port"
+if (Test-Path $publicUrlFile) {
+    $candidate = (Get-Content -Path $publicUrlFile -TotalCount 1).Trim()
+    if ($candidate -match '^https?://[A-Za-z0-9.-]+(:\d+)?$') { $base = $candidate }
+}
 $tokenFile = Join-Path $env:ProgramData 'Hexyrn Core\config\bootstrap-token.txt'
 
 function Show-Message([string]$text, [string]$title = 'Hexyrn Core') {
@@ -27,17 +33,19 @@ function Test-IsAdmin {
 
 # 1. Wait for the service (it can take a little while after boot / first install).
 $up = $false
-$deadline = (Get-Date).AddSeconds(60)
+$deadline = (Get-Date).AddSeconds(90)
 while ((Get-Date) -lt $deadline) {
     try {
-        $r = Invoke-WebRequest -Uri "$base/api/v1/health" -UseBasicParsing -TimeoutSec 3
-        if ($r.StatusCode -eq 200) { $up = $true; break }
+        $c = New-Object System.Net.Sockets.TcpClient
+        $c.Connect('127.0.0.1', $Port)
+        $c.Close()
+        $up = $true
+        break
     }
-    catch { }
-    Start-Sleep -Seconds 2
+    catch { Start-Sleep -Seconds 2 }
 }
 if (-not $up) {
-    Show-Message "Hexyrn Core is not running yet.`n`nOpen 'Services', start 'Hexyrn Core' (and 'HexyrnPostgreSQL' first if it is stopped), then try again." 'Hexyrn Core'
+    Show-Message "Requisite is not running yet.`n`nOpen 'Services', start 'Requisite Database (PostgreSQL)' and then 'Requisite', then try again." 'Requisite'
     exit 1
 }
 

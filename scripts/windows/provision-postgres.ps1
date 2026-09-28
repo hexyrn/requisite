@@ -127,37 +127,109 @@ if ($versionOutput -notmatch 'PostgreSQL\)\s*17\.') {
     throw "PgBinPath's postgres.exe is not PostgreSQL 17.x (got: $versionOutput). Hexyrn Core/Requisite 1.0 standardize on PostgreSQL 17 - refusing to provision a different major version."
 }
 
-if (-not $Credentials) {
-    Write-Step 'No -Credentials supplied - generating fresh ones via generate-credentials.ps1'
-    $credScript = Join-Path $PSScriptRoot 'generate-credentials.ps1'
-    $Credentials = & $credScript -NoAcl -WhatIf:$false -OutFile (Join-Path (Split-Path $DataDir -Parent) 'config\database.env')
+$configDir = Join-Path $(if ($DataRoot) { $DataRoot } else { Split-Path $DataDir -Parent }) 'config'
+$credFile = Join-Path $configDir 'database.env'
+$envFile = Join-Path $configDir 'hexyrn.env'
+$backupDir = Join-Path $(if ($DataRoot) { $DataRoot } else { Split-Path $DataDir -Parent }) 'backups'
+$pgDumpExe = Join-Path $PgBinPath 'pg_dump.exe'
+$clusterExists = Test-Path (Join-Path $DataDir 'PG_VERSION')
+
+function Read-CredentialFile([string]$path) {
+    $result = @{}
+    foreach ($line in Get-Content -Path $path) {
+        if ($line -match '^\s*([A-Z0-9_]+)=(.*)$') { $result[$Matches[1]] = $Matches[2].Trim() }
+    }
+    return $result
 }
 
-if (Test-Path (Join-Path $DataDir 'PG_VERSION')) {
-    # A real, already-initialized Hexyrn-managed cluster - this is an
-    # MSI repair/reconfigure/upgrade re-run of this custom action, NOT a
-    # fresh install. Skip initdb/role-creation entirely rather than
-    # touching an existing cluster - the exact "do not silently reuse/
-    # destroy an existing cluster" requirement, applied to HEXYRN'S OWN
-    # previously-provisioned instance too, not only to unrelated ones.
-    Write-Step "DataDir '$DataDir' already contains an initialized PostgreSQL cluster (PG_VERSION present) - this is an idempotent re-run (MSI repair/upgrade), not a fresh install. Skipping initdb/role-creation; the existing cluster and its credentials are left untouched."
-    Write-Host "`nProvisioning skipped (already provisioned). Data directory: $DataDir"
+function Invoke-Migrations {
+    if (-not $RunMigrations) { return }
+    if (-not $MigratePayloadDir) { throw '-RunMigrations requires -MigratePayloadDir (a staged payload from build-release-payload.ps1)' }
+    Write-Step 'Applying database migrations'
+    $env:MIGRATE_DATABASE_URL = "postgres://hexyrn:$($Credentials['HEXYRN_MIGRATE_DB_PASSWORD'])@127.0.0.1:$Port/hexyrn_core"
+    try {
+        & $NodeExe (Join-Path $MigratePayloadDir 'apps\api\dist\db\migrate.js')
+        if ($LASTEXITCODE -ne 0) { throw 'Migrations failed' }
+    }
+    finally { Remove-Item Env:\MIGRATE_DATABASE_URL -ErrorAction SilentlyContinue }
+}
+
+function Write-RuntimeConfig {
+    if (-not $LicenceKeyFile) { return }
+    # Never regenerates an existing settings file: a repair or upgrade keeps the installation's secrets.
+    if (Test-Path $envFile) { Write-Host "Keeping the existing settings file: $envFile"; return }
+    if (-not $InstallDir -or -not $DataRoot -or -not $MigratePayloadDir) { throw '-LicenceKeyFile requires -InstallDir, -DataRoot and -MigratePayloadDir' }
+    Write-Step 'Writing the runtime settings file the service reads at startup'
+    & $NodeExe (Join-Path $MigratePayloadDir 'apps\api\dist\config\write-runtime-config.js') `
+        --credentials $credFile --licence-key-file $LicenceKeyFile `
+        --install-dir $InstallDir --data-dir $DataRoot `
+        --pg-port $Port --web-port $WebPort --out $envFile
+    if ($LASTEXITCODE -ne 0) { throw 'Writing hexyrn.env failed' }
+}
+
+if ($clusterExists) {
+    # UPGRADE / REPAIR of an existing installation. Nothing about the installation's identity is regenerated:
+    # the cluster, its roles, database.env and hexyrn.env are all kept. We only (1) snapshot the database,
+    # (2) apply any new migrations, (3) restore a missing settings file from the existing credentials.
+    Write-Step "Existing PostgreSQL cluster found in '$DataDir' - upgrade/repair mode (no data is re-created)"
+    if (-not (Test-Path $credFile)) {
+        throw "The database exists at '$DataDir' but its credentials file '$credFile' is missing. Refusing to continue: generating new passwords would lock the application out of its own data. Restore the config folder from a backup, or contact support."
+    }
+    if (-not $Credentials) { $Credentials = Read-CredentialFile $credFile }
+    foreach ($k in 'HEXYRN_MIGRATE_DB_PASSWORD', 'HEXYRN_APP_DB_PASSWORD', 'HEXYRN_BACKUP_DB_PASSWORD') {
+        if (-not $Credentials[$k]) { throw "Credentials file '$credFile' has no $k - refusing to continue." }
+    }
+
+    & $pgCtlExe status -D "$DataDir" *> $null
+    $wasRunning = ($LASTEXITCODE -eq 0)
+    if (-not $wasRunning) {
+        $logFile = Join-Path $DataDir 'startup.log'
+        & $pgCtlExe start -D "$DataDir" -l "$logFile" -w -t 120
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host (Get-Content $logFile -Tail 40 -ErrorAction SilentlyContinue)
+            throw 'Could not start the existing database to upgrade it - nothing was changed.'
+        }
+    }
+    try {
+        $env:PGPASSWORD = $Credentials['HEXYRN_MIGRATE_DB_PASSWORD']
+        New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $dump = Join-Path $backupDir "pre-upgrade-$stamp.dump"
+        Write-Step "Backing up the database before upgrading: $dump"
+        & $pgDumpExe -U hexyrn -h 127.0.0.1 -p $Port -d hexyrn_core -Fc -f $dump
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dump) -or (Get-Item $dump).Length -eq 0) {
+            throw 'The pre-upgrade backup failed, so the upgrade was stopped BEFORE changing anything. Your data is untouched.'
+        }
+        Invoke-Migrations
+        Write-RuntimeConfig
+    }
+    finally {
+        Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        if (-not $wasRunning) { & $pgCtlExe stop -D "$DataDir" -m fast -w -t 60 }
+    }
+    Write-Host "`nUpgrade/repair complete. Data directory: $DataDir"
     return
 }
+
+# FRESH INSTALL. If this machine already has an identity (credentials / settings) but its database is gone,
+# creating a brand-new empty database would silently look like data loss; stop and say so.
+if ((Test-Path $credFile) -or (Test-Path $envFile)) {
+    throw "Found existing Requisite settings in '$configDir' but no database in '$DataDir'. Refusing to create a new empty database over an existing installation. Restore the database folder from a backup (or, if you really want to start over, remove the settings folder first)."
+}
 if (Test-Path $DataDir) {
-    $existingItems = Get-ChildItem -Path $DataDir -Force -ErrorAction SilentlyContinue
-    if ($existingItems) {
-        throw "DataDir '$DataDir' already exists and is non-empty but has no PG_VERSION file (not a valid PostgreSQL cluster) - refusing to initdb into it blindly. Investigate and remove it explicitly first if this is genuinely meant to be a fresh install."
+    if (Get-ChildItem -Path $DataDir -Force -ErrorAction SilentlyContinue) {
+        throw "DataDir '$DataDir' already exists and is non-empty but is not a valid PostgreSQL cluster - refusing to initialise into it."
     }
+}
+
+if (-not $Credentials) {
+    Write-Step 'Generating fresh credentials (first install)'
+    $Credentials = & (Join-Path $PSScriptRoot 'generate-credentials.ps1') -NoAcl -WhatIf:$false -OutFile $credFile
 }
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
-Write-Step "Running initdb into isolated data directory: $DataDir"
-# --pwfile (NOT --pwprompt or an inline password argument) - a password
-# passed on the command line is visible in the process list and Windows
-# Event Log process-creation auditing; --pwfile reads from a temp file
-# this script deletes immediately after, per
-# docs/WINDOWS_INSTALLER_DESIGN.md's "Credential generation" section.
+Write-Step "Running initdb into: $DataDir"
+# --pwfile, never --pwprompt or an argument: a password on the command line is visible in the process list.
 $pwFile = New-TemporaryFile
 try {
     [System.IO.File]::WriteAllText($pwFile.FullName, $Credentials['HEXYRN_MIGRATE_DB_PASSWORD'])
@@ -168,20 +240,29 @@ finally {
     Remove-Item -Force $pwFile.FullName -ErrorAction SilentlyContinue
 }
 
-Write-Step "Hardening postgresql.conf: loopback-only listen_addresses, fixed port $Port"
+Write-Step "Hardening postgresql.conf: loopback only, port $Port, file logging"
 $confPath = Join-Path $DataDir 'postgresql.conf'
-Add-Content -Path $confPath -Value "`nlisten_addresses = 'localhost'`nport = $Port`n"
+Add-Content -Path $confPath -Value @"
 
-Write-Step 'Starting the isolated instance temporarily to create roles/database'
+listen_addresses = 'localhost'
+port = $Port
+logging_collector = on
+log_directory = 'log'
+log_filename = 'postgresql-%a.log'
+log_truncate_on_rotation = on
+log_rotation_age = 1d
+"@
+
+Write-Step 'Starting the new instance temporarily to create roles/database'
 $logFile = Join-Path $DataDir 'startup.log'
-& $pgCtlExe start -D "$DataDir" -l "$logFile" -w -t 30
+& $pgCtlExe start -D "$DataDir" -l "$logFile" -w -t 60
 if ($LASTEXITCODE -ne 0) {
     Write-Host (Get-Content $logFile -ErrorAction SilentlyContinue)
     throw 'pg_ctl start failed - see log above'
 }
 
 try {
-    Write-Step 'Creating the three Hexyrn database roles (same model as docker/postgres-init/01-app-role.sh)'
+    Write-Step 'Creating the three Hexyrn database roles'
     $env:PGPASSWORD = $Credentials['HEXYRN_MIGRATE_DB_PASSWORD']
     $roleSql = @"
 CREATE DATABASE hexyrn_core;
@@ -218,30 +299,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT USAGE, SELECT ON
     if ($roleCheck -notmatch 'hexyrn_backup:f:t') { throw 'hexyrn_backup does not have the required non-superuser/BYPASSRLS privileges' }
     Write-Host 'PASS: role privileges verified.'
 
-    if ($RunMigrations) {
-        if (-not $MigratePayloadDir) { throw '-RunMigrations requires -MigratePayloadDir (a staged payload from build-release-payload.ps1)' }
-        Write-Step 'Running real migrations against the freshly-provisioned cluster'
-        $env:MIGRATE_DATABASE_URL = "postgres://hexyrn:$($Credentials['HEXYRN_MIGRATE_DB_PASSWORD'])@127.0.0.1:$Port/hexyrn_core"
-        $migrateScript = Join-Path $MigratePayloadDir 'apps\api\dist\db\migrate.js'
-        & $NodeExe $migrateScript
-        if ($LASTEXITCODE -ne 0) { throw 'Migrations failed' }
-    }
-
-    if ($LicenceKeyFile) {
-        # Writes <DataRoot>\config\hexyrn.env: database URLs, secrets, licence key, ports, paths. The service
-        # reads it at startup (apps/api/src/config/env-file.ts). Skips if it already exists, so a repair or
-        # upgrade never regenerates the secrets of a working installation.
-        if (-not $InstallDir -or -not $DataRoot -or -not $MigratePayloadDir) { throw '-LicenceKeyFile requires -InstallDir, -DataRoot and -MigratePayloadDir' }
-        Write-Step 'Writing the runtime settings file the service reads at startup'
-        $writer = Join-Path $MigratePayloadDir 'apps\api\dist\config\write-runtime-config.js'
-        & $NodeExe $writer `
-            --credentials (Join-Path $DataRoot 'config\database.env') `
-            --licence-key-file $LicenceKeyFile `
-            --install-dir $InstallDir --data-dir $DataRoot `
-            --pg-port $Port --web-port $WebPort `
-            --out (Join-Path $DataRoot 'config\hexyrn.env')
-        if ($LASTEXITCODE -ne 0) { throw 'Writing hexyrn.env failed' }
-    }
+    Invoke-Migrations
+    Write-RuntimeConfig
 }
 finally {
     Write-Step 'Stopping the temporary instance (a real deployment leaves it running as a registered service instead - see -RegisterService)'
