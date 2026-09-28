@@ -6,10 +6,25 @@ export function setCsrfToken(token: string): void {
   csrfToken = token;
 }
 
+/** Thrown for any non-2xx response; `status` lets callers tell "not signed in" (401) from other failures. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method ?? 'GET').toUpperCase();
+  // Only declare a JSON body when there is one: Fastify rejects a request that
+  // says "application/json" but has an empty body with a 400, which silently
+  // broke every body-less POST from the UI (logout - so the server session was
+  // never revoked - MFA enrolment start, and action buttons).
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body != null ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string> | undefined),
   };
   if (csrfToken && method !== 'GET') {
@@ -25,7 +40,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? `Request failed: ${res.status}`);
+    throw new ApiError(body.message ?? `Request failed: ${res.status}`, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -50,12 +65,15 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? `Upload failed: ${res.status}`);
+    throw new ApiError(body.message ?? `Upload failed: ${res.status}`, res.status);
   }
   return res.json() as Promise<T>;
 }
 
 export const api = {
+  /** Recovers this session's CSRF token after a reload; 401 means there is no valid (MFA-verified) session. */
+  getSession: () =>
+    request<{ csrfToken: string; user: { id: string; email: string } }>('/auth/session'),
   login: (email: string, password: string) =>
     request<{ requiresMfa: boolean; csrfToken: string }>('/auth/login', {
       method: 'POST',

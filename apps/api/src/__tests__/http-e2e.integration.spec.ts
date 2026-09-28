@@ -36,6 +36,8 @@ import { TotpService } from '../auth/totp.service';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { SessionService } from '../sessions/session.service';
 
+import { loginRateLimiters } from '../security/rate-limits';
+
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -93,6 +95,14 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
   function server() {
     return app.getHttpAdapter().getInstance().server;
   }
+
+  // The login limiters are process-wide and this file performs ~30 logins from
+  // one IP, which sits right at the 30/15min per-IP ceiling: without a reset,
+  // adding any login-using test silently starves the later ones of a session.
+  beforeEach(() => {
+    loginRateLimiters.byIp.resetAll();
+    loginRateLimiters.byAccount.resetAll();
+  });
 
   it('boots the full Nest application against real Postgres and answers health checks', async () => {
     const res = await request(server()).get('/api/v1/health');
@@ -498,6 +508,27 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
         .post('/api/v1/auth/logout')
         .set('X-Hexyrn-CSRF', login.body.csrfToken);
       expect(logout.status).toBe(201);
+    });
+
+    it('GET /auth/session restores the CSRF token for a valid session (page-refresh recovery) and refuses anonymous / pre-MFA callers', async () => {
+      const agent = request.agent(server());
+      const login = await agent
+        .post('/api/v1/auth/login')
+        .send({ email: ownerEmail, password: ownerPassword });
+      expect(login.status).toBe(201);
+
+      // Simulates a reload: same cookie jar, but the client has forgotten its CSRF token.
+      const restored = await agent.get('/api/v1/auth/session');
+      expect(restored.status).toBe(200);
+      expect(restored.body.csrfToken).toBe(login.body.csrfToken);
+      expect(restored.body.user.email).toBe(ownerEmail);
+      expect(JSON.stringify(restored.body)).not.toMatch(/password|hash|secret/i);
+      const usable = await agent
+        .post('/api/v1/auth/logout')
+        .set('X-Hexyrn-CSRF', restored.body.csrfToken);
+      expect(usable.status).toBe(201);
+
+      expect((await request(server()).get('/api/v1/auth/session')).status).toBe(401);
     });
 
     it('enrolling MFA does not lock the enrolling user out of their own current session', async () => {

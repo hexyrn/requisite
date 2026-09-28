@@ -1,4 +1,4 @@
-import { Body, Controller, NotFoundException, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
@@ -271,6 +271,24 @@ export class AuthController {
     });
 
     return { reset: true };
+  }
+
+  /**
+   * "Who am I / restore my session": the SPA keeps the CSRF token only in
+   * memory, so after a page refresh or a new tab the (still valid) session
+   * cookie is present but the token is gone and every state-changing call
+   * would be rejected. This lets the client recover the token for its own
+   * session. Safe: the response is only readable same-origin / by an
+   * ALLOWED_ORIGINS caller with the HttpOnly session cookie (CORS), and it
+   * only ever returns the caller's own session's token. Pre-MFA sessions are
+   * refused by the guard, so a password-only session cannot obtain one.
+   */
+  @AuthenticatedOnly()
+  @Get('session')
+  getSession(@Req() req: FastifyRequest) {
+    const session = (req as any).currentSession;
+    const user = (req as any).currentUser;
+    return { csrfToken: session.csrfToken, user: { id: user.id, email: user.email } };
   }
 
   @AllowPreMfa()

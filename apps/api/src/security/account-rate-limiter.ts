@@ -37,6 +37,11 @@ export class AccountRateLimiter {
     this.store.clear(key);
   }
 
+  /** Forgets every key. For tests that share one process-wide limiter across many logins. */
+  resetAll(): void {
+    for (const key of [...this.store.keys()]) this.store.clear(key);
+  }
+
   /** Periodic cleanup to bound memory - safe to call on a timer; not required for correctness. */
   sweep(): void {
     const now = Date.now();
