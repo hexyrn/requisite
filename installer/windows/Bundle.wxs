@@ -1,96 +1,72 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Hexyrn Core Windows installer - WiX Burn BOOTSTRAPPER (P3 item 3/9).
+  Requisite-Setup.exe - the single file a customer downloads (WiX Burn bootstrapper).
 
-  WHY THIS FILE EXISTS, NOT JUST Product.wxs: a bare MSI has no
-  mechanism to ask the operator a real question during uninstall ("also
-  permanently delete the database/files/backups?") - Windows Installer's
-  own UI model is a fixed sequence of built-in dialogs, not a place for
-  custom application-specific branching logic. A Burn bundle (a small
-  bootstrapper .exe that WRAPS the real .msi) is the correct WiX
-  mechanism for that - see docs/WINDOWS_INSTALLER_DESIGN.md's "Uninstall
-  / data retention" section, which explicitly required "the correct
-  architecture rather than weakening the requirement." This file is that
-  architecture, not a workaround.
+  It wraps Product.msi (the real installer) and, first, the Microsoft Visual C++ runtime that the bundled database
+  engine needs on a clean Windows machine. Everything else is inside the MSI, so nothing has to be installed first.
 
-  Mirrors scripts/uninstall-docker.sh's real, already-tested two-step
-  confirmation exactly (see that script and its own commit history for
-  the two paths - keep data, delete data - both genuinely tested against
-  a live Docker stack this phase): on UNINSTALL, this bundle's planned
-  custom UI (BootstrapperApplicationRef below - the actual UI XAML/dialog
-  set is real Windows-round work, not written here, since it needs to be
-  visually iterated on a real Windows machine, not authored blind) asks
-  ONE question, defaulting to "keep data," and only permanently removes
-  %ProgramData%\Hexyrn Core\ (postgresql-data\, storage\, backups\,
-  config\) if the operator explicitly opts into deletion a SECOND time.
+  Why a bundle and not a bare MSI: it can install the C++ runtime in the same run, shows the licence agreement and
+  branding, and offers "Launch" on the last page.
 
-  STATUS: real chain/package structure, NOT yet built or run (same
-  toolchain gap as Product.wxs - see that file's header). Requires WiX
-  Toolset 4.0.6 + WixToolset.Bal.wixext 4.0.6 (the "Bal" = Bootstrapper
-  Application Layer extension - what actually provides Burn/bundle
-  support) to compile - confirmed installed on the real Windows 11 RC
-  build machine per docs/WINDOWS_ACCEPTANCE_PREP.md.
+  Data safety: an ordinary uninstall NEVER removes customer data (Product.msi only removes it when the
+  HEXYRNPURGEDATA property is "1", which nothing in the customer experience sets; the supported way to erase data is
+  the separate Remove-RequisiteData.ps1 tool, which needs a typed confirmation).
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Bundle
     Name="Requisite"
     Manufacturer="Hexyrn"
     Version="$(var.HexyrnVersion)"
-    UpgradeCode="a1c9e3f5-8b2d-4e6a-9f1c-5d7b3a2e4c60">
-    <!-- Deliberately a SEPARATE UpgradeCode from Product.wxs's Package
-         UpgradeCode - the bundle and the MSI it wraps are different
-         installable "things" in Windows Installer/Burn's own model; a
-         real Windows round should double check this doesn't collide
-         with anything but there is no reason it would (freshly
-         generated, distinct from Product.wxs's). -->
+    UpgradeCode="a1c9e3f5-8b2d-4e6a-9f1c-5d7b3a2e4c60"
+    IconSourceFile="$(var.RepoRoot)\installer\windows\assets\requisite.ico"
+    AboutUrl="$(var.SupportUrl)"
+    HelpUrl="$(var.SupportUrl)"
+    Copyright="Copyright (c) Hexyrn. All rights reserved.">
+
+    <Log Prefix="Requisite-Setup" Extension=".log" />
 
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication
-        Theme="hyperlinkLicense"
-        LicenseUrl=""
-        SuppressOptionsUI="no"
+        Theme="rtfLicense"
+        LicenseFile="$(var.RepoRoot)\installer\windows\assets\EULA.rtf"
+        LogoFile="$(var.RepoRoot)\installer\windows\assets\requisite.ico"
+        ShowVersion="yes"
+        SuppressOptionsUI="yes"
         LaunchTarget="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
         LaunchArguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ProgramFiles64Folder]Hexyrn Core\scripts\Open-Hexyrn.ps1&quot; -Port [HEXYRNWEBPORT]"
         LaunchHidden="yes" />
     </BootstrapperApplication>
-    <!-- SuppressOptionsUI="no" - keeps the standard "modify/repair/
-         remove" flow available. The FRIENDLY, visual "keep data / delete
-         data" CHECKBOX (a WixStandardBootstrapperApplication theme
-         override, or a fully custom BootstrapperApplication) is real,
-         visual-iteration Windows-round work not authored blind here -
-         but the underlying DATA-PRESERVATION MECHANISM ITSELF is real
-         and functional NOW, not deferred: see HEXYRNPURGEDATA below. -->
 
-    <!-- The real, working purge mechanism (P3 item 8/9) - functional
-         today via command line even before a friendlier visual checkbox
-         is added: defaults to "0" (keep data, the safe default for an
-         ORDINARY uninstall via Programs and Features, which passes no
-         extra arguments). An operator who genuinely wants to also
-         delete the PostgreSQL cluster/storage/backups/config must pass
-         `/HEXYRNPURGEDATA=1` explicitly on the uninstall command line -
-         a real, strongly-guarded, deliberately unusual property name
-         that cannot be triggered by an ordinary click, matching
-         scripts/uninstall-docker.sh's own "keep by default, delete only
-         on a second explicit confirmation" design. Passed through to
-         Product.msi's own InstallExecuteSequence via MsiProperty below,
-         which is what actually performs (or skips) the removal - see
-         Product.wxs's PurgeCustomAction. -->
+    <!-- Kept "0" (never remove data) unless someone deliberately supplies HEXYRNPURGEDATA=1 on the command line. -->
     <Variable Name="HEXYRNPURGEDATA" Type="string" Value="0" Persisted="no" />
-    <!-- Web port; default 3000. Override on the command line: Requisite-Setup.exe HEXYRNWEBPORT=8080 -->
+    <!-- Web port; default 3000. IT administrators can override: Requisite-Setup.exe HEXYRNWEBPORT=8080 -->
     <Variable Name="HEXYRNWEBPORT" Type="string" Value="3000" />
 
+    <!-- Microsoft Visual C++ 2015-2022 x64 runtime: present already on many PCs, missing on a clean Windows install. -->
+    <Variable Name="VCRuntimeBld" Type="numeric" Value="0" />
+    <util:RegistrySearch Id="VCRuntimeBldSearch" Variable="VCRuntimeBld" Root="HKLM"
+                         Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" Value="Bld"
+                         Result="value" Bitness="always64" />
+
     <Chain>
+      <ExePackage Id="VCRedist" Name="vc_redist.x64.exe" SourceFile="$(var.VCRedistExe)"
+                  DisplayName="Microsoft Visual C++ runtime"
+                  DetectCondition="VCRuntimeBld &gt;= $(var.VCRedistBuild)"
+                  InstallArguments="/install /quiet /norestart"
+                  RepairArguments="/repair /quiet /norestart"
+                  UninstallArguments="/uninstall /quiet /norestart"
+                  Permanent="yes" Vital="yes">
+        <ExitCode Value="0" Behavior="success" />
+        <ExitCode Value="1638" Behavior="success" />
+        <ExitCode Value="3010" Behavior="forceReboot" />
+      </ExePackage>
+
       <MsiPackage SourceFile="Product.msi" Vital="yes">
         <MsiProperty Name="HEXYRNPURGEDATA" Value="[HEXYRNPURGEDATA]" />
         <MsiProperty Name="HEXYRNWEBPORT" Value="[HEXYRNWEBPORT]" />
       </MsiPackage>
-      <!-- SourceFile="Product.msi" - the real build produces
-           Product.wxs's compiled output under this name (or whatever
-           -out path the real `wix build` invocation uses - see
-           docs/WINDOWS_ACCEPTANCE_PREP.md's exact command) and this
-           Chain references it by relative path at BUNDLE build time,
-           not by a hand-typed guess. -->
     </Chain>
   </Bundle>
 </Wix>

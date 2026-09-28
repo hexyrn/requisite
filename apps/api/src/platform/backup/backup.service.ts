@@ -481,7 +481,7 @@ export function realPgRestore(
     } catch (err) {
       await pool.end();
       throw new Error(
-        `pre-restore TRUNCATE failed (role needs TRUNCATE privilege on all public tables, see docker/postgres-init/01-app-role.sh): ${err instanceof Error ? err.message : String(err)}`,
+        `The restore could not clear the current data first, so nothing was changed. Run Repair from Windows Settings > Apps > Requisite, or contact support. (${err instanceof Error ? err.message : String(err)})`,
       );
     }
     await pool.end();

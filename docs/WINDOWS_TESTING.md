@@ -15,6 +15,28 @@ been done on real Windows and every check passes.**
 | `scripts/windows/simulate/sim-install.sh` + `first-run-journey.js`                                             | Linux                                          | The installed layout run from the settings file only, in a real browser: setup link, licence file, MFA, invitation + RBAC, backup/damage/restore, service restart                         | Windows services, reboot      |
 | `scripts/windows/acceptance/Invoke-CleanVmAcceptance.ps1`                                                      | **A clean Windows VM**                         | Everything, on the real thing (see below)                                                                                                                                                 | —                             |
 
+## Build commands
+
+Test build (unsigned; downloads and verifies Node, PostgreSQL, WinSW and the C++ runtime; run on Windows with .NET 8
+SDK, Node 20 and WiX 4.0.6 + Util/Bal extensions):
+
+```
+dotnet tool restore
+.\scripts\windows\build-release.ps1 -CleanCheckout -FetchInputs -LicencePublicKeyFile C:\keys\licence-public.pem
+```
+
+Customer release (signed): add `-Release -SigningCertPath <pfx> -SigningCertPassword <pw>` (see `WINDOWS_SIGNING.md`).
+Output: `dist\Requisite-Setup-<version>.exe`, `dist\Requisite-<version>.msi`, `dist\checksums.txt`.
+
+## Automated checks (no Windows needed)
+
+- `node scripts/windows/__tests__/validate-installer-source.js` - service wiring and payload layout rules.
+- `node scripts/windows/__tests__/validate-customer-assets.js` - no Docker/developer wording in customer assets,
+  PowerShell 5.1 syntax, no secrets in properties/command lines, absolute tool paths, version/UpgradeCode rules,
+  launch condition, health verification, data-safety defaults, C++ runtime in the bundle, branding assets, build outputs.
+- `bash scripts/windows/__tests__/wix-compile-check.sh --self-test` - compiles Product.wxs/Bundle.wxs with WiX,
+  checks references and duplicate Ids, and proves the checker catches deliberate defects.
+
 ## Clean-VM acceptance run (mandatory before release)
 
 1. Fresh Windows 10/11 or Server 2019/2022 VM with **only Windows** installed, snapshot it.

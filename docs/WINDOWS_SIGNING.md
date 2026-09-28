@@ -20,10 +20,10 @@ There are **no development or self-signed certificates in the repository or in a
 
 ## Build kinds
 
-| Command                                                                | Output                                    | For customers?                                |
-| ---------------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------- |
-| `build-release.ps1 …` (no `-Release`)                                  | `Requisite-Setup-UNSIGNED-TEST.exe`       | **No** — internal testing only                |
-| `build-release.ps1 -Release -SigningCertPath … -SigningCertPassword …` | `Requisite-Setup.exe` (signed + verified) | Yes, after the clean-VM acceptance run passes |
+| Command                                                                | Output                                                                                               | For customers?                                |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `build-release.ps1 …` (no `-Release`)                                  | `Requisite-Setup-UNSIGNED-TEST.exe`                                                                  | **No** — internal testing only                |
+| `build-release.ps1 -Release -SigningCertPath … -SigningCertPassword …` | `dist/Requisite-Setup-<version>.exe`, `Requisite-<version>.msi`, `checksums.txt` (signed + verified) | Yes, after the clean-VM acceptance run passes |
 
 `-Release` **fails** if no certificate is supplied, so an unsigned file can never be named `Requisite-Setup.exe`.
 Signing order in the script: MSI → detach Burn engine → sign engine → re-attach → sign the bundle →

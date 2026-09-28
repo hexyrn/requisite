@@ -41,6 +41,7 @@ import { EventSchemaService } from './platform/events/event-schema.service';
 import { assertProductionConfigOrThrow } from './config/production-config-check';
 import { registerStaticWeb } from './config/static-web';
 import { loadTlsOptions } from './config/tls';
+import { waitForDatabase } from './db/wait-for-database';
 
 async function bootstrap() {
   // P3 item 39: fail fast and loudly with NODE_ENV=production and a
@@ -50,6 +51,8 @@ async function bootstrap() {
   // doc comment for the exact failure modes this closes).
   assertProductionConfigOrThrow();
 
+  // After a reboot the database service may still be starting: wait for it instead of crashing into a restart loop.
+  if (process.env.DATABASE_URL) await waitForDatabase(process.env.DATABASE_URL);
   const tls = loadTlsOptions();
   const adapter = new FastifyAdapter({
     trustProxy: parseTrustedProxies(),

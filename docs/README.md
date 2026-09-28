@@ -9,7 +9,7 @@
 **Hexyrn engineering / internal** (not for customers):
 
 - [`DEVELOPMENT_STATUS.md`](DEVELOPMENT_STATUS.md) — where the project stands.
-- [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md), [`WINDOWS_TESTING.md`](WINDOWS_TESTING.md),
+- [`internal/WINDOWS_INSTALLER_AUDIT.md`](internal/WINDOWS_INSTALLER_AUDIT.md), [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md), [`WINDOWS_TESTING.md`](WINDOWS_TESTING.md),
   [`RELEASE_SIGNING.md`](RELEASE_SIGNING.md) — building, signing and verifying the installer.
 - [`internal/`](internal) — installer design, Docker/CI notes (Docker is for development, CI and integration
   testing only — **not** a supported customer deployment), operator notes, first-customer runbooks.

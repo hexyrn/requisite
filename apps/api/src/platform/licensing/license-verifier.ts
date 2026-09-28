@@ -32,29 +32,33 @@ export class LicenseVerifier {
         Buffer.from(signature, 'base64'),
       );
     } catch {
-      return { valid: false, reason: 'Malformed signature.' };
+      return { valid: false, reason: 'The licence file is damaged. Ask Hexyrn for a new copy.' };
     }
     if (!signatureValid) {
       return {
         valid: false,
         reason:
-          'Invalid signature - the license payload does not match its signature, or was not signed with a trusted key.',
+          'This licence file was not issued by Hexyrn, or has been changed since it was issued. Ask Hexyrn for a new copy.',
       };
     }
 
     if (payload.appId !== expected.appId) {
       return {
         valid: false,
-        reason: `License is for app "${payload.appId}", not "${expected.appId}".`,
+        reason: 'This licence is for a different Hexyrn product.',
       };
     }
     if (payload.organisationId !== expected.organisationId) {
-      return { valid: false, reason: 'License was not issued for this organisation.' };
+      return {
+        valid: false,
+        reason:
+          'This licence was issued for a different organisation. Check the Organisation ID you gave Hexyrn matches the one shown on this page.',
+      };
     }
     if (payload.majorVersion !== expected.majorVersion) {
       return {
         valid: false,
-        reason: `License covers major version ${payload.majorVersion}, not ${expected.majorVersion}.`,
+        reason: 'This licence is for a different version of Requisite than the one installed.',
       };
     }
 

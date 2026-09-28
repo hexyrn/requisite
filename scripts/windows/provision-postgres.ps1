@@ -4,8 +4,7 @@
   Windows (P3 item 3/6) - initializes a fresh data directory, configures
   it securely, creates the three Hexyrn database roles, and (optionally)
   registers it as its own Windows Service, all reusing the EXACT SAME
-  role model already proven under Docker this phase
-  (docker/postgres-init/01-app-role.sh).
+  role model the application was tested against (owner / runtime / backup roles).
 
 .DESCRIPTION
   EXTERNAL ARTIFACT BOUNDARY - READ THIS FIRST:
@@ -108,6 +107,14 @@ foreach ($name in 'DataDir', 'MigratePayloadDir', 'InstallDir', 'DataRoot', 'PgB
 }
 $ErrorActionPreference = 'Stop'
 
+# Keep a support log of what provisioning did (never contains secrets: none are printed).
+try {
+    $logRoot = if ($DataRoot) { Join-Path $DataRoot 'logs' } else { Join-Path (Split-Path $DataDir -Parent) 'logs' }
+    New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+    Start-Transcript -Path (Join-Path $logRoot 'install-provision.log') -Append | Out-Null
+}
+catch { }
+
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 $initdbExe = Join-Path $PgBinPath 'initdb.exe'
@@ -200,7 +207,8 @@ if ($clusterExists) {
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dump) -or (Get-Item $dump).Length -eq 0) {
             throw 'The pre-upgrade backup failed, so the upgrade was stopped BEFORE changing anything. Your data is untouched.'
         }
-        Invoke-Migrations
+        try { Invoke-Migrations }
+        catch { throw "The update of your data failed and was stopped. Your data from before the update is safe; a full copy is at $dump. Details: $($_.Exception.Message)" }
         Write-RuntimeConfig
     }
     finally {
@@ -222,9 +230,37 @@ if (Test-Path $DataDir) {
     }
 }
 
+function Test-PortFree([int]$p) {
+    try {
+        $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $p)
+        $l.Start(); $l.Stop(); return $true
+    }
+    catch { return $false }
+}
+if (-not (Test-PortFree $Port)) {
+    throw "Port $Port (used privately by Requisite's database) is already taken by another program on this computer. Nothing was installed. Close that program or install Requisite again with a different database port, then retry."
+}
+if ($WebPort -and -not (Test-PortFree $WebPort)) {
+    throw "Port $WebPort (the address Requisite is opened on) is already taken by another program on this computer. Nothing was installed. Install again with a different port, e.g. Requisite-Setup.exe HEXYRNWEBPORT=8080."
+}
+
+# From here on this run creates things; if it fails part-way, everything IT created is removed again so that a
+# retry starts clean instead of tripping over a half-built database. (Only reached when NO database and NO settings
+# existed before - see the guards above - so this can never delete customer data.)
+$createdCredentials = $false
+$createdDataDir = -not (Test-Path $DataDir)
+function Remove-PartialInstall {
+    try { & $pgCtlExe stop -D "$DataDir" -m immediate -w -t 30 *> $null } catch { }
+    if (Test-Path $DataDir) { Get-ChildItem -Path $DataDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($createdCredentials) { Remove-Item -Force $credFile -ErrorAction SilentlyContinue }
+    Remove-Item -Force $envFile -ErrorAction SilentlyContinue
+}
+
+try {
 if (-not $Credentials) {
     Write-Step 'Generating fresh credentials (first install)'
     $Credentials = & (Join-Path $PSScriptRoot 'generate-credentials.ps1') -NoAcl -WhatIf:$false -OutFile $credFile
+    $createdCredentials = $true
 }
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
@@ -307,6 +343,14 @@ finally {
     Write-Step 'Stopping the temporary instance (a real deployment leaves it running as a registered service instead - see -RegisterService)'
     & $pgCtlExe stop -D "$DataDir" -m fast -w -t 30
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+}
+
+}
+catch {
+    Write-Host "Provisioning failed: $($_.Exception.Message)"
+    Write-Host 'Removing what this attempt created so the installation can be retried cleanly.'
+    Remove-PartialInstall
+    throw
 }
 
 if ($RegisterService) {

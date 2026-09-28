@@ -14,8 +14,7 @@
   already requires in production: TOTP_MASTER_KEY_CURRENT (32 raw bytes,
   base64), HEXYRN_SESSION_SECRET, and three DISTINCT PostgreSQL role
   passwords (migration/runtime/backup - never the same value, defeating
-  the whole point of docker/postgres-init/01-app-role.sh's role split if
-  they matched).
+  the whole point of the three-role split if they matched).
 
   This script is a REAL, standalone, testable unit - it does not require
   the WiX toolchain, a PostgreSQL instance, or the built application to
@@ -87,9 +86,8 @@ $values = [ordered]@{
     # refuses to start without it. Independent of the TOTP key on purpose.
     SECRET_ENCRYPTION_MASTER_KEY = New-SecureRandomBase64 -ByteLength 32
     HEXYRN_SESSION_SECRET     = New-SecureRandomBase64 -ByteLength 48
-    # Three DISTINCT PostgreSQL role passwords - see
-    # docker/postgres-init/01-app-role.sh's own comment on why these must
-    # never be the same value (defeats the three-role security split).
+    # Three DISTINCT PostgreSQL role passwords: they must never be the
+    # same value (that would defeat the three-role security split).
     HEXYRN_MIGRATE_DB_PASSWORD = New-SecurePasswordToken
     HEXYRN_APP_DB_PASSWORD     = New-SecurePasswordToken
     HEXYRN_BACKUP_DB_PASSWORD  = New-SecurePasswordToken

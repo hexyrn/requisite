@@ -108,6 +108,8 @@ export function assertProductionConfigOrThrow(env: NodeJS.ProcessEnv = process.e
   if (issues.length === 0) return;
   const lines = issues.map((i) => `  - ${i.variable}: ${i.message}`).join('\n');
   throw new Error(
-    `Refusing to start with NODE_ENV=production due to ${issues.length} configuration issue(s):\n${lines}\n\nSet these environment variables and restart. See .env.example for guidance.`,
+    process.env.HEXYRN_ENV_FILE
+      ? `Requisite cannot start because its settings file is incomplete or damaged (${issues.length} problem(s)):\n${lines}\n\nFix: open Windows Settings > Apps > Requisite > Modify > Repair. Your data is kept. If this continues, contact support.`
+      : `Refusing to start with NODE_ENV=production due to ${issues.length} configuration issue(s):\n${lines}\n\nSet these environment variables and restart. See .env.example for guidance.`,
   );
 }

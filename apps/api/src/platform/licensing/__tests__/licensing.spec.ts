@@ -53,7 +53,7 @@ describe('Licensing - Ed25519 signature verification (P2 item 21)', () => {
       majorVersion: 1,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toMatch(/invalid signature/i);
+    expect(result.reason).toMatch(/not issued by Hexyrn|damaged/i);
   });
 
   it('MODIFIED PAYLOAD: changing any field after signing invalidates the signature', () => {
@@ -117,7 +117,7 @@ describe('Licensing - Ed25519 signature verification (P2 item 21)', () => {
       majorVersion: 1,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toMatch(/app/i);
+    expect(result.reason).toMatch(/different Hexyrn product/i);
   });
 
   it('WRONG MAJOR VERSION: a v1 license is rejected when checked against v2', () => {
@@ -133,7 +133,7 @@ describe('Licensing - Ed25519 signature verification (P2 item 21)', () => {
       majorVersion: 2,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toMatch(/major version/i);
+    expect(result.reason).toMatch(/different version/i);
   });
 
   it('SUPPORT EXPIRY DOES NOT DISABLE RUNTIME: a license with an expired supportExpiresAt still verifies as valid', () => {

@@ -32,10 +32,9 @@
 
   The API/web payload referenced below is produced by
   scripts/windows/build-release-payload.ps1 - the SAME production build
-  output apps/api/Dockerfile's runtime stage packages (one build
-  pipeline, two distribution mechanisms, not two separately-maintained
-  builds that could drift apart). See docs/WINDOWS_INSTALLER_DESIGN.md
-  for the reasoning behind every decision below.
+  output the automated tests run against. See
+  docs/internal/WINDOWS_INSTALLER_DESIGN.md for the reasoning behind
+  every decision below.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package
@@ -43,7 +42,20 @@
     Manufacturer="Hexyrn"
     Version="$(var.HexyrnVersion)"
     UpgradeCode="8f2b6c1a-2f0e-4c3a-9a7e-3b1c9d5f6a02"
-    Compressed="yes">
+    Compressed="yes"
+    Scope="perMachine">
+
+    <!-- Programs & Features (Settings > Apps) details. -->
+    <Icon Id="RequisiteIcon" SourceFile="$(var.RepoRoot)\installer\windows\assets\requisite.ico" />
+    <Property Id="ARPPRODUCTICON" Value="RequisiteIcon" />
+    <Property Id="ARPCOMMENTS" Value="Purchasing and procurement control for your business." />
+    <Property Id="ARPHELPLINK" Value="$(var.SupportUrl)" />
+    <Property Id="ARPURLINFOABOUT" Value="$(var.SupportUrl)" />
+    <Property Id="ARPCONTACT" Value="Hexyrn" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- 64-bit Windows 10 / 11 / Server 2019 or later (Windows Installer reports all of these as 10.0 = 1000). -->
+    <Launch Condition="Installed OR (VersionNT64 &gt;= 1000)" Message="Requisite needs 64-bit Windows 10, Windows 11 or Windows Server 2019 or later." />
 
     <!-- Upgrade behaviour: newer versions replace older ones in place,
          never allow a downgrade over a newer install (item 15's rollback
@@ -62,11 +74,7 @@
          locations by default. -->
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Hexyrn Core">
-        <!-- apps/api/dist + node_modules, i.e. the SAME output
-             apps/api/Dockerfile's runtime stage packages - one build
-             output, two distribution mechanisms (Docker image, Windows
-             installer), not two separately-maintained builds that could
-             drift apart. -->
+        <!-- The compiled application and its libraries (one production build). -->
         <Directory Id="ApiFolder" Name="api" />
         <!-- PostgreSQL RUNTIME BINARIES only (bin/lib/share/include -
              see build-release.ps1's step 6 for exactly why pgAdmin
@@ -257,8 +265,7 @@
          scripts/windows/provision-postgres.ps1 is the SAME,
          independently-verified logic this repository already tested
          standalone this phase (real initdb, real role-creation SQL
-         matching docker/postgres-init/01-app-role.sh's exact
-         hexyrn/hexyrn_app/hexyrn_backup model, real generated
+         for the hexyrn/hexyrn_app/hexyrn_backup role model, real generated
          credentials) - called here, not reimplemented. -->
     <Component Id="ProvisioningScripts" Directory="ScriptsFolder" Guid="9d1f3b5c-7e9a-4c2d-8f1b-3e5d7f9a1c60">
       <File Id="ProvisionPostgresScript" Source="$(var.RepoRoot)\scripts\windows\provision-postgres.ps1" KeyPath="yes" />
@@ -267,6 +274,7 @@
       <File Id="HexyrnCommonScript" Source="$(var.RepoRoot)\scripts\windows\Hexyrn-Common.ps1" />
       <File Id="EnableLanAccessScript" Source="$(var.RepoRoot)\scripts\windows\Enable-LanAccess.ps1" />
       <File Id="SupportBundleScript" Source="$(var.RepoRoot)\scripts\windows\Get-SupportBundle.ps1" />
+      <File Id="VerifyInstallScript" Source="$(var.RepoRoot)\scripts\windows\Verify-Install.ps1" />
       <File Id="ResetPasswordScript" Source="$(var.RepoRoot)\scripts\windows\Reset-Password.ps1" />
       <File Id="RemoveDataScript" Source="$(var.RepoRoot)\scripts\windows\Remove-RequisiteData.ps1" />
     </Component>
@@ -314,7 +322,7 @@
     <CustomAction
       Id="SetHexyrnDataAcls"
       Directory="HexyrnDataFolder"
-      ExeCommand="cmd.exe /c icacls &quot;[HexyrnStorageFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnBackupsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnConfigFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnPostgresDataFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnLogsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[INSTALLFOLDER].&quot; /grant &quot;NT SERVICE\HexyrnCore:(OI)(CI)RX&quot; &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)RX&quot;"
+      ExeCommand="&quot;[System64Folder]cmd.exe&quot; /c &quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnStorageFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; &quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnBackupsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; &quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnConfigFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; &quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnPostgresDataFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; &quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnLogsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; &quot;[System64Folder]icacls.exe&quot; &quot;[INSTALLFOLDER].&quot; /grant &quot;NT SERVICE\HexyrnCore:(OI)(CI)RX&quot; &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)RX&quot;"
       Execute="deferred"
       Return="check"
       Impersonate="no" />
@@ -327,7 +335,7 @@
     <CustomAction
       Id="ProvisionHexyrnPostgres"
       Directory="ScriptsFolder"
-      ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[ScriptsFolder]provision-postgres.ps1&quot; -PgBinPath &quot;[PostgresFolder]bin&quot; -DataDir &quot;[HexyrnPostgresDataFolder].&quot; -Port [HEXYRNPGPORT] -RunMigrations -MigratePayloadDir &quot;[ApiFolder].&quot; -NodeExe &quot;[NodeRuntimeFolder]node.exe&quot; -InstallDir &quot;[INSTALLFOLDER].&quot; -DataRoot &quot;[HexyrnDataFolder].&quot; -LicenceKeyFile &quot;[INSTALLFOLDER]licence-public-key.txt&quot; -WebPort [HEXYRNWEBPORT]"
+      ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[ScriptsFolder]provision-postgres.ps1&quot; -PgBinPath &quot;[PostgresFolder]bin&quot; -DataDir &quot;[HexyrnPostgresDataFolder].&quot; -Port [HEXYRNPGPORT] -RunMigrations -MigratePayloadDir &quot;[ApiFolder].&quot; -NodeExe &quot;[NodeRuntimeFolder]node.exe&quot; -InstallDir &quot;[INSTALLFOLDER].&quot; -DataRoot &quot;[HexyrnDataFolder].&quot; -LicenceKeyFile &quot;[INSTALLFOLDER]licence-public-key.txt&quot; -WebPort [HEXYRNWEBPORT]"
       Execute="deferred"
       Return="check"
       Impersonate="no" />
@@ -352,9 +360,37 @@
     <CustomAction
       Id="PurgeHexyrnData"
       Directory="HexyrnDataFolder"
-      ExeCommand="cmd.exe /c (net stop HexyrnCore) &amp; (net stop HexyrnPostgreSQL) &amp; (rmdir /s /q &quot;[HexyrnDataFolder]&quot;)"
+      ExeCommand="&quot;[System64Folder]cmd.exe&quot; /c (&quot;[System64Folder]net.exe&quot; stop HexyrnCore) &amp; (&quot;[System64Folder]net.exe&quot; stop HexyrnPostgreSQL) &amp; (rmdir /s /q &quot;[HexyrnDataFolder].&quot;)"
       Execute="deferred"
       Return="ignore"
+      Impersonate="no" />
+
+    <!-- Last step: prove the product really runs; if not, Windows Installer rolls the installation back. -->
+    <CustomAction
+      Id="VerifyRequisiteRunning"
+      Directory="ScriptsFolder"
+      ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[ScriptsFolder]Verify-Install.ps1&quot; -DataRoot &quot;[HexyrnDataFolder].&quot;"
+      Execute="deferred"
+      Return="check"
+      Impersonate="no" />
+
+    <!-- The only firewall rule Requisite ever creates is the optional LAN one (Enable-LanAccess.ps1); remove it on uninstall. -->
+    <CustomAction
+      Id="RemoveRequisiteFirewallRule"
+      Directory="HexyrnDataFolder"
+      ExeCommand="&quot;[System64Folder]netsh.exe&quot; advfirewall firewall delete rule name=&quot;Requisite (LAN access)&quot;"
+      Execute="deferred"
+      Return="ignore"
+      Impersonate="no" />
+
+    <!-- The data folder itself: administrators and SYSTEM control it; other users may only read (so the launcher can
+         find its public-address pointer). Sub-folders with secrets or data have their own stricter ACLs above. -->
+    <CustomAction
+      Id="SetHexyrnDataRootAcl"
+      Directory="HexyrnDataFolder"
+      ExeCommand="&quot;[System64Folder]icacls.exe&quot; &quot;[HexyrnDataFolder].&quot; /inheritance:r /grant:r &quot;*S-1-5-18:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &quot;*S-1-5-32-545:(RX)&quot;"
+      Execute="deferred"
+      Return="check"
       Impersonate="no" />
 
     <InstallExecuteSequence>
@@ -365,7 +401,10 @@
            comments. StartServices is WiX's own standard action name for
            "the point at which newly-installed services are started." -->
       <Custom Action="SetHexyrnDataAcls" After="InstallFiles" Condition="NOT Installed OR REINSTALL" />
-      <Custom Action="ProvisionHexyrnPostgres" After="SetHexyrnDataAcls" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="VerifyRequisiteRunning" After="StartServices" Condition="NOT REMOVE" />
+      <Custom Action="RemoveRequisiteFirewallRule" After="StopServices" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="SetHexyrnDataRootAcl" After="SetHexyrnDataAcls" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="ProvisionHexyrnPostgres" After="SetHexyrnDataRootAcl" Condition="NOT Installed OR REINSTALL" />
       <!-- Purge runs during removal, after services have been asked to
            stop (After="StopServices" - WiX's own standard action for
            "services are being stopped as part of this sequence") and
@@ -400,17 +439,17 @@
       <File Id="LicencePublicKeyFile" Source="$(var.LicencePublicKeyFile)" Name="licence-public-key.txt" KeyPath="yes" />
     </Component>
 
-    <!-- Start Menu: "Hexyrn Core" opens the app (and on first run, the setup page with the setup code copied to
-         the clipboard). Open-Hexyrn.ps1 elevates itself only when it must read the admin-only token file. -->
+    <!-- Start Menu: "Requisite" opens the app (and on first run, the setup page with the setup code already filled in).
+         Open-Hexyrn.ps1 elevates itself only when it must read the admin-only setup-code file. -->
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="HexyrnMenuFolder" Name="Hexyrn Core" />
+      <Directory Id="HexyrnMenuFolder" Name="Requisite" />
     </StandardDirectory>
     <Component Id="StartMenuShortcuts" Directory="HexyrnMenuFolder" Guid="6d8f0a2c-4e6a-4c8e-a0c2-4d6f8a0c2e33">
-      <Shortcut Id="OpenHexyrnShortcut" Name="Requisite" Description="Open Requisite in your browser"
+      <Shortcut Id="OpenHexyrnShortcut" Name="Requisite" Description="Open Requisite in your browser" Icon="RequisiteIcon"
                 Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
                 Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ScriptsFolder]Open-Hexyrn.ps1&quot; -Port [HEXYRNWEBPORT]" />
       <RemoveFolder Id="RemoveHexyrnMenuFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\Hexyrn\Core" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\Hexyrn\Core" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <Component Id="DataDirectories" Directory="HexyrnDataFolder" Guid="3c7e9a1b-5d2f-4e8a-b6c3-1a9d7f2e4b08">
@@ -421,7 +460,7 @@
       <CreateFolder Directory="HexyrnPostgresDataFolder" />
       <!-- Uninstall behaviour is deliberately NOT "always delete" - see
            docs/WINDOWS_INSTALLER_DESIGN.md's uninstall section: this
-           mirrors scripts/uninstall-docker.sh's two-step confirm
+           is a two-step confirm
            (remove the app, keep ALL of storage/backups/config/
            postgresql-data unless a SEPARATE explicit choice says
            otherwise). WiX's own <RemoveFolder> below only ever fires on

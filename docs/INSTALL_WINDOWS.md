@@ -23,7 +23,8 @@ test build that is not meant for customers.
 1. Double-click `Requisite-Setup.exe` and choose **Yes** when Windows asks for permission.
 2. Click **Install** and wait a few minutes. The installer sets everything up, including Requisite's private
    database.
-3. When it finishes, click **Launch**. Your web browser opens the Requisite setup page. (You can always open
+3. Setup checks that Requisite is running properly before it says it is finished. If Windows asks to restart, restart and setup carries on. If something goes wrong, setup undoes its changes and tells you where the log is; your data is never deleted by a failed install.
+4. When it finishes, click **Launch**. Your web browser opens the Requisite setup page. (You can always open
    Requisite later from the Start menu: **Requisite**.)
 
 Requisite starts automatically whenever the computer starts. Nobody needs to be signed in to Windows for it to run.

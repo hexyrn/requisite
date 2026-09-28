@@ -48,8 +48,15 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$PostgresZipPath,
+    # Third-party inputs: either give the files, or pass -FetchInputs to download and verify them (pinned SHA-256).
+    [string]$PostgresZipPath,
     [string]$NodeZipPath,
+    [switch]$FetchInputs,
+    # Microsoft Visual C++ 2015-2022 x64 runtime installer (vc_redist.x64.exe), or -DownloadVCRedist.
+    [string]$VCRedistPath,
+    [switch]$DownloadVCRedist,
+    # Shown in Programs & Features and the installer's About/Help links.
+    [string]$SupportUrl = 'https://hexyrn.com',
     # Your vendor PUBLIC licence key (one line: what `npm run licence -- pubkey` prints after HEXYRN_LICENSE_PUBLIC_KEY=,
     # or the contents of licence-public.pem). Baked into the installer; without it the installed app refuses to
     # start in production. NEVER pass a private key here.
@@ -68,10 +75,11 @@ param(
     # compares); -ReleaseLabel is a SEPARATE, free-form string used only
     # in the built artifact's FILENAME (e.g. "rc1"), never fed into an
     # actual MSI/Burn Version attribute.
-    [string]$HexyrnVersion = '1.0.0.0',
+    # Default: taken from the repository version (root package.json) so the app, MSI, bundle and support bundle agree.
+    [string]$HexyrnVersion,
     [string]$ReleaseLabel = 'rc1',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
-    [string]$OutDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path 'dist-release'),
+    [string]$OutDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path 'dist'),
     [string]$SigningCertPath,
     [string]$SigningCertPassword,
     # A RELEASE build is the customer artifact Requisite-Setup.exe. It must be Authenticode-signed:
@@ -87,8 +95,38 @@ if ($Release -and -not $SigningCertPath) { throw '-Release builds the customer i
 function Write-Phase($n, $msg) { Write-Host "`n########## STEP $n : $msg ##########" -ForegroundColor Yellow }
 
 $buildCache = Join-Path $RepoRoot '.build-cache'
-$payloadDir = Join-Path $OutDir 'payload'
-New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+# Intermediate files live in .build-cache\work; $OutDir receives only the finished customer artefacts.
+$WorkDir = Join-Path $buildCache 'work'
+if (Test-Path $WorkDir) { Remove-Item -Recurse -Force $WorkDir }
+$payloadDir = Join-Path $WorkDir 'payload'
+New-Item -ItemType Directory -Force -Path $OutDir, $WorkDir | Out-Null
+
+# --- 0. Version: one source of truth (root package.json) so app, MSI, bundle, logs and support bundle agree ---
+$rootPkg = Get-Content (Join-Path $RepoRoot 'package.json') -Raw | ConvertFrom-Json
+$productVersion = [string]$rootPkg.version
+foreach ($p in 'apps\api\package.json', 'apps\web\package.json') {
+    $v = (Get-Content (Join-Path $RepoRoot $p) -Raw | ConvertFrom-Json).version
+    if ($v -ne $productVersion) { throw "$p is version $v but the repository is $productVersion. Versions must agree before a release is built." }
+}
+if (-not $HexyrnVersion) { $HexyrnVersion = "$($productVersion -replace '-.*$', '').0" }
+if ($HexyrnVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw "-HexyrnVersion must be four numbers (e.g. 1.2.3.0), got '$HexyrnVersion'." }
+$fileVersion = ($HexyrnVersion -replace '\.0$', '')
+Write-Host "Building Requisite $fileVersion (MSI version $HexyrnVersion)"
+
+if ($FetchInputs) {
+    $inputs = & (Join-Path $PSScriptRoot 'fetch-build-inputs.ps1') -CacheDir (Join-Path $buildCache 'inputs')
+    if (-not $PostgresZipPath) { $PostgresZipPath = $inputs.PostgresZip }
+    if (-not $NodeZipPath) { $NodeZipPath = $inputs.NodeZip }
+    if (-not $WinSwPath) { $DownloadWinSw = $true }
+    if (-not $VCRedistPath) { $DownloadVCRedist = $true }
+}
+if (-not $PostgresZipPath) { throw 'PostgreSQL is required: pass -PostgresZipPath <zip> or use -FetchInputs.' }
+if (-not $NodeZipPath) { throw 'The bundled Node.js runtime is required (customers must not need Node installed): pass -NodeZipPath <zip> or use -FetchInputs.' }
+if (-not $VCRedistPath -and -not $DownloadVCRedist) { throw 'The Microsoft C++ runtime installer is required: pass -VCRedistPath <vc_redist.x64.exe> or -DownloadVCRedist (or use -FetchInputs).' }
+$vcArgs = @{ StageDir = (Join-Path $buildCache 'vcredist') }
+if ($VCRedistPath) { $vcArgs['ExePath'] = $VCRedistPath } else { $vcArgs['Download'] = $true }
+$vcInfo = & (Join-Path $PSScriptRoot 'stage-vcredist-artifact.ps1') @vcArgs
+if (-not $vcInfo) { throw 'C++ runtime staging failed.' }
 
 # --- 1. Validate environment ---
 Write-Phase 1 'Validate environment'
@@ -232,6 +270,11 @@ $pemFiles = Get-ChildItem -Path $payloadDir -Recurse -Include '*.pem', '*.key' -
 if ($pemFiles) { throw "Found private key material in staged payload: $($pemFiles.FullName -join ', ')" }
 Write-Host 'PASS: staged payload contains no forbidden dev/test/secret material.'
 
+# Version stamp shipped with the product (read by the support bundle; the About/support screens can show it).
+$commit = (git -C $RepoRoot rev-parse --short HEAD 2>$null)
+@{ product = 'Requisite'; version = $fileVersion; msiVersion = $HexyrnVersion; commit = "$commit"; builtAt = (Get-Date).ToUniversalTime().ToString('o') } |
+    ConvertTo-Json | Set-Content -Path (Join-Path $payloadDir 'version.json') -Encoding UTF8
+
 # --- 8. Generate WiX harvesting (three separate harvests - application
 # payload, Node runtime, PostgreSQL runtime - see Product.wxs's own
 # comments for exactly why node.exe/postgres.exe are excluded from
@@ -240,15 +283,15 @@ Write-Host 'PASS: staged payload contains no forbidden dev/test/secret material.
 Write-Phase 8 'Generate WiX file harvesting for the staged payload'
 $harvestGen = Join-Path $PSScriptRoot 'generate-payload-harvest.ps1'
 
-$apiHarvestWxs = Join-Path $OutDir 'PayloadFiles.wxs'
+$apiHarvestWxs = Join-Path $WorkDir 'PayloadFiles.wxs'
 & $harvestGen -PayloadDir $payloadDir -OutFile $apiHarvestWxs -ComponentGroupId 'ApiFiles' -RootDirectoryRef 'ApiFolder' -SourceVarName 'PayloadDir' -ExcludeRelativePaths @('runtime')
 
 $nodeRuntimeDirForHarvest = Join-Path $payloadDir 'runtime\node'
-$nodeHarvestWxs = Join-Path $OutDir 'NodeRuntimeFiles.wxs'
+$nodeHarvestWxs = Join-Path $WorkDir 'NodeRuntimeFiles.wxs'
 & $harvestGen -PayloadDir $nodeRuntimeDirForHarvest -OutFile $nodeHarvestWxs -ComponentGroupId 'NodeRuntimeFiles' -RootDirectoryRef 'NodeRuntimeFolder' -SourceVarName 'NodeRuntimeDir' -ExcludeRelativePaths @('node.exe')
 
 $pgRuntimeDirForHarvest = Join-Path $payloadDir 'runtime\postgresql'
-$pgHarvestWxs = Join-Path $OutDir 'PostgresRuntimeFiles.wxs'
+$pgHarvestWxs = Join-Path $WorkDir 'PostgresRuntimeFiles.wxs'
 & $harvestGen -PayloadDir $pgRuntimeDirForHarvest -OutFile $pgHarvestWxs -ComponentGroupId 'PostgresRuntimeFiles' -RootDirectoryRef 'PostgresFolder' -SourceVarName 'PostgresRuntimeDir' -ExcludeRelativePaths @('bin\pg_ctl.exe')
 
 Write-Host "Harvest sources generated: $apiHarvestWxs, $nodeHarvestWxs, $pgHarvestWxs"
@@ -260,7 +303,7 @@ if ($SkipCompile) {
 
 # --- 9. Compile MSI ---
 Write-Phase 9 'Compile MSI with WiX 4.0.6'
-$msiPath = Join-Path $OutDir 'Product.msi'
+$msiPath = Join-Path $WorkDir 'Product.msi'
 $productWxs = Join-Path $RepoRoot 'installer\windows\Product.wxs'
 dotnet tool run wix -- build $productWxs $apiHarvestWxs $nodeHarvestWxs $pgHarvestWxs `
     -d "HexyrnVersion=$HexyrnVersion" `
@@ -270,6 +313,7 @@ dotnet tool run wix -- build $productWxs $apiHarvestWxs $nodeHarvestWxs $pgHarve
     -d "RepoRoot=$RepoRoot" `
     -d "WinSwExe=$($winswInfo.ExePath)" `
     -d "LicencePublicKeyFile=$LicencePublicKeyFile" `
+    -d "SupportUrl=$SupportUrl" `
     -ext WixToolset.Util.wixext/4.0.6 `
     -out $msiPath
 if ($LASTEXITCODE -ne 0) { throw 'wix build (Product.wxs) failed - see compiler output above.' }
@@ -285,7 +329,7 @@ if ($SigningCertPath) {
 
 # --- 10. Compile Burn bundle ---
 Write-Phase 10 'Compile Burn bundle with WiX 4.0.6'
-$bundleName = if ($Release) { 'Requisite-Setup.exe' } else { 'Requisite-Setup-UNSIGNED-TEST.exe' }
+$bundleName = if ($Release) { "Requisite-Setup-$fileVersion.exe" } else { "Requisite-Setup-$fileVersion-UNSIGNED-TEST.exe" }
 $bundlePath = Join-Path $OutDir $bundleName
 $bundleWxs = Join-Path $RepoRoot 'installer\windows\Bundle.wxs'
 # Deliberately run from RepoRoot, NOT via Push-Location $OutDir - real
@@ -300,9 +344,14 @@ $bundleWxs = Join-Path $RepoRoot 'installer\windows\Bundle.wxs'
 $bundleLocWxl = Join-Path $RepoRoot 'installer\windows\Bundle.en-us.wxl'
 dotnet tool run wix -- build $bundleWxs `
     -d "HexyrnVersion=$HexyrnVersion" `
+    -d "RepoRoot=$RepoRoot" `
+    -d "VCRedistExe=$($vcInfo.ExePath)" `
+    -d "VCRedistBuild=$($vcInfo.Build)" `
+    -d "SupportUrl=$SupportUrl" `
     -loc $bundleLocWxl `
-    -b $OutDir `
+    -b $WorkDir `
     -ext WixToolset.Bal.wixext/4.0.6 `
+    -ext WixToolset.Util.wixext/4.0.6 `
     -out $bundlePath
 if ($LASTEXITCODE -ne 0) { throw 'wix build (Bundle.wxs) failed - see compiler output above.' }
 if (-not (Test-Path $bundlePath)) { throw "wix build reported success but $bundlePath does not exist." }
@@ -321,7 +370,7 @@ Write-Host "Bundle: $bundlePath ($([math]::Round($bundleInfo.Length / 1MB, 1)) M
 Write-Phase 13 'Optional Authenticode signing'
 if ($SigningCertPath) {
     # A Burn bundle carries its own engine: detach it, sign the engine, reattach, then sign the bundle.
-    $engine = Join-Path $OutDir 'burn-engine.exe'
+    $engine = Join-Path $WorkDir 'burn-engine.exe'
     dotnet tool run wix -- burn detach $bundlePath -engine $engine
     if ($LASTEXITCODE -ne 0) { throw 'wix burn detach failed.' }
     & signtool.exe sign /f $SigningCertPath /p $SigningCertPassword /fd sha256 /tr http://timestamp.digicert.com /td sha256 $engine
@@ -341,9 +390,19 @@ else {
     Write-Warning 'UNSIGNED TEST BUILD (Requisite-Setup-UNSIGNED-TEST.exe): do not give this to customers; Windows SmartScreen will warn. Build with -Release -SigningCertPath for the customer installer.'
 }
 
+# --- 14. Publish: only finished artefacts + checksums go to $OutDir ---
+Write-Phase 14 'Publish artefacts and checksums'
+$msiFinal = Join-Path $OutDir $(if ($Release) { "Requisite-$fileVersion.msi" } else { "Requisite-$fileVersion-UNSIGNED-TEST.msi" })
+Copy-Item -Force $msiPath $msiFinal
+$lines = foreach ($p in @($bundlePath, $msiFinal)) { "$((Get-FileHash $p -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($p))" }
+Set-Content -Path (Join-Path $OutDir 'checksums.txt') -Value $lines -Encoding ASCII
+Get-Content (Join-Path $OutDir 'checksums.txt') | ForEach-Object { Write-Host $_ }
+$expected = @($bundlePath, $msiFinal, (Join-Path $OutDir 'checksums.txt'))
+foreach ($e in $expected) { if (-not (Test-Path $e) -or (Get-Item $e).Length -eq 0) { throw "Expected output missing or empty: $e" } }
+
 Write-Host "`n=== Build complete ==="
 return [PSCustomObject]@{
-    MsiPath      = $msiPath
+    MsiPath      = $msiFinal
     MsiSha256    = $msiHash
     BundlePath   = $bundlePath
     BundleSha256 = $bundleHash

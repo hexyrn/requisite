@@ -253,6 +253,46 @@ jobs:
           sudo -E env "PATH=$PATH" NODE="$(which node)" PWSH="$(which pwsh)" bash scripts/windows/simulate/sim-install.sh /tmp/hxsim
           sudo -E env "PATH=$PATH" E2E_CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")" node scripts/windows/simulate/first-run-journey.js /tmp/hxsim
 
+  # ---- Real Windows build of the customer installer (unsigned test build) ----
+  windows-installer-build:
+    name: Build Requisite-Setup (unsigned test build) on Windows
+    runs-on: windows-latest
+    needs: [backend-tests, frontend-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Customer-asset and installer-source checks
+        shell: pwsh
+        run: |
+          node scripts/windows/__tests__/validate-installer-source.js
+          node scripts/windows/__tests__/validate-customer-assets.js
+          ./scripts/windows/__tests__/env-file-helpers.tests.ps1
+          ./scripts/windows/__tests__/support-bundle-redaction.tests.ps1
+          ./scripts/windows/acceptance/totp.tests.ps1
+      - name: Install WiX 4.0.6 and extensions
+        shell: pwsh
+        run: |
+          dotnet tool restore
+          dotnet tool run wix -- extension add -g WixToolset.Util.wixext/4.0.6
+          dotnet tool run wix -- extension add -g WixToolset.Bal.wixext/4.0.6
+      - name: Throw-away licence public key (CI only - a real release uses Hexyrn's key)
+        shell: pwsh
+        run: |
+          npm ci
+          npm run licence --workspace apps/api -- keygen --out "$env:RUNNER_TEMP/keys"
+      - name: Build unsigned test installer (downloads and verifies Node, PostgreSQL, WinSW, C++ runtime)
+        shell: pwsh
+        run: ./scripts/windows/build-release.ps1 -CleanCheckout -FetchInputs -LicencePublicKeyFile "$env:RUNNER_TEMP/keys/licence-public.pem"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: requisite-installer-unsigned-test
+          path: dist/
+
   # ---- Production build + packaging + signing + artifact hashing ----
   package-and-sign:
     name: Package, sign, hash artifacts

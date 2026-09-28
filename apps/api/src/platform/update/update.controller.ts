@@ -115,7 +115,7 @@ export class UpdateController {
         autoBackup: async () => {
           if (!backupConnectionString) {
             throw new Error(
-              'BACKUP_DATABASE_URL is not configured - cannot auto-backup before applying the update. Must point at the hexyrn_backup role (BYPASSRLS), see docker/postgres-init/01-app-role.sh.',
+              'The safety backup before updating could not be made because backups are not set up correctly on this installation. Run Repair from Windows Settings > Apps > Requisite, or contact support.',
             );
           }
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

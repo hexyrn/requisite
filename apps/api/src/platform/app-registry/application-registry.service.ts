@@ -184,7 +184,9 @@ export class ApplicationRegistryService {
       typeof license.signature !== 'string' ||
       typeof license.licenseId !== 'string'
     ) {
-      throw new BadRequestException('License payload is not a valid signed license.');
+      throw new BadRequestException(
+        'That file is not a Requisite licence. Choose the licence file Hexyrn sent you.',
+      );
     }
 
     const result = this.licenseVerifier.verify(license, {
@@ -193,7 +195,9 @@ export class ApplicationRegistryService {
       majorVersion: licensedMajorVersion,
     });
     if (!result.valid) {
-      throw new BadRequestException(`License rejected: ${result.reason}`);
+      throw new BadRequestException(
+        `Licence rejected: ${result.reason ?? 'this licence could not be used.'}`,
+      );
     }
 
     const supportExpiresAt = license.supportExpiresAt ? new Date(license.supportExpiresAt) : null;

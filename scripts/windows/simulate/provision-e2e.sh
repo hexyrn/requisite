@@ -29,7 +29,19 @@ run() { $PWSH -NoProfile -File "$REPO/scripts/windows/provision-postgres.ps1" -P
 ok() { echo "PASS  $1"; }; bad() { echo "FAIL  $1"; exit 1; }
 psqlq() { PGPASSWORD="$(grep '^HEXYRN_MIGRATE_DB_PASSWORD=' "$DATA/config/database.env" | cut -d= -f2- | tr -d '\r')" "$PGBIN/psql" -qtA -U hexyrn -h 127.0.0.1 -p "$PORT" -d hexyrn_core -c "$1"; }
 
-echo "== 1. fresh install =="
+echo "== 0. failure handling on a fresh machine =="
+python3 -c "import socket,time;s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);s.bind(('127.0.0.1',$PORT));s.listen();time.sleep(25)" &
+BLOCKER=$!; sleep 1
+run > "$W/port.log" 2>&1 && bad "ran although the database port was occupied" || { grep -q "already taken" "$W/port.log" && ok "occupied port: clear message, nothing created"; }
+[ ! -e "$DATA/config/database.env" ] && [ -z "$(ls -A "$PGDATA")" ] && ok "occupied port left no files behind" || bad "files left behind after port refusal"
+kill $BLOCKER 2>/dev/null; wait $BLOCKER 2>/dev/null || true
+LASTM=$(ls "$INST/api/apps/api/dist/db/migrations" | sort | tail -1); BADN=$(printf "%04d_broken.sql" $(( 10#${LASTM:0:4} + 1 )))
+echo "THIS IS NOT SQL;" > "$INST/api/apps/api/dist/db/migrations/$BADN"
+run > "$W/failmid.log" 2>&1 && bad "ran although a migration was broken" || ok "a failing migration fails the provisioning (installer would roll back)"
+[ ! -e "$DATA/config/database.env" ] && [ ! -e "$DATA/config/hexyrn.env" ] && [ -z "$(ls -A "$PGDATA")" ] && ok "partial database and credentials were cleaned up" || bad "partial install left behind"
+su postgres -c "$PGBIN/pg_ctl status -D '$PGDATA'" >/dev/null 2>&1 && bad "database left running" || ok "no database process left running"
+rm "$INST/api/apps/api/dist/db/migrations/$BADN"
+echo "== 1. fresh install (retry after the failure) =="
 run > "$W/fresh.log" 2>&1 || { tail -30 "$W/fresh.log"; bad "fresh provisioning ran"; }
 [ -f "$DATA/config/hexyrn.env" ] && [ -f "$DATA/config/database.env" ] && ok "fresh install wrote credentials and the settings file" || bad "settings files"
 grep -q "^listen_addresses = 'localhost'" "$PGDATA/postgresql.conf" && grep -q "^logging_collector = on" "$PGDATA/postgresql.conf" && ok "postgresql.conf: loopback only + file logging" || bad "conf"
@@ -62,4 +74,11 @@ mv "$W/database.env.saved" "$DATA/config/database.env"
 mv "$PGDATA" "$W/pgdata.saved"
 run > "$W/r2.log" 2>&1 && bad "created an empty database over an existing install" || { grep -q "Refusing to create a new empty database" "$W/r2.log" && ok "settings present but database gone: refused (no silent fresh database)"; }
 mv "$W/pgdata.saved" "$PGDATA"
+echo "== 5. upgrade whose migration fails =="
+echo "NOT SQL;" > "$INST/api/apps/api/dist/db/migrations/9999_broken_upgrade.sql"
+run > "$W/upfail.log" 2>&1 && bad "upgrade succeeded with a broken migration" || { grep -q "pre-upgrade-.*dump" "$W/upfail.log" && ok "failed upgrade stops and names the safety copy of the data"; }
+su postgres -c "$PGBIN/pg_ctl start -D '$PGDATA' -l '$PGDATA/svc.log' -w" >/dev/null
+[ "$(psqlq "SELECT count(*) FROM upgrade_marker")" = "1" ] && ok "customer data unchanged after the failed upgrade" || bad "data changed"
+su postgres -c "$PGBIN/pg_ctl stop -D '$PGDATA' -m fast -w" >/dev/null
+rm "$INST/api/apps/api/dist/db/migrations/9999_broken_upgrade.sql"
 echo "ALL PASSED"

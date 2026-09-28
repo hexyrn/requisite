@@ -24,6 +24,16 @@ or run Windows services. What has been executed, and what has not:
 | Services            | Definitions validated (WinSW for the app, `pg_ctl runservice` for PostgreSQL, virtual accounts, Automatic start, dependency, restart on failure)                                                                                                                               | Actual start, reboot, kill-and-recover                                                        |
 | Acceptance harness  | API half run against the simulation (19 checks) incl. TOTP client verified to RFC 6238 vectors                                                                                                                                                                                 | Windows half (services, ACLs, ports, firewall, reboot, upgrade, uninstall, reinstall, repair) |
 
+**Installer productionisation round (latest):** full audit recorded in `docs/internal/WINDOWS_INSTALLER_AUDIT.md`
+(18 findings fixed, open blockers listed). Highlights: Microsoft C++ runtime bundled for the database engine; install
+verifies the product is healthy or rolls back; failed first installs clean up after themselves; failed upgrades keep
+data and name the safety copy; absolute tool paths in SYSTEM custom actions; data-root ACL; firewall clean-up;
+Windows 10+ launch condition; branding (icon, EULA page, Programs & Features); versioned `dist/` outputs with
+`checksums.txt`; `-FetchInputs` build; app waits for the database at startup; customer-friendly licence/config
+errors. New automated checks: `validate-customer-assets.js`, `wix-compile-check.sh --self-test` (WiX compile,
+reference and duplicate-Id checks with deliberate-defect self-tests), provisioning failure scenarios in
+`provision-e2e.sh`, and a Windows CI job that builds the unsigned test installer (not yet run on GitHub).
+
 Decisions and changes made in this round: real service hosts (node.exe/postgres.exe cannot be services); app reads
 its settings from a protected `hexyrn.env` and serves the web app itself; setup code delivered in the URL fragment,
 never printed when a token file is configured; **licence signing code and all private keys moved out of customer
@@ -53,7 +63,7 @@ VM, a real GitHub Actions runner, or a business/legal decision has been proven; 
 | Check                                                           | Result                                                                                                                                              |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run build` / `typecheck` / `lint`                          | pass (1 pre-existing warning: unused `_signingKeyId` in `release-verifier.ts`)                                                                      |
-| Backend Jest (`apps/api`)                                       | **79/79 suites, 563/563 tests** (Node 22; Node 20.20.2 was verified before the launcher/deployment work, and the production containers run Node 20) |
+| Backend Jest (`apps/api`)                                       | **80/80 suites, 565/565 tests** (Node 22; Node 20.20.2 was verified before the launcher/deployment work, and the production containers run Node 20) |
 | Web Vitest                                                      | **37/37 tests** in 8 files                                                                                                                          |
 | Playwright E2E (`e2e/`)                                         | **4/4**: full purchasing lifecycle, 2 session-lifecycle tests, suite-launcher test                                                                  |
 | Migrations                                                      | 33 apply to an empty DB; second run is a no-op                                                                                                      |

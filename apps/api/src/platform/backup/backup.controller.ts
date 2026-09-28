@@ -68,7 +68,7 @@ export class BackupController {
     const cs = process.env.BACKUP_DATABASE_URL;
     if (!cs) {
       throw new BadRequestException(
-        'BACKUP_DATABASE_URL is not configured - cannot create a backup. This must point at the hexyrn_backup role (BYPASSRLS), not the migration or application role - see docker/postgres-init/01-app-role.sh.',
+        'Backups are not set up correctly on this installation. Run Repair from Windows Settings > Apps > Requisite, or contact support.',
       );
     }
     return cs;

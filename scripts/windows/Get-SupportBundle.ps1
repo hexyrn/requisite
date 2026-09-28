@@ -48,6 +48,7 @@ try {
     $logsOut = New-Item -ItemType Directory -Force -Path (Join-Path $stage 'logs')
     $sources = @(
         @{ Dir = (Join-Path $DataRoot 'logs'); Pattern = '*.log' },
+        @{ Dir = (Join-Path $DataRoot 'logs'); Pattern = '*.txt' },
         @{ Dir = (Join-Path $DataRoot 'postgresql-data\log'); Pattern = '*.log' },
         @{ Dir = (Join-Path $DataRoot 'postgresql-data'); Pattern = 'startup.log' },
         @{ Dir = $env:TEMP; Pattern = '*Requisite*.log' }
@@ -62,6 +63,8 @@ try {
             }
     }
 
+    $versionFile = Join-Path $env:ProgramFiles 'Hexyrn Core\api\version.json'
+    if (Test-Path $versionFile) { Copy-Item $versionFile (Join-Path $stage 'version.json') }
     $envFile = Join-Path $DataRoot 'config\hexyrn.env'
     if (Test-Path $envFile) {
         $redacted = foreach ($line in Get-Content $envFile) {
