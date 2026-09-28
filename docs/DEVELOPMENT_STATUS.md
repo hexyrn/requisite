@@ -15,16 +15,16 @@ VM, a real GitHub Actions runner, or a business/legal decision has been proven; 
 
 ## Verified state (this session, from a clean `npm ci`)
 
-| Check                                                           | Result                                                                                                       |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `npm run build` / `typecheck` / `lint`                          | pass (1 pre-existing warning: unused `_signingKeyId` in `release-verifier.ts`)                               |
-| Backend Jest (`apps/api`)                                       | **68/68 suites, 498/498 tests**, on Node 22 and on **Node 20.20.2**                                          |
-| Web Vitest                                                      | **26/26 tests** in 6 files                                                                                   |
-| Playwright E2E (`e2e/`)                                         | **3/3**: full purchasing lifecycle + 2 new session-lifecycle tests, also under the exact env the CI job uses |
-| Migrations                                                      | 33 apply to an empty DB; second run is a no-op                                                               |
-| `npm audit --omit=dev`                                          | **0 vulnerabilities** (was 1 critical / 4 high / 7 moderate)                                                 |
-| `prettier --check` (CI step 1)                                  | pass (was failing on 160 files)                                                                              |
-| Built API booted on Node 20 as the restricted `hexyrn_app` role | health, bootstrap, login, CSRF, origin check, cookie flags verified by hand                                  |
+| Check                                                           | Result                                                                                                                                              |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run build` / `typecheck` / `lint`                          | pass (1 pre-existing warning: unused `_signingKeyId` in `release-verifier.ts`)                                                                      |
+| Backend Jest (`apps/api`)                                       | **71/71 suites, 523/523 tests** (Node 22; Node 20.20.2 was verified before the launcher/deployment work, and the production containers run Node 20) |
+| Web Vitest                                                      | **26/26 tests** in 6 files                                                                                                                          |
+| Playwright E2E (`e2e/`)                                         | **3/3**: full purchasing lifecycle + 2 new session-lifecycle tests, also under the exact env the CI job uses                                        |
+| Migrations                                                      | 33 apply to an empty DB; second run is a no-op                                                                                                      |
+| `npm audit --omit=dev`                                          | **0 vulnerabilities** (was 1 critical / 4 high / 7 moderate)                                                                                        |
+| `prettier --check` (CI step 1)                                  | pass (was failing on 160 files)                                                                                                                     |
+| Built API booted on Node 20 as the restricted `hexyrn_app` role | health, bootstrap, login, CSRF, origin check, cookie flags verified by hand                                                                         |
 
 **Not re-verified this session:** Docker (no daemon in the sandbox), the Windows installer, and anything needing
 Windows. This sandbox ran **PostgreSQL 16**, not 17; migrations, RLS, role split (via the project's own
