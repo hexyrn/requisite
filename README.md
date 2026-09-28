@@ -5,10 +5,10 @@ applications. Core provides mechanisms - authentication, organisation
 structure, permissions, audit, reporting extension points - never business
 domain logic. See `docs/ARCHITECTURE.md` for the full, frozen architecture.
 
-This repository currently implements **P0** only (see
-`docs/decisions/P0-DEVIATIONS.md` for anything that deviated from the
-architecture, and the implementation report delivered alongside this build
-for exactly what P0 covers).
+This repository implements Core through **P3** (release engineering) plus the
+**Requisite** purchasing application. Current status, known gaps and the next
+recommended task are in **`docs/DEVELOPMENT_STATUS.md`** - start there. Per-phase
+deviations from the architecture are in `docs/decisions/`.
 
 ## Repository layout
 

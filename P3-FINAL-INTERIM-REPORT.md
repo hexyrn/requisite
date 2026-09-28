@@ -163,6 +163,8 @@ needed before implementation can proceed or be judged complete).
 
 ## 35. Dependency/supply-chain security
 
+> **Update 2026-09-28:** superseded - production dependencies now audit clean (0 vulnerabilities); see `docs/DEPENDENCY_REMEDIATION.md` and `docs/DEVELOPMENT_STATUS.md`.
+
 **IMPLEMENTED-ENVIRONMENT-VERIFICATION-PENDING.** `npm audit` run during this round's Docker builds surfaced existing (pre-P3) vulnerabilities in transitive dependencies (12-20, moderate/high/critical) — noted, not newly introduced by this round's work, but not remediated either; a genuine `npm audit fix`/dependency-upgrade pass is real, separate, outstanding work.
 
 ## 36. CI/release pipeline

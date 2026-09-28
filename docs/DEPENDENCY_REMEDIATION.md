@@ -1,5 +1,40 @@
 # Dependency / Supply-Chain Remediation (P3, pre-RC1)
 
+## UPDATE (2026-09-28): production dependencies now clean
+
+**`npm audit --omit=dev` → 0 vulnerabilities** (was 12: 1 critical, 4 high, 7 moderate). The CI `dependency-scan`
+job (`--audit-level=high`) would have failed on the previous tree; it passes now. Verified from a clean `npm ci`, on
+Node 22 **and Node 20.20.2** (the version the Docker images and Windows installer ship): build, typecheck, lint,
+68/68 backend suites (498 tests), 26/26 web tests, and the Playwright browser suite.
+
+Deviation from the plan in items 1–5 below, and why: **NestJS 12 and Kysely 0.29 are ESM-only** and this backend is
+CommonJS under ts-jest, so the "matched v12 set" would have meant converting the whole backend to ESM. Instead the
+CommonJS-compatible fixed lines were used:
+
+| Package                                                    | Was     | Now     | Note                                                                                         |
+| ---------------------------------------------------------- | ------- | ------- | -------------------------------------------------------------------------------------------- |
+| `@nestjs/common` / `core` / `platform-fastify` / `testing` | 10.4.22 | 11.2.6  | CJS; pulls patched `@fastify/middie` 9.3.4, `find-my-way` 9.7.0, `file-type` 21.3.4          |
+| `@nestjs/config`                                           | 3.3.0   | 4.0.4   | required by Nest 11                                                                          |
+| `fastify`                                                  | 4.x     | 5.12.5  | forced to a single copy with root `overrides.fastify` (platform-fastify pins 5.11.3 exactly) |
+| `@fastify/cookie`                                          | 9.4.0   | 10.0.1  | 11.x uses a dynamic `import()` that Jest cannot load                                         |
+| `@fastify/multipart`                                       | 8.x     | 9.4.0   | Fastify 5                                                                                    |
+| `kysely`                                                   | 0.27.6  | 0.28.17 | first dual CJS/ESM release past the vulnerable range (≤0.28.16)                              |
+| `react-router-dom`                                         | 6.x     | 7.18.4  | v6 API used by this app is unchanged                                                         |
+| `uuid` (via `exceljs`)                                     | 8.3.2   | 11.1.1  | root `overrides.uuid`; CJS `v4` export retained; export suites pass                          |
+
+**Still open (dev-only, nothing ships):** `vite` ≤6.4.2 (high), `vitest` ≤4.1.10 (critical, only when the Vitest UI server
+is run), `esbuild`, `@vitest/mocker`, `vite-node`. Fixing needs Vite 8 / Vitest 5, and **Vitest 5 requires Node ≥ 22.12**
+while CI, both Dockerfiles and the installer bundle Node 20. Do this together with the Node 20 → 22 migration (see
+`docs/DEVELOPMENT_STATUS.md`), not before.
+
+**Maintenance note:** when changing overrides, npm keeps stale entries in `package-lock.json`. If a package does not move
+after an override change, delete its `node_modules/<pkg>` entries from the lockfile and reinstall, then confirm with
+`rm -rf node_modules && npm ci && npm ls <pkg>`.
+
+The remainder of this document is the original (pre-update) analysis and is kept for the reachability reasoning.
+
+---
+
 ## Before / after counts
 
 |            | Critical | High | Moderate | Low/Info | Total  |
