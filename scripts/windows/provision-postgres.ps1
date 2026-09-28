@@ -293,7 +293,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT USAGE, SELECT ON
 
     Write-Step 'Verifying role privileges genuinely match the required model'
     $roleCheck = & $psqlExe -U hexyrn -h 127.0.0.1 -p $Port -d hexyrn_core -t -c `
-        "SELECT rolname || ':' || rolsuper || ':' || rolbypassrls FROM pg_roles WHERE rolname IN ('hexyrn','hexyrn_app','hexyrn_backup') ORDER BY rolname"
+        "SELECT rolname || ':' || CASE WHEN rolsuper THEN 't' ELSE 'f' END || ':' || CASE WHEN rolbypassrls THEN 't' ELSE 'f' END FROM pg_roles WHERE rolname IN ('hexyrn','hexyrn_app','hexyrn_backup') ORDER BY rolname"
+    $roleCheck = ($roleCheck | Out-String)   # psql returns one string per line; -notmatch on an array filters instead of testing
     Write-Host $roleCheck
     if ($roleCheck -notmatch 'hexyrn_app:f:f') { throw 'hexyrn_app does not have the required non-superuser/non-BYPASSRLS privileges' }
     if ($roleCheck -notmatch 'hexyrn_backup:f:t') { throw 'hexyrn_backup does not have the required non-superuser/BYPASSRLS privileges' }
