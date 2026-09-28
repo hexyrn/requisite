@@ -124,7 +124,7 @@ export function NewRequisitionPage() {
         />
 
         <details style={{ marginTop: 8, marginBottom: 16 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--hx-text)' }}>
             More details (optional)
           </summary>
           <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -208,7 +208,7 @@ export function NewRequisitionPage() {
           style={{
             marginTop: 16,
             paddingTop: 16,
-            borderTop: '1px solid #e5e7eb',
+            borderTop: '1px solid var(--hx-border)',
             textAlign: 'right',
             fontSize: 16,
           }}
@@ -244,19 +244,19 @@ export function NewRequisitionPage() {
           </div>
         )}
         {fileError && (
-          <div role="alert" style={{ color: '#991b1b', marginTop: 8, fontSize: 13 }}>
+          <div role="alert" style={{ color: 'var(--hx-danger)', marginTop: 8, fontSize: 13 }}>
             {fileError}
           </div>
         )}
       </Card>
 
       {validationError && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {validationError}
         </div>
       )}
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}

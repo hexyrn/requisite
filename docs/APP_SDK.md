@@ -48,6 +48,22 @@ controller returns **404, not 403**, for any request against an inactive
 app - it never confirms the route exists to an unentitled caller. Verified
 end-to-end in `reference-app.e2e.integration.spec.ts` ("APP INACTIVITY").
 
+## Appearing in the suite (launcher, colour, icon)
+
+Core hosts the suite: its home page and the app switcher list every app the signed-in user can open. An app gets a
+tile automatically once it is registered, enabled, licensed and compatible, and the user holds the permission of at
+least one `navigation` entry; the tile opens the lowest-`order` entry the user may see. Users who may not use an app
+never learn it exists.
+
+Two optional manifest fields control presentation (see `docs/DESIGN_SYSTEM.md`):
+
+```ts
+brand: { color: '#0f766e', icon: 'cart' },   // accent colour (#rrggbb) + built-in icon key
+internal: true,                               // test/reference apps: never listed
+```
+
+`color` is the only per-app styling knob; the whole app UI derives from it. Endpoint: `GET /api/v1/apps/launcher`.
+
 ## Capability registry
 
 Apps ask for a _capability_ (`purchasing.cost-source.v1`), never for a

@@ -5,7 +5,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   error?: string;
 }
 
-export function Input({ label, error, id, style, ...rest }: InputProps) {
+export function Input({ label, error, id, className, ...rest }: InputProps) {
   // Accessibility (item 23): a label must always be programmatically
   // associated with its control, not just visually adjacent - falling
   // back to `rest.name` left inputs with neither `id` nor `name` (common
@@ -13,25 +13,24 @@ export function Input({ label, error, id, style, ...rest }: InputProps) {
   // generated id closes that gap unconditionally.
   const generatedId = React.useId();
   const inputId = id ?? rest.name ?? generatedId;
+  const errorId = `${inputId}-error`;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
-      {label && (
-        <label htmlFor={inputId} style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
-          {label}
-        </label>
-      )}
+    <div className="hx-field">
+      {label && <label htmlFor={inputId}>{label}</label>}
       <input
         id={inputId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         {...rest}
-        style={{
-          padding: '8px 10px',
-          borderRadius: 4,
-          border: error ? '1px solid #b3261e' : '1px solid #ccc',
-          fontSize: 14,
-          ...style,
-        }}
+        className={[error ? 'hx-field__input--error' : '', className ?? '']
+          .filter(Boolean)
+          .join(' ')}
       />
-      {error && <span style={{ color: '#b3261e', fontSize: 12 }}>{error}</span>}
+      {error && (
+        <span id={errorId} className="hx-field__error">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

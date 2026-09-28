@@ -94,7 +94,7 @@ export function PurchaseOrderDetailPage() {
 
   if (error)
     return (
-      <div role="alert" style={{ color: '#991b1b' }}>
+      <div role="alert" style={{ color: 'var(--hx-danger)' }}>
         {error}
       </div>
     );
@@ -126,7 +126,7 @@ export function PurchaseOrderDetailPage() {
       />
 
       {actionError && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {actionError}
         </div>
       )}
@@ -162,7 +162,7 @@ export function PurchaseOrderDetailPage() {
             {po.lines.map((line) => {
               const outstanding = Number(line.quantity_ordered) - Number(line.quantity_received);
               return (
-                <tr key={line.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <tr key={line.id} style={{ borderTop: '1px solid var(--hx-border)' }}>
                   <td style={{ padding: '4px 8px' }}>{line.description}</td>
                   <td style={{ padding: '4px 8px', textAlign: 'right' }}>
                     {line.quantity_ordered}
@@ -186,7 +186,7 @@ export function PurchaseOrderDetailPage() {
                           width: 70,
                           padding: 4,
                           borderRadius: 4,
-                          border: '1px solid #d1d5db',
+                          border: '1px solid var(--hx-border-strong)',
                         }}
                       />
                     </td>
@@ -198,7 +198,7 @@ export function PurchaseOrderDetailPage() {
         </table>
 
         {canReceive && (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--hx-border)' }}>
             <Input
               label="Delivery note reference"
               value={deliveryNoteRef}
@@ -216,7 +216,7 @@ export function PurchaseOrderDetailPage() {
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Goods Receipt History</h2>
         {receipts.length === 0 ? (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>
+          <p style={{ color: 'var(--hx-text-muted)', fontSize: 14 }}>
             No deliveries have been recorded against this order.
           </p>
         ) : (
@@ -231,7 +231,7 @@ export function PurchaseOrderDetailPage() {
             </thead>
             <tbody>
               {receipts.map((r) => (
-                <tr key={r.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <tr key={r.id} style={{ borderTop: '1px solid var(--hx-border)' }}>
                   <td style={{ padding: '4px 8px' }}>{r.grn_number}</td>
                   <td style={{ padding: '4px 8px' }}>{new Date(r.received_at).toLocaleString()}</td>
                   <td style={{ padding: '4px 8px' }}>{r.delivery_note_reference ?? '—'}</td>

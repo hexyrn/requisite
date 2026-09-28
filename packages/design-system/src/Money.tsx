@@ -27,7 +27,8 @@ export function Money({ minorUnits, currency = 'GBP' }: MoneyProps) {
   } catch {
     formatted = String(minorUnits);
   }
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : `${currency} `;
+  const symbol =
+    currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : `${currency} `;
   return (
     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
       {symbol}

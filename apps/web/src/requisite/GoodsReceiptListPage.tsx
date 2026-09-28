@@ -38,7 +38,7 @@ export function GoodsReceiptListPage() {
         subtitle="Purchase orders with at least one recorded delivery"
       />
       {error && (
-        <div role="alert" style={{ color: '#991b1b' }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)' }}>
           {error}
         </div>
       )}

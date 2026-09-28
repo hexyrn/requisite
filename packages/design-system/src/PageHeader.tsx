@@ -15,21 +15,12 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
-        gap: 16,
-        flexWrap: 'wrap',
-      }}
-    >
+    <div className="hx-page-header">
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#111827' }}>{title}</h1>
-        {subtitle && <div style={{ marginTop: 4, color: '#6b7280', fontSize: 14 }}>{subtitle}</div>}
+        <h1>{title}</h1>
+        {subtitle && <div className="hx-page-header__subtitle">{subtitle}</div>}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions}</div>}
+      {actions && <div className="hx-page-header__actions">{actions}</div>}
     </div>
   );
 }

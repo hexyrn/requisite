@@ -1,0 +1,853 @@
+/*
+ * Hexyrn design system - one stylesheet shared by Core and every app in the suite.
+ *
+ * Suite rule: every app looks related (same type, spacing, radii, shadows,
+ * components) and is instantly distinguishable (its own accent colour).
+ * The ONLY per-app knob is --hx-accent; everything else derives from it.
+ *
+ *   <div data-app="requisite">      preset accent (see below)
+ *   <div style="--hx-accent:#c2410c">   any #rrggbb, e.g. from an app manifest's brand.color
+ *
+ * This is a real .css file (not injected <style>) because the API serves a
+ * strict CSP (style-src 'self').
+ */
+
+/* ---------- tokens ---------- */
+:root {
+  color-scheme: light dark;
+
+  --hx-font:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --hx-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --hx-accent: #4f46e5; /* Core */
+  --hx-accent-contrast: #ffffff;
+
+  --hx-bg: #f6f7fb;
+  --hx-surface: #ffffff;
+  --hx-surface-2: #f1f3f9;
+  --hx-border: #e3e6ef;
+  --hx-border-strong: #cdd2e0;
+  --hx-text: #161a2b;
+  --hx-text-muted: #5b6478;
+  --hx-topbar-bg: #ffffff;
+
+  --hx-danger: #b42318;
+  --hx-danger-soft: #fee4e2;
+  --hx-success: #067647;
+  --hx-success-soft: #d1fadf;
+  --hx-warning: #93370d;
+  --hx-warning-soft: #fef0c7;
+  --hx-info: #175cd3;
+  --hx-info-soft: #d1e9ff;
+
+  --hx-radius-sm: 6px;
+  --hx-radius: 10px;
+  --hx-radius-lg: 16px;
+  --hx-shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --hx-shadow: 0 1px 3px rgb(16 24 40 / 8%), 0 1px 2px rgb(16 24 40 / 6%);
+  --hx-shadow-lg: 0 12px 32px rgb(16 24 40 / 14%), 0 2px 6px rgb(16 24 40 / 8%);
+
+  --hx-space-1: 4px;
+  --hx-space-2: 8px;
+  --hx-space-3: 12px;
+  --hx-space-4: 16px;
+  --hx-space-5: 24px;
+  --hx-space-6: 32px;
+}
+
+/*
+ * Tokens DERIVED from the accent. A custom property that references another
+ * is resolved on the element that declares it, so these must be re-declared
+ * inside every scope that overrides --hx-accent (a [data-app] preset, or a
+ * ThemeScope's inline colour, which carries .hx-theme) - declaring them once
+ * on :root would leave e.g. link and tab text stuck on the Core colour.
+ */
+:root,
+[data-app],
+.hx-theme {
+  --hx-accent-strong: color-mix(in srgb, var(--hx-accent) 82%, black);
+  --hx-accent-soft: color-mix(in srgb, var(--hx-accent) 10%, var(--hx-surface));
+  --hx-accent-soft-2: color-mix(in srgb, var(--hx-accent) 18%, var(--hx-surface));
+  --hx-accent-text: color-mix(in srgb, var(--hx-accent) 88%, black);
+  --hx-ring: color-mix(in srgb, var(--hx-accent) 45%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hx-bg: #0d1017;
+    --hx-surface: #151a24;
+    --hx-surface-2: #1c2230;
+    --hx-border: #262d3d;
+    --hx-border-strong: #364059;
+    --hx-text: #eceff6;
+    --hx-text-muted: #9aa3b8;
+    --hx-topbar-bg: #121722;
+
+    --hx-danger: #fda29b;
+    --hx-danger-soft: #3a1512;
+    --hx-success: #75e0a7;
+    --hx-success-soft: #0f2c1f;
+    --hx-warning: #fec84b;
+    --hx-warning-soft: #33240a;
+    --hx-info: #84caff;
+    --hx-info-soft: #0f2540;
+
+    --hx-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --hx-shadow: 0 1px 3px rgb(0 0 0 / 50%);
+    --hx-shadow-lg: 0 12px 32px rgb(0 0 0 / 55%);
+  }
+
+  :root,
+  [data-app],
+  .hx-theme {
+    --hx-accent-text: color-mix(in srgb, var(--hx-accent) 60%, white);
+    --hx-accent-soft: color-mix(in srgb, var(--hx-accent) 16%, var(--hx-surface));
+    --hx-accent-soft-2: color-mix(in srgb, var(--hx-accent) 26%, var(--hx-surface));
+  }
+}
+
+/* ---------- per-app accent presets ---------- */
+[data-app='core'] {
+  --hx-accent: #4f46e5; /* indigo */
+}
+[data-app='requisite'] {
+  --hx-accent: #0f766e; /* teal */
+}
+/* Reserved for the rest of the suite so colours stay distinct as apps are added. */
+[data-app='assets'] {
+  --hx-accent: #b45309; /* amber */
+}
+[data-app='maintain'] {
+  --hx-accent: #c2410c; /* orange */
+}
+[data-app='competency'] {
+  --hx-accent: #7e22ce; /* violet */
+}
+[data-app='margin'] {
+  --hx-accent: #be185d; /* rose */
+}
+
+/* ---------- base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--hx-bg);
+  color: var(--hx-text);
+  font-family: var(--hx-font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 var(--hx-space-2);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--hx-text);
+}
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 650;
+}
+h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+p {
+  margin: 0 0 var(--hx-space-3);
+}
+a {
+  color: var(--hx-accent-text);
+  text-decoration-color: color-mix(in srgb, var(--hx-accent-text) 40%, transparent);
+  text-underline-offset: 2px;
+}
+a:hover {
+  text-decoration-color: currentcolor;
+}
+code,
+kbd,
+pre {
+  font-family: var(--hx-mono);
+  font-size: 0.9em;
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--hx-border);
+  margin: var(--hx-space-4) 0;
+}
+:focus-visible {
+  outline: 2px solid var(--hx-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+::selection {
+  background: var(--hx-accent-soft-2);
+}
+
+/* Native form controls get the suite look even where a page uses a bare <select>/<textarea>. */
+input:not([type='checkbox'], [type='radio'], [type='file'], [type='range']),
+select,
+textarea {
+  font: inherit;
+  color: var(--hx-text);
+  background: var(--hx-surface);
+  border: 1px solid var(--hx-border-strong);
+  border-radius: var(--hx-radius-sm);
+  padding: 8px 10px;
+  min-height: 38px;
+  max-width: 100%;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+input:not([type='checkbox'], [type='radio'], [type='file'], [type='range']):hover,
+select:hover,
+textarea:hover {
+  border-color: color-mix(in srgb, var(--hx-accent) 40%, var(--hx-border-strong));
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--hx-accent);
+  box-shadow: 0 0 0 3px var(--hx-ring);
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--hx-accent);
+}
+label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hx-text);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--hx-text-muted);
+  opacity: 0.8;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--hx-surface-2);
+  color: var(--hx-text-muted);
+}
+
+/* ---------- button ---------- */
+.hx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hx-space-2);
+  min-height: 38px;
+  padding: 8px 16px;
+  border-radius: var(--hx-radius-sm);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s,
+    transform 0.05s;
+}
+.hx-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.hx-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.hx-btn--primary {
+  background: var(--hx-accent);
+  color: var(--hx-accent-contrast);
+  box-shadow: var(--hx-shadow-sm);
+}
+.hx-btn--primary:hover:not(:disabled) {
+  background: var(--hx-accent-strong);
+}
+.hx-btn--secondary {
+  background: var(--hx-surface);
+  color: var(--hx-text);
+  border-color: var(--hx-border-strong);
+}
+.hx-btn--secondary:hover:not(:disabled) {
+  background: var(--hx-accent-soft);
+  border-color: var(--hx-accent);
+  color: var(--hx-accent-text);
+}
+.hx-btn--danger {
+  background: #b42318;
+  color: #fff;
+}
+.hx-btn--danger:hover:not(:disabled) {
+  background: #912018;
+}
+.hx-btn--ghost {
+  background: transparent;
+  color: var(--hx-text-muted);
+}
+.hx-btn--ghost:hover:not(:disabled) {
+  background: var(--hx-surface-2);
+  color: var(--hx-text);
+}
+.hx-btn--block {
+  width: 100%;
+}
+.hx-link-plain {
+  text-decoration: none;
+}
+
+/* ---------- card ---------- */
+.hx-card {
+  background: var(--hx-surface);
+  border: 1px solid var(--hx-border);
+  border-radius: var(--hx-radius);
+  padding: var(--hx-space-5);
+  box-shadow: var(--hx-shadow-sm);
+}
+.hx-card > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- form field ---------- */
+.hx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--hx-space-3);
+}
+.hx-field__error {
+  color: var(--hx-danger);
+  font-size: 12.5px;
+}
+.hx-field__input--error {
+  border-color: var(--hx-danger) !important;
+}
+
+/* ---------- alert ---------- */
+.hx-alert {
+  display: flex;
+  gap: var(--hx-space-3);
+  align-items: flex-start;
+  padding: var(--hx-space-3) var(--hx-space-4);
+  border-radius: var(--hx-radius-sm);
+  border: 1px solid;
+  font-size: 14px;
+  margin-bottom: var(--hx-space-4);
+}
+.hx-alert--error {
+  background: var(--hx-danger-soft);
+  border-color: color-mix(in srgb, var(--hx-danger) 35%, transparent);
+  color: var(--hx-danger);
+}
+.hx-alert--info {
+  background: var(--hx-info-soft);
+  border-color: color-mix(in srgb, var(--hx-info) 35%, transparent);
+  color: var(--hx-info);
+}
+.hx-alert--success {
+  background: var(--hx-success-soft);
+  border-color: color-mix(in srgb, var(--hx-success) 35%, transparent);
+  color: var(--hx-success);
+}
+.hx-alert--warning {
+  background: var(--hx-warning-soft);
+  border-color: color-mix(in srgb, var(--hx-warning) 35%, transparent);
+  color: var(--hx-warning);
+}
+
+/* ---------- badge ---------- */
+.hx-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: var(--hx-surface-2);
+  color: var(--hx-text-muted);
+}
+.hx-badge[data-tone='info'] {
+  background: var(--hx-info-soft);
+  color: var(--hx-info);
+}
+.hx-badge[data-tone='success'] {
+  background: var(--hx-success-soft);
+  color: var(--hx-success);
+}
+.hx-badge[data-tone='warning'] {
+  background: var(--hx-warning-soft);
+  color: var(--hx-warning);
+}
+.hx-badge[data-tone='danger'] {
+  background: var(--hx-danger-soft);
+  color: var(--hx-danger);
+}
+
+/* ---------- table ---------- */
+.hx-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--hx-border);
+  border-radius: var(--hx-radius);
+  background: var(--hx-surface);
+}
+.hx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.hx-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hx-text-muted);
+  background: var(--hx-surface-2);
+  border-bottom: 1px solid var(--hx-border);
+  white-space: nowrap;
+}
+.hx-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hx-border);
+}
+.hx-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.hx-table tbody tr:hover {
+  background: var(--hx-accent-soft);
+}
+
+/* ---------- page header / empty state ---------- */
+.hx-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--hx-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--hx-space-5);
+}
+.hx-page-header h1 {
+  margin: 0;
+}
+.hx-page-header__subtitle {
+  margin-top: 4px;
+  color: var(--hx-text-muted);
+  font-size: 14px;
+}
+.hx-page-header__actions {
+  display: flex;
+  gap: var(--hx-space-2);
+  flex-wrap: wrap;
+}
+.hx-empty {
+  text-align: center;
+  padding: 44px var(--hx-space-5);
+  color: var(--hx-text-muted);
+  background: var(--hx-surface);
+  border: 1px dashed var(--hx-border-strong);
+  border-radius: var(--hx-radius);
+  font-size: 14px;
+}
+.hx-empty p {
+  margin-bottom: var(--hx-space-4);
+}
+.hx-empty > :last-child {
+  margin-bottom: 0;
+}
+.hx-muted {
+  color: var(--hx-text-muted);
+}
+.hx-grid {
+  display: grid;
+  gap: var(--hx-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* ---------- app shell ---------- */
+.hx-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.hx-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--hx-space-3);
+  padding: 0 var(--hx-space-5);
+  min-height: 56px;
+  background: var(--hx-topbar-bg);
+  border-bottom: 1px solid var(--hx-border);
+  /* The accent shows as a bar along the top: which app am I in, at a glance. */
+  box-shadow: inset 0 3px 0 var(--hx-accent);
+}
+.hx-topbar__spacer {
+  flex: 1;
+}
+.hx-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--hx-text);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.hx-brand__mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--hx-accent);
+  color: var(--hx-accent-contrast);
+  font-size: 16px;
+  font-weight: 800;
+}
+.hx-brand__app {
+  color: var(--hx-accent-text);
+}
+.hx-brand__sep {
+  color: var(--hx-border-strong);
+  font-weight: 400;
+}
+.hx-topbar__org {
+  color: var(--hx-text-muted);
+  font-size: 13px;
+}
+.hx-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--hx-space-5);
+}
+
+/* ---------- popover / menus ---------- */
+.hx-popover {
+  position: relative;
+}
+.hx-popover__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 280px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: var(--hx-space-2);
+  background: var(--hx-surface);
+  border: 1px solid var(--hx-border);
+  border-radius: var(--hx-radius);
+  box-shadow: var(--hx-shadow-lg);
+}
+.hx-popover__panel--left {
+  right: auto;
+  left: 0;
+}
+.hx-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--hx-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--hx-text-muted);
+  cursor: pointer;
+}
+.hx-icon-btn:hover,
+.hx-icon-btn[aria-expanded='true'] {
+  background: var(--hx-accent-soft);
+  color: var(--hx-accent-text);
+}
+.hx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--hx-space-3);
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--hx-radius-sm);
+  color: var(--hx-text);
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hx-menu-item:hover,
+.hx-menu-item[aria-current='page'] {
+  background: var(--hx-accent-soft);
+}
+.hx-menu-item__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hx-menu-item__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.hx-menu-item__desc {
+  font-size: 12px;
+  color: var(--hx-text-muted);
+}
+.hx-menu-label {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hx-text-muted);
+}
+.hx-menu-sep {
+  height: 1px;
+  background: var(--hx-border);
+  margin: var(--hx-space-2) 0;
+}
+
+/* ---------- app icon (coloured by the app's own accent) ---------- */
+.hx-app-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--hx-accent);
+  color: var(--hx-accent-contrast);
+  font-weight: 800;
+}
+.hx-app-icon--lg {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+}
+.hx-app-icon svg {
+  width: 55%;
+  height: 55%;
+}
+
+/* ---------- tabs ---------- */
+.hx-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: var(--hx-space-5);
+  border-bottom: 1px solid var(--hx-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.hx-tab {
+  position: relative;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--hx-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--hx-radius-sm) var(--hx-radius-sm) 0 0;
+}
+.hx-tab:hover {
+  color: var(--hx-text);
+  background: var(--hx-surface-2);
+}
+.hx-tab.active,
+.hx-tab[aria-current='page'] {
+  color: var(--hx-accent-text);
+  font-weight: 650;
+}
+.hx-tab.active::after,
+.hx-tab[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--hx-accent);
+}
+
+/* ---------- launcher tiles ---------- */
+.hx-tiles {
+  display: grid;
+  gap: var(--hx-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.hx-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hx-space-3);
+  padding: var(--hx-space-5);
+  background: var(--hx-surface);
+  border: 1px solid var(--hx-border);
+  border-radius: var(--hx-radius-lg);
+  box-shadow: var(--hx-shadow-sm);
+  color: var(--hx-text);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s,
+    border-color 0.12s;
+}
+.hx-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--hx-accent);
+}
+.hx-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hx-shadow-lg);
+  border-color: var(--hx-accent);
+}
+.hx-tile__name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.hx-tile__desc {
+  color: var(--hx-text-muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+.hx-tile__foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hx-accent-text);
+}
+.hx-tile--inactive {
+  opacity: 0.85;
+}
+.hx-tile--inactive::before {
+  background: var(--hx-border-strong);
+}
+
+/* ---------- auth screens ---------- */
+.hx-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--hx-space-5);
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      color-mix(in srgb, var(--hx-accent) 16%, transparent),
+      transparent
+    ),
+    var(--hx-bg);
+}
+.hx-auth__card {
+  width: 100%;
+  max-width: 400px;
+}
+.hx-auth__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hx-space-2);
+  margin-bottom: var(--hx-space-5);
+  text-align: center;
+}
+.hx-auth__brand .hx-brand__mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 24px;
+}
+
+/* ---------- responsive + motion ---------- */
+@media (max-width: 720px) {
+  .hx-topbar {
+    padding: 0 var(--hx-space-3);
+    gap: var(--hx-space-2);
+  }
+  .hx-topbar__org,
+  .hx-brand__hide-sm {
+    display: none;
+  }
+  .hx-main {
+    padding: var(--hx-space-4) var(--hx-space-3);
+  }
+  .hx-popover__panel {
+    position: fixed;
+    left: var(--hx-space-3);
+    right: var(--hx-space-3);
+    top: 60px;
+    min-width: 0;
+  }
+  h1 {
+    font-size: 21px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  .hx-tile:hover {
+    transform: none;
+  }
+}
+
+/* ---------- toolbar: a row of filters / actions above a list ---------- */
+.hx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hx-space-3);
+  margin-bottom: var(--hx-space-4);
+}
+.hx-toolbar .hx-field {
+  flex: 1 1 240px;
+  margin-bottom: 0;
+}
+.hx-toolbar select {
+  flex: 0 0 auto;
+}
+
+/* Cards stacked directly on a page (detail screens) get consistent breathing room. */
+.hx-card + .hx-card {
+  margin-top: var(--hx-space-4);
+}
+.hx-card + a {
+  display: inline-block;
+  margin-top: var(--hx-space-4);
+}

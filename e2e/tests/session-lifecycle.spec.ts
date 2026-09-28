@@ -30,6 +30,7 @@ test('a page reload keeps the session AND keeps state-changing requests working;
   await page.getByLabel('Email').fill(seed.ownerEmail);
   await page.getByLabel('Password').fill(seed.ownerPassword);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('link', { name: 'Open Requisite' }).click();
   await page.waitForURL('**/requisite');
 
   await page.reload();
@@ -46,4 +47,43 @@ test('a page reload keeps the session AND keeps state-changing requests working;
   // The server session is genuinely dead, not just hidden by the redirect.
   await page.goto('/requisite');
   await page.waitForURL('**/login');
+});
+
+test('the suite launcher: Core hosts the apps, the switcher moves between them, and each app carries its own accent colour', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(seed.ownerEmail);
+  await page.getByLabel('Password').fill(seed.ownerPassword);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // Home = launcher, in Core's colour, listing the licensed app and (for the owner) Administration.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('link', { name: 'Open Requisite' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Administration' })).toBeVisible();
+  const accent = (p: typeof page) =>
+    p.evaluate(() =>
+      getComputedStyle(document.querySelector('.hx-topbar') as Element)
+        .getPropertyValue('--hx-accent')
+        .trim(),
+    );
+  const coreAccent = await accent(page);
+
+  // Open the app: URL, top-bar title and accent all change.
+  await page.getByRole('link', { name: 'Open Requisite' }).click();
+  await page.waitForURL('**/requisite');
+  await expect(page.locator('.hx-brand__app')).toHaveText('Requisite');
+  const requisiteAccent = await accent(page);
+  expect(requisiteAccent).toBe('#0f766e');
+  expect(requisiteAccent).not.toBe(coreAccent);
+
+  // Switch to Administration via the app switcher, then back Home.
+  await page.getByRole('button', { name: 'Switch app' }).click();
+  await page.getByRole('link', { name: /Administration/ }).click();
+  await page.waitForURL('**/admin/**');
+  await expect(page.locator('.hx-brand__app')).toHaveText('Administration');
+  expect(await accent(page)).toBe(coreAccent);
+  await page.getByRole('button', { name: 'Switch app' }).click();
+  await page.getByRole('link', { name: /^Home/ }).click();
+  await expect(page).toHaveURL(/\/$/);
 });

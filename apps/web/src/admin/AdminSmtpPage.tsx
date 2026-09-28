@@ -92,19 +92,19 @@ export function AdminSmtpPage() {
   return (
     <div>
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}
       {message && (
-        <div role="status" style={{ color: '#166534', marginBottom: 12 }}>
+        <div role="status" style={{ color: 'var(--hx-success)', marginBottom: 12 }}>
           {message}
         </div>
       )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>SMTP configuration</h2>
-        <p style={{ color: '#616e7c', marginBottom: 8 }}>
+        <p style={{ color: 'var(--hx-text-muted)', marginBottom: 8 }}>
           {config?.configured ? 'Currently configured.' : 'Not yet configured.'}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>

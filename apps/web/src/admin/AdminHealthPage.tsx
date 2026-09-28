@@ -36,7 +36,7 @@ export function AdminHealthPage() {
   return (
     <div>
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}
@@ -80,7 +80,7 @@ export function AdminHealthPage() {
             style={{
               whiteSpace: 'pre-wrap',
               fontSize: 12,
-              background: '#f5f6f8',
+              background: 'var(--hx-border)',
               padding: 12,
               borderRadius: 6,
             }}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card } from '@hexyrn/design-system';
+import { Alert, Button, Input } from '@hexyrn/design-system';
+import { AuthLayout } from './AuthLayout';
 import { api } from '../api/client';
 
 const initialState = {
@@ -43,104 +44,92 @@ export function BootstrapWizardPage() {
 
   if (done) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          minHeight: '100vh',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Card style={{ width: 420 }}>
-          <h1 style={{ fontSize: 20 }}>Setup complete</h1>
-          <p>Redirecting to sign in…</p>
-        </Card>
-      </div>
+      <AuthLayout title="Setup complete">
+        <Alert tone="success">
+          Your organisation and owner account are ready. Redirecting to sign in…
+        </Alert>
+      </AuthLayout>
     );
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f0f2f5',
-      }}
-    >
-      <Card style={{ width: 480 }}>
-        <h1 style={{ fontSize: 20, marginBottom: 8 }}>Set up Hexyrn</h1>
-        <p style={{ fontSize: 13, color: '#555', marginBottom: 16 }}>
-          Enter the one-time setup token printed to the server console (or found in
-          <code> bootstrap-token.txt </code> on the server) to create your organisation and owner
+    <AuthLayout
+      title="Set up Hexyrn"
+      width={520}
+      subtitle={
+        <>
+          Enter the one-time setup token printed to the server console (or found in{' '}
+          <code>bootstrap-token.txt</code> on the server) to create your organisation and owner
           account.
-        </p>
-        <form onSubmit={onSubmit}>
-          <Input
-            label="Setup token"
-            name="token"
-            value={form.token}
-            onChange={(e) => update('token', e.target.value)}
-            required
-          />
-          <Input
-            label="Organisation name"
-            name="organisationName"
-            value={form.organisationName}
-            onChange={(e) => update('organisationName', e.target.value)}
-            required
-          />
-          <Input
-            label="Display name"
-            name="organisationDisplayName"
-            value={form.organisationDisplayName}
-            onChange={(e) => update('organisationDisplayName', e.target.value)}
-            required
-          />
-          <Input
-            label="Default currency (ISO 4217)"
-            name="defaultCurrency"
-            value={form.defaultCurrency}
-            onChange={(e) => update('defaultCurrency', e.target.value)}
-            required
-          />
-          <Input
-            label="Timezone (IANA)"
-            name="timezone"
-            value={form.timezone}
-            onChange={(e) => update('timezone', e.target.value)}
-            required
-          />
-          <Input
-            label="Locale (BCP 47)"
-            name="locale"
-            value={form.locale}
-            onChange={(e) => update('locale', e.target.value)}
-            required
-          />
-          <Input
-            label="Owner email"
-            type="email"
-            name="ownerEmail"
-            value={form.ownerEmail}
-            onChange={(e) => update('ownerEmail', e.target.value)}
-            required
-          />
-          <Input
-            label="Owner password"
-            type="password"
-            name="ownerPassword"
-            value={form.ownerPassword}
-            onChange={(e) => update('ownerPassword', e.target.value)}
-            required
-          />
-          {error && <p style={{ color: '#b3261e', fontSize: 13, marginBottom: 12 }}>{error}</p>}
-          <Button type="submit" disabled={submitting} style={{ width: '100%' }}>
-            {submitting ? 'Setting up…' : 'Complete setup'}
-          </Button>
-        </form>
-      </Card>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit}>
+        <Input
+          label="Setup token"
+          name="token"
+          value={form.token}
+          onChange={(e) => update('token', e.target.value)}
+          required
+        />
+        <Input
+          label="Organisation name"
+          name="organisationName"
+          value={form.organisationName}
+          onChange={(e) => update('organisationName', e.target.value)}
+          required
+        />
+        <Input
+          label="Display name"
+          name="organisationDisplayName"
+          value={form.organisationDisplayName}
+          onChange={(e) => update('organisationDisplayName', e.target.value)}
+          required
+        />
+        <Input
+          label="Default currency (ISO 4217)"
+          name="defaultCurrency"
+          value={form.defaultCurrency}
+          onChange={(e) => update('defaultCurrency', e.target.value)}
+          required
+        />
+        <Input
+          label="Timezone (IANA)"
+          name="timezone"
+          value={form.timezone}
+          onChange={(e) => update('timezone', e.target.value)}
+          required
+        />
+        <Input
+          label="Locale (BCP 47)"
+          name="locale"
+          value={form.locale}
+          onChange={(e) => update('locale', e.target.value)}
+          required
+        />
+        <Input
+          label="Owner email"
+          type="email"
+          name="ownerEmail"
+          value={form.ownerEmail}
+          onChange={(e) => update('ownerEmail', e.target.value)}
+          required
+        />
+        <Input
+          label="Owner password (at least 12 characters)"
+          type="password"
+          name="ownerPassword"
+          autoComplete="new-password"
+          minLength={12}
+          value={form.ownerPassword}
+          onChange={(e) => update('ownerPassword', e.target.value)}
+          required
+        />
+        {error && <Alert>{error}</Alert>}
+        <Button type="submit" disabled={submitting} block>
+          {submitting ? 'Setting up…' : 'Complete setup'}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

@@ -12,18 +12,8 @@ export interface EmptyStateProps {
 
 export function EmptyState({ message, action }: EmptyStateProps) {
   return (
-    <div
-      role="status"
-      style={{
-        textAlign: 'center',
-        padding: '48px 24px',
-        color: '#6b7280',
-        background: '#fff',
-        border: '1px dashed #d1d5db',
-        borderRadius: 8,
-      }}
-    >
-      <p style={{ marginBottom: action ? 16 : 0, fontSize: 14 }}>{message}</p>
+    <div role="status" className="hx-empty">
+      <p>{message}</p>
       {action}
     </div>
   );

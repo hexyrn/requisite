@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import '@hexyrn/design-system/styles.css';
 import { LoginPage } from './pages/LoginPage';
+import { HomePage } from './pages/HomePage';
 import { MfaChallengePage } from './pages/MfaChallengePage';
 import { BootstrapWizardPage } from './pages/BootstrapWizardPage';
 import { AuthenticatedShell } from './pages/AuthenticatedShell';
@@ -55,7 +57,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="smtp" element={<AdminSmtpPage />} />
             <Route path="support-bundle" element={<AdminSupportBundlePage />} />
           </Route>
-          <Route index element={<Navigate to="/requisite" replace />} />
+          <Route index element={<HomePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

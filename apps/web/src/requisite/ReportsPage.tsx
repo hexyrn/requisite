@@ -48,7 +48,7 @@ export function ReportsPage() {
     <div>
       <PageHeader title="Reports" />
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}
@@ -69,7 +69,7 @@ export function ReportsPage() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '8px 0',
-                  borderBottom: '1px solid #f3f4f6',
+                  borderBottom: '1px solid var(--hx-border)',
                 }}
               >
                 <span>{t.name}</span>
@@ -86,7 +86,7 @@ export function ReportsPage() {
       )}
 
       {resultError && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {resultError}
         </div>
       )}
@@ -95,7 +95,9 @@ export function ReportsPage() {
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>{result.name}</h2>
           {result.rows.length === 0 ? (
-            <p style={{ color: '#6b7280', fontSize: 14 }}>This report returned no data.</p>
+            <p style={{ color: 'var(--hx-text-muted)', fontSize: 14 }}>
+              This report returned no data.
+            </p>
           ) : (
             <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
               <thead>
@@ -106,7 +108,7 @@ export function ReportsPage() {
                       style={{
                         textAlign: 'left',
                         padding: '4px 8px',
-                        borderBottom: '2px solid #e5e7eb',
+                        borderBottom: '2px solid var(--hx-border)',
                       }}
                     >
                       {c}
@@ -116,7 +118,7 @@ export function ReportsPage() {
               </thead>
               <tbody>
                 {result.rows.map((row, i) => (
-                  <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
+                  <tr key={i} style={{ borderTop: '1px solid var(--hx-border)' }}>
                     {columns.map((c) => (
                       <td key={c} style={{ padding: '4px 8px' }}>
                         {String(row[c] ?? '')}

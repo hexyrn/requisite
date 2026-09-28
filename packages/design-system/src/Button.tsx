@@ -1,30 +1,16 @@
 import React from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /** Stretch to the full width of the container. */
+  block?: boolean;
 }
 
-const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
-  primary: { background: '#1f4b99', color: '#fff', border: '1px solid #1f4b99' },
-  secondary: { background: '#fff', color: '#1f4b99', border: '1px solid #1f4b99' },
-  danger: { background: '#b3261e', color: '#fff', border: '1px solid #b3261e' },
-};
-
-export function Button({ variant = 'primary', style, ...rest }: ButtonProps) {
-  return (
-    <button
-      {...rest}
-      style={{
-        padding: '8px 16px',
-        borderRadius: 4,
-        cursor: rest.disabled ? 'not-allowed' : 'pointer',
-        fontSize: 14,
-        opacity: rest.disabled ? 0.6 : 1,
-        ...variantStyles[variant],
-        ...style,
-      }}
-    />
-  );
+export function Button({ variant = 'primary', block, className, ...rest }: ButtonProps) {
+  const classes = ['hx-btn', `hx-btn--${variant}`, block ? 'hx-btn--block' : '', className ?? '']
+    .filter(Boolean)
+    .join(' ');
+  return <button {...rest} className={classes} />;
 }

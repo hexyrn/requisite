@@ -58,19 +58,19 @@ export function AdminBackupPage() {
   return (
     <div>
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}
       {message && (
-        <div role="status" style={{ color: '#166534', marginBottom: 12 }}>
+        <div role="status" style={{ color: 'var(--hx-success)', marginBottom: 12 }}>
           {message}
         </div>
       )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Backup now</h2>
-        <p style={{ color: '#616e7c', marginBottom: 8 }}>
+        <p style={{ color: 'var(--hx-text-muted)', marginBottom: 8 }}>
           Captures the full installation database and uploaded files as one coordinated unit.
           {lastGood
             ? ` Last successful backup: ${lastGood.backupId}.`
@@ -108,7 +108,7 @@ export function AdminBackupPage() {
                 render: (b) =>
                   confirmId === b.backupId ? (
                     <span style={{ display: 'flex', gap: 8 }}>
-                      <span style={{ color: '#991b1b', fontSize: 12 }}>
+                      <span style={{ color: 'var(--hx-danger)', fontSize: 12 }}>
                         Overwrites current data.
                       </span>
                       <Button

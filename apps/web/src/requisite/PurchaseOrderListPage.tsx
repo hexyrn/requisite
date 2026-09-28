@@ -22,7 +22,7 @@ export function PurchaseOrderListPage() {
     <div>
       <PageHeader title="Purchase Orders" />
       {error && (
-        <div role="alert" style={{ color: '#991b1b' }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)' }}>
           {error}
         </div>
       )}

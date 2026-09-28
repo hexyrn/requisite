@@ -53,7 +53,7 @@ export function RequisitionListPage() {
         }
       />
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+      <div className="hx-toolbar">
         <Input
           aria-label="Search requisitions"
           placeholder="Search by number or purpose…"
@@ -64,7 +64,7 @@ export function RequisitionListPage() {
           aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ padding: 8, borderRadius: 6, border: '1px solid #d1d5db' }}
+          style={{}}
         >
           <option value="all">All statuses</option>
           <option value="draft">Draft</option>
@@ -79,7 +79,7 @@ export function RequisitionListPage() {
       </div>
 
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}

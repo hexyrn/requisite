@@ -128,7 +128,7 @@ export function RequisitionDetailPage() {
 
   if (error)
     return (
-      <div role="alert" style={{ color: '#991b1b' }}>
+      <div role="alert" style={{ color: 'var(--hx-danger)' }}>
         {error}
       </div>
     );
@@ -160,7 +160,7 @@ export function RequisitionDetailPage() {
           ref={actionErrorRef}
           role="alert"
           tabIndex={-1}
-          style={{ color: '#991b1b', marginBottom: 12, outline: 'none' }}
+          style={{ color: 'var(--hx-danger)', marginBottom: 12, outline: 'none' }}
         >
           {actionError}
         </div>
@@ -190,7 +190,7 @@ export function RequisitionDetailPage() {
               display: 'flex',
               justifyContent: 'space-between',
               padding: '6px 0',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: '1px solid var(--hx-border)',
             }}
           >
             <span>
@@ -212,9 +212,6 @@ export function RequisitionDetailPage() {
             value={selectedSupplierId}
             onChange={(e) => setSelectedSupplierId(e.target.value)}
             style={{
-              padding: 8,
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
               marginBottom: 12,
               minWidth: 240,
             }}
@@ -253,9 +250,6 @@ export function RequisitionDetailPage() {
               width: '100%',
               minHeight: 60,
               marginBottom: 12,
-              padding: 8,
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
             }}
           />
           <div style={{ display: 'flex', gap: 8 }}>
@@ -273,7 +267,9 @@ export function RequisitionDetailPage() {
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Approval history</h2>
         {history.length === 0 ||
         history.every((h) => h.steps.every((s) => s.decisions.length === 0)) ? (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>No decisions have been recorded yet.</p>
+          <p style={{ color: 'var(--hx-text-muted)', fontSize: 14 }}>
+            No decisions have been recorded yet.
+          </p>
         ) : (
           history
             .flatMap((h) => h.steps)
@@ -281,11 +277,15 @@ export function RequisitionDetailPage() {
             .map((d, i) => (
               <div
                 key={i}
-                style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}
+                style={{
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--hx-border)',
+                  fontSize: 14,
+                }}
               >
                 {d.decision === 'approve' ? 'Approved' : 'Rejected'} on{' '}
                 {new Date(d.decided_at).toLocaleString()}
-                {d.comment && <div style={{ color: '#6b7280' }}>"{d.comment}"</div>}
+                {d.comment && <div style={{ color: 'var(--hx-text-muted)' }}>"{d.comment}"</div>}
               </div>
             ))
         )}
@@ -294,7 +294,7 @@ export function RequisitionDetailPage() {
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Documents</h2>
         {attachments.length === 0 ? (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>No files attached.</p>
+          <p style={{ color: 'var(--hx-text-muted)', fontSize: 14 }}>No files attached.</p>
         ) : (
           <ul>
             {attachments.map((a) => (

@@ -118,7 +118,7 @@ export function RfqDetailPage() {
 
   if (error)
     return (
-      <div role="alert" style={{ color: '#991b1b' }}>
+      <div role="alert" style={{ color: 'var(--hx-danger)' }}>
         {error}
       </div>
     );
@@ -131,7 +131,7 @@ export function RfqDetailPage() {
         subtitle={<StatusBadge label={statusLabel(rfq.status)} tone={statusTone(rfq.status)} />}
       />
       {actionError && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {actionError}
         </div>
       )}
@@ -155,7 +155,7 @@ export function RfqDetailPage() {
             </thead>
             <tbody>
               {rfq.quotes.map((q) => (
-                <tr key={q.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <tr key={q.id} style={{ borderTop: '1px solid var(--hx-border)' }}>
                   <td style={{ padding: '4px 8px' }}>{q.supplier_name}</td>
                   <td style={{ padding: '4px 8px' }}>{q.quote_reference ?? '—'}</td>
                   <td style={{ padding: '4px 8px', textAlign: 'right' }}>
@@ -168,7 +168,9 @@ export function RfqDetailPage() {
                   <td style={{ padding: '4px 8px' }}>
                     <StatusBadge label={statusLabel(q.status)} tone={statusTone(q.status)} />
                     {q.selection_reason && (
-                      <div style={{ fontSize: 12, color: '#6b7280' }}>"{q.selection_reason}"</div>
+                      <div style={{ fontSize: 12, color: 'var(--hx-text-muted)' }}>
+                        "{q.selection_reason}"
+                      </div>
                     )}
                   </td>
                   <td style={{ padding: '4px 8px' }}>
@@ -219,9 +221,6 @@ export function RfqDetailPage() {
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}
           style={{
-            padding: 8,
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
             marginBottom: 12,
             minWidth: 240,
           }}

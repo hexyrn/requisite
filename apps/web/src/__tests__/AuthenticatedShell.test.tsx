@@ -36,7 +36,9 @@ describe('AuthenticatedShell - session gate', () => {
     const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
       const body = url.endsWith('/auth/session')
         ? { csrfToken: 'restored-token', user: { id: 'u1', email: 'a@b.co' } }
-        : { display_name: 'Acme' };
+        : url.endsWith('/apps/launcher')
+          ? { apps: [], canAdminister: false }
+          : { display_name: 'Acme' };
       return new Response(JSON.stringify(body), { status: 200 });
     });
     vi.stubGlobal('fetch', fetchMock);

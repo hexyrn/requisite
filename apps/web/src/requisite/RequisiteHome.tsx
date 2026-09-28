@@ -26,7 +26,7 @@ export function RequisiteHome() {
 
   if (error) {
     return (
-      <div role="alert" style={{ color: '#991b1b', padding: 16 }}>
+      <div role="alert" style={{ color: 'var(--hx-danger)', padding: 16 }}>
         Something went wrong loading your Requisite home page: {error}
       </div>
     );
@@ -70,7 +70,10 @@ export function RequisiteHome() {
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {drafts.slice(0, 5).map((r) => (
-                <li key={r.id} style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <li
+                  key={r.id}
+                  style={{ padding: '6px 0', borderBottom: '1px solid var(--hx-border)' }}
+                >
                   <Link to={`/requisite/requisitions/${r.id}`}>{r.requisition_number}</Link> —{' '}
                   {r.reason}
                 </li>
@@ -84,7 +87,9 @@ export function RequisiteHome() {
           {requisitions === null ? (
             <p>Loading…</p>
           ) : awaitingApproval.length === 0 ? (
-            <p style={{ color: '#6b7280', fontSize: 14 }}>Nothing needs your approval right now.</p>
+            <p style={{ color: 'var(--hx-text-muted)', fontSize: 14 }}>
+              Nothing needs your approval right now.
+            </p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {awaitingApproval.slice(0, 5).map((r) => (
@@ -92,7 +97,7 @@ export function RequisiteHome() {
                   key={r.id}
                   style={{
                     padding: '6px 0',
-                    borderBottom: '1px solid #f3f4f6',
+                    borderBottom: '1px solid var(--hx-border)',
                     display: 'flex',
                     justifyContent: 'space-between',
                   }}

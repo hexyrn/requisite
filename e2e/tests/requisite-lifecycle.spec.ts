@@ -23,6 +23,8 @@ async function login(page: Page, email: string, password: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  // Core hosts the suite: sign-in lands on the launcher, from which the app is opened.
+  await page.getByRole('link', { name: 'Open Requisite' }).click({ timeout: 15000 });
   await page.waitForURL('**/requisite', { timeout: 15000 });
 }
 

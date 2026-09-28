@@ -70,7 +70,25 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface LauncherApp {
+  appId: string;
+  displayName: string;
+  description: string | null;
+  version: string;
+  brand: { color: string; icon: string | null } | null;
+  launchPath: string;
+  basePath: string | null;
+  status: 'active' | 'not_licensed' | 'disabled' | 'incompatible';
+}
+
+export interface Launcher {
+  apps: LauncherApp[];
+  canAdminister: boolean;
+}
+
 export const api = {
+  /** The apps this user may open from the Core home page / app switcher. */
+  getLauncher: () => request<Launcher>('/apps/launcher'),
   /** Recovers this session's CSRF token after a reload; 401 means there is no valid (MFA-verified) session. */
   getSession: () =>
     request<{ csrfToken: string; user: { id: string; email: string } }>('/auth/session'),

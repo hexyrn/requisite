@@ -14,30 +14,31 @@ export interface TableProps<T> {
 
 export function Table<T>({ columns, rows, rowKey }: TableProps<T>) {
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-      <thead>
-        <tr>
-          {columns.map((col) => (
-            <th
-              key={col.key}
-              style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #e2e2e2' }}
-            >
-              {col.header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={rowKey(row)}>
+    <div className="hx-table-wrap">
+      <table className="hx-table">
+        <thead>
+          <tr>
             {columns.map((col) => (
-              <td key={col.key} style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0' }}>
-                {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
-              </td>
+              <th key={col.key} scope="col">
+                {col.header}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={rowKey(row)}>
+              {columns.map((col) => (
+                <td key={col.key}>
+                  {col.render
+                    ? col.render(row)
+                    : String((row as Record<string, unknown>)[col.key] ?? '')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

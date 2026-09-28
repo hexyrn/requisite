@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card } from '@hexyrn/design-system';
+import { Alert, Button, Input } from '@hexyrn/design-system';
+import { AuthLayout } from './AuthLayout';
 import { api, setCsrfToken } from '../api/client';
 
 export function LoginPage() {
@@ -26,40 +27,31 @@ export function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f0f2f5',
-      }}
-    >
-      <Card style={{ width: 360 }}>
-        <h1 style={{ fontSize: 20, marginBottom: 16 }}>Sign in to Hexyrn</h1>
-        <form onSubmit={onSubmit}>
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <p style={{ color: '#b3261e', fontSize: 13, marginBottom: 12 }}>{error}</p>}
-          <Button type="submit" disabled={submitting} style={{ width: '100%' }}>
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-      </Card>
-    </div>
+    <AuthLayout title="Sign in" subtitle="Welcome back. Sign in to open your apps.">
+      <form onSubmit={onSubmit}>
+        <Input
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          name="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        {error && <Alert>{error}</Alert>}
+        <Button type="submit" disabled={submitting} block>
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

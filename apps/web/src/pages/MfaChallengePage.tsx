@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card } from '@hexyrn/design-system';
+import { Alert, Button, Input } from '@hexyrn/design-system';
+import { AuthLayout } from './AuthLayout';
 import { api, setCsrfToken } from '../api/client';
 
 export function MfaChallengePage() {
@@ -29,36 +30,26 @@ export function MfaChallengePage() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f0f2f5',
-      }}
+    <AuthLayout
+      title="Two-factor verification"
+      subtitle="Enter the 6-digit code from your authenticator app, or a recovery code."
     >
-      <Card style={{ width: 360 }}>
-        <h1 style={{ fontSize: 20, marginBottom: 8 }}>Two-factor verification</h1>
-        <p style={{ fontSize: 13, color: '#555', marginBottom: 16 }}>
-          Enter the 6-digit code from your authenticator app.
-        </p>
-        <form onSubmit={onSubmit}>
-          <Input
-            label="Authentication code"
-            name="code"
-            inputMode="numeric"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-          />
-          {error && <p style={{ color: '#b3261e', fontSize: 13, marginBottom: 12 }}>{error}</p>}
-          <Button type="submit" disabled={submitting} style={{ width: '100%' }}>
-            {submitting ? 'Verifying…' : 'Verify'}
-          </Button>
-        </form>
-      </Card>
-    </div>
+      <form onSubmit={onSubmit}>
+        <Input
+          label="Authentication code"
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+        />
+        {error && <Alert>{error}</Alert>}
+        <Button type="submit" disabled={submitting} block>
+          {submitting ? 'Verifying…' : 'Verify'}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

@@ -45,7 +45,7 @@ export function AdminSupportBundlePage() {
   return (
     <div>
       {error && (
-        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+        <div role="alert" style={{ color: 'var(--hx-danger)', marginBottom: 12 }}>
           {error}
         </div>
       )}
@@ -61,7 +61,7 @@ export function AdminSupportBundlePage() {
             ))}
           </ul>
         )}
-        <p style={{ color: '#616e7c', marginTop: 8 }}>
+        <p style={{ color: 'var(--hx-text-muted)', marginTop: 8 }}>
           Secrets and credentials are redacted before the bundle is generated. Nothing is uploaded
           automatically - the bundle is only ever returned directly to you to download and share as
           you choose.
@@ -85,7 +85,7 @@ export function AdminSupportBundlePage() {
             style={{
               whiteSpace: 'pre-wrap',
               fontSize: 12,
-              background: '#f5f6f8',
+              background: 'var(--hx-border)',
               padding: 12,
               borderRadius: 6,
               marginTop: 12,
