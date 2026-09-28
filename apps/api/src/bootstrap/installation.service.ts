@@ -117,10 +117,14 @@ export class InstallationService {
           'First-run bootstrap token generated. Use it once to complete setup, then it is permanently invalidated.',
       },
     });
-    // eslint-disable-next-line no-console
-    console.log(
-      `\n=== HEXYRN CORE FIRST-RUN SETUP TOKEN ===\n${token}\n==========================================\n`,
-    );
+    // When the installer points the token at a restricted file, never also print it: service logs
+    // are broader-readable than that file. Printing is the fallback for dev / container runs only.
+    if (!process.env.HEXYRN_BOOTSTRAP_TOKEN_FILE) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `\n=== HEXYRN CORE FIRST-RUN SETUP TOKEN ===\n${token}\n==========================================\n`,
+      );
+    }
     try {
       // A Windows service has no console to print to and its working directory is not
       // somewhere an operator would look, so the installer points this at the config folder.

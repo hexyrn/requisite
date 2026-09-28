@@ -215,6 +215,24 @@ async function bootstrap() {
   await app.listen(port, process.env.HOST ?? '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`Hexyrn Core API listening on port ${port}`);
+
+  // Windows service stop (WinSW sends Ctrl+C / SIGBREAK) and container stop (SIGTERM): finish in-flight
+  // requests and release the database pool before exiting, so a stop or reboot never cuts a write short.
+  let closing = false;
+  const shutdown = (signal: string) => {
+    if (closing) return;
+    closing = true;
+    // eslint-disable-next-line no-console
+    console.log(`Received ${signal}; shutting down.`);
+    setTimeout(() => process.exit(1), 20_000).unref();
+    app.close().then(
+      () => process.exit(0),
+      () => process.exit(1),
+    );
+  };
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGBREAK'] as const) {
+    process.on(sig, () => shutdown(sig));
+  }
 }
 
 function parseTrustedProxies(): string[] {

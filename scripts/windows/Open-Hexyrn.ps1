@@ -5,8 +5,9 @@
 .DESCRIPTION
   First run (setup not finished): the service leaves a one-time setup code in
   ProgramData\Hexyrn Core\config\bootstrap-token.txt, readable by Administrators only. This script reads it
-  (asking for elevation only if it must), copies it to the clipboard, and opens the setup page so the user
-  can simply paste it. After setup the file is gone and this just opens the app.
+  (asking for elevation only if it must) and opens the setup page with the code in the URL fragment, which
+  the browser never sends to the server, so nothing has to be copied. After setup the file is gone and this
+  just opens the app.
 #>
 [CmdletBinding()]
 param([int]$Port = 3000)
@@ -44,9 +45,7 @@ if (-not $up) {
 if (Test-Path $tokenFile) {
     try {
         $token = (Get-Content -Path $tokenFile -ErrorAction Stop | Select-Object -First 1).Trim()
-        Set-Clipboard -Value $token
-        Show-Message "First-time setup.`n`nYour one-time setup code has been copied to the clipboard.`nPaste it into the 'Setup token' box on the page that opens next." 'Hexyrn Core setup'
-        Start-Process "$base/setup"
+        Start-Process "$base/setup#token=$token"
         exit 0
     }
     catch [System.UnauthorizedAccessException] {
