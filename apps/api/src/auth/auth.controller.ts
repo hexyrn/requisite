@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
 import { InstallationRepository } from '../bootstrap/installation.repository';
 import { withOrgContext } from '../db/org-context';
-import { PublicRoute } from '../http/session-auth.guard';
+import { AllowPreMfa, PublicRoute } from '../http/session-auth.guard';
 import { AuthenticatedOnly, RequirePermission } from '../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../rbac/permissions';
 import {
@@ -187,6 +187,7 @@ export class AuthController {
     const organisationId = (req as any).currentOrganisationId;
     const user = (req as any).currentUser;
 
+    const session = (req as any).currentSession;
     const recoveryCodes = await withOrgContext(organisationId, async (db) => {
       const codes = await this.totp.completeEnrolment(
         db,
@@ -195,6 +196,11 @@ export class AuthController {
         body.code,
         organisationId,
       );
+      // The user just proved possession of the new second factor in this very
+      // request, so the session that enrolled it counts as MFA-verified -
+      // otherwise the guard (which now requires it once mfa_enabled) would
+      // lock them out of their own session the moment enrolment succeeds.
+      await this.sessions.markMfaVerified(db, session.id);
       await this.audit.record(db, {
         organisationId,
         eventType: 'auth.mfa.enrolled',
@@ -267,6 +273,7 @@ export class AuthController {
     return { reset: true };
   }
 
+  @AllowPreMfa()
   @AuthenticatedOnly()
   @Post('logout')
   async logout(@Req() req: FastifyRequest, @Res({ passthrough: true }) res: FastifyReply) {

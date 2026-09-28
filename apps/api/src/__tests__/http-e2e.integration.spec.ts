@@ -448,6 +448,98 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       const afterRes = await agent.get('/api/v1/organisation');
       expect(afterRes.status).toBe(200);
     });
+
+    it('a password-only (pre-MFA) session cannot reach authenticated endpoints - MFA cannot be bypassed by skipping /mfa/verify', async () => {
+      const totpService = app.get(TotpService);
+      const enrolment = totpService.beginEnrolment('mfa-bypass@e2e.test');
+      await withOrgContext(
+        organisationId,
+        async (db) => {
+          const { hashPassword } = await import('../security/passwords');
+          const user = await db
+            .insertInto('user_accounts')
+            .values({
+              organisation_id: organisationId,
+              email: 'mfa-bypass@e2e.test',
+              password_hash: await hashPassword('mfa-bypass-password-1'),
+              is_active: true,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow();
+          const { authenticator } = await import('otplib');
+          await totpService.completeEnrolment(
+            db,
+            user.id,
+            enrolment.secret,
+            authenticator.generate(enrolment.secret),
+            organisationId,
+          );
+        },
+        pool,
+      );
+
+      const agent = request.agent(server());
+      const login = await agent
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-bypass@e2e.test', password: 'mfa-bypass-password-1' });
+      expect(login.body.requiresMfa).toBe(true);
+
+      // Attacker knows only the password: never calls /mfa/verify.
+      const read = await agent.get('/api/v1/organisation');
+      expect(read.status).toBe(401);
+      const write = await agent
+        .post('/api/v1/auth/mfa/enroll/begin')
+        .set('X-Hexyrn-CSRF', login.body.csrfToken);
+      expect(write.status).toBe(401);
+
+      // ...but the pending session can still be abandoned (logout is the one
+      // explicitly allowed pre-MFA route), and is then really dead.
+      const logout = await agent
+        .post('/api/v1/auth/logout')
+        .set('X-Hexyrn-CSRF', login.body.csrfToken);
+      expect(logout.status).toBe(201);
+    });
+
+    it('enrolling MFA does not lock the enrolling user out of their own current session', async () => {
+      await withOrgContext(
+        organisationId,
+        async (db) => {
+          const { hashPassword } = await import('../security/passwords');
+          await db
+            .insertInto('user_accounts')
+            .values({
+              organisation_id: organisationId,
+              email: 'mfa-selfenrol@e2e.test',
+              password_hash: await hashPassword('mfa-selfenrol-password-1'),
+              is_active: true,
+            })
+            .execute();
+        },
+        pool,
+      );
+      const agent = request.agent(server());
+      const login = await agent
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-selfenrol@e2e.test', password: 'mfa-selfenrol-password-1' });
+      expect(login.body.requiresMfa).toBe(false);
+      const csrf = login.body.csrfToken;
+      const begin = await agent.post('/api/v1/auth/mfa/enroll/begin').set('X-Hexyrn-CSRF', csrf);
+      const { authenticator } = await import('otplib');
+      const confirm = await agent
+        .post('/api/v1/auth/mfa/enroll/confirm')
+        .set('X-Hexyrn-CSRF', csrf)
+        .send({ secret: begin.body.secret, code: authenticator.generate(begin.body.secret) });
+      expect(confirm.status).toBe(201);
+      expect((await agent.get('/api/v1/organisation')).status).toBe(200);
+
+      // A brand-new password login for the now-enrolled user IS challenged.
+      const second = request.agent(server());
+      const relogin = await second
+        .post('/api/v1/auth/login')
+        .send({ email: 'mfa-selfenrol@e2e.test', password: 'mfa-selfenrol-password-1' });
+      expect(relogin.body.requiresMfa).toBe(true);
+      expect((await second.get('/api/v1/organisation')).status).toBe(401);
+    });
   });
 
   describe('MFA enrolment (P0 item 16, full end-to-end flow)', () => {

@@ -15,6 +15,10 @@ import { ServiceAccountService } from '../platform/api-access/service-account.se
 export const PUBLIC_ROUTE_KEY = 'hexyrn:public-route';
 export const PublicRoute = () => SetMetadata(PUBLIC_ROUTE_KEY, true);
 
+/** Route that a password-only (pre-MFA) session may still call - only logout. */
+export const ALLOW_PRE_MFA_KEY = 'hexyrn:allow-pre-mfa';
+export const AllowPreMfa = () => SetMetadata(ALLOW_PRE_MFA_KEY, true);
+
 /**
  * Resolves the session cookie into an authenticated permission-check subject
  * (Architecture §1's PermissionCheckSubject), running the lookup inside
@@ -91,6 +95,26 @@ export class SessionAuthGuard implements CanActivate {
     // has no CSRF token to send yet, and re-authenticating with the correct
     // password is itself proof of intent, so gating it on a token the page
     // never had would just produce a confusing dead end.
+    // MFA enforcement (Architecture §6): a session created by password login
+    // alone is "pre-MFA" until /auth/mfa/verify rotates it into a verified
+    // one. Without this check the second factor could be skipped entirely by
+    // simply never calling /auth/mfa/verify. Keyed on the USER's current
+    // mfa_enabled (not just the session flag) so sessions created before
+    // login started recording mfa_verified correctly - which are all
+    // mfa_verified=false, MFA or not - keep working for users without MFA.
+    // Public routes (login, mfa/verify itself) and routes explicitly marked
+    // @AllowPreMfa() (logout) stay reachable so a pending session can finish
+    // or abandon the challenge.
+    if (!isPublic && resolved.user.mfa_enabled && !resolved.session.mfaVerified) {
+      const allowPreMfa = this.reflector.get<boolean | undefined>(
+        ALLOW_PRE_MFA_KEY,
+        context.getHandler(),
+      );
+      if (!allowPreMfa) {
+        throw new UnauthorizedException('MFA verification required.');
+      }
+    }
+
     const mutating = !isPublic && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
     if (mutating) {
       const header = request.headers['x-hexyrn-csrf'];

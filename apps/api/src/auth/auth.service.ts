@@ -93,7 +93,14 @@ export class AuthService {
       .where('id', '=', user.id)
       .execute();
 
-    const session = await this.sessions.createSession(db, organisationId, user.id, false);
+    // mfa_verified means "second factor satisfied OR not required": a user
+    // with MFA enabled starts unverified until /auth/mfa/verify succeeds.
+    const session = await this.sessions.createSession(
+      db,
+      organisationId,
+      user.id,
+      !user.mfa_enabled,
+    );
 
     await this.audit.record(db, {
       organisationId,
