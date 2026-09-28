@@ -15,6 +15,7 @@ export const REFERENCE_APP_MANIFEST: HexyrnAppManifest = {
   requiresCoreVersion: '^0.1.0',
   description:
     'Internal reference application exercising every P1 platform mechanism through the App SDK.',
+  internal: true,
 
   permissions: [
     { key: 'reference.widget.view', label: 'View widgets' },

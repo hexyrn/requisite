@@ -23,6 +23,7 @@ import { SessionAuthGuard } from './http/session-auth.guard';
 import { PermissionGuard } from './rbac/permission.guard';
 import { HealthController } from './health/health.controller';
 import { AppStateController } from './platform/app-registry/app-state.controller';
+import { LauncherController } from './platform/app-registry/launcher.controller';
 import { ReportsController } from './platform/reporting/reports.controller';
 import { SmtpController } from './platform/smtp/smtp.controller';
 import { SmtpConfigService } from './platform/smtp/smtp-config.service';
@@ -47,6 +48,7 @@ import { RequisiteAppModule } from './apps/requisite/requisite.module';
     OrganisationController,
     HealthController,
     AppStateController,
+    LauncherController,
     ReportsController,
     SmtpController,
     HealthDiagnosticsController,

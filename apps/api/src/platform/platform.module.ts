@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ApplicationRegistryService } from './app-registry/application-registry.service';
+import { LauncherService } from './app-registry/launcher.service';
 import { ApplicationActiveGuard } from './app-registry/application-active.guard';
 import { CapabilityResolverService } from './capabilities/capability-resolver.service';
 import { EventPublisherService } from './events/event-publisher.service';
@@ -54,6 +55,7 @@ import { getConfiguredOutboundNetworkPolicy } from '../security/outbound-network
 @Module({
   providers: [
     ApplicationRegistryService,
+    LauncherService,
     ApplicationActiveGuard,
     CapabilityResolverService,
     EventPublisherService,
@@ -102,6 +104,7 @@ import { getConfiguredOutboundNetworkPolicy } from '../security/outbound-network
   ],
   exports: [
     ApplicationRegistryService,
+    LauncherService,
     ApplicationActiveGuard,
     CapabilityResolverService,
     EventPublisherService,

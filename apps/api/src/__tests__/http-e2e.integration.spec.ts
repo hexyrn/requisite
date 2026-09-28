@@ -533,6 +533,19 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       expect((await request(server()).get('/api/v1/auth/session')).status).toBe(401);
     });
 
+    it('GET /apps/launcher requires a session, and never lists internal apps', async () => {
+      expect((await request(server()).get('/api/v1/apps/launcher')).status).toBe(401);
+      const agent = request.agent(server());
+      await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+      const res = await agent.get('/api/v1/apps/launcher');
+      expect(res.status).toBe(200);
+      expect(res.body.canAdminister).toBe(true);
+      expect(Array.isArray(res.body.apps)).toBe(true);
+      expect(res.body.apps.map((a: { appId: string }) => a.appId)).not.toContain(
+        'com.hexyrn.reference',
+      );
+    });
+
     it('enrolling MFA does not lock the enrolling user out of their own current session', async () => {
       await withOrgContext(
         organisationId,

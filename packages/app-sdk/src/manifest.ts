@@ -74,6 +74,19 @@ export interface DashboardWidgetRegistration {
   datasetKey: string;
 }
 
+/**
+ * How an app presents itself in the Core suite launcher and app switcher.
+ * Every app shares Core's design language; `color` is the ONLY per-app
+ * styling knob (it becomes the app's accent colour), so apps in the suite
+ * look related but are instantly distinguishable.
+ */
+export interface AppBrand {
+  /** Accent colour as #rrggbb. Validated by the launcher; anything else falls back to the Core accent. */
+  color: string;
+  /** Key of a built-in launcher icon (e.g. 'cart', 'wrench'); unknown keys fall back to the app's initial. */
+  icon?: string;
+}
+
 export interface HexyrnAppManifest {
   /** Reverse-DNS, e.g. 'com.hexyrn.requisite'. Globally stable identifier. */
   appId: string;
@@ -83,6 +96,9 @@ export interface HexyrnAppManifest {
   majorVersion: number;
   requiresCoreVersion: string;
   description?: string;
+  brand?: AppBrand;
+  /** Internal/test apps (e.g. the reference app) are never shown in the suite launcher. */
+  internal?: boolean;
 
   permissions?: PermissionDeclaration[];
   capabilities?: CapabilityDeclaration[];

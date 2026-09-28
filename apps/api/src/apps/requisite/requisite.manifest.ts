@@ -17,6 +17,7 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
   requiresCoreVersion: '^0.1.0',
   description:
     'Purchasing and procurement control: requisitions, approvals, purchase orders, and goods receipt.',
+  brand: { color: '#0f766e', icon: 'cart' },
 
   permissions: [
     { key: 'requisite.suppliers.view', label: 'View suppliers' },
