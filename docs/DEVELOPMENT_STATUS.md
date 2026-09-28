@@ -1,8 +1,43 @@
 # Development Status and Handoff
 
-Last updated: 2026-09-28 (suite launcher + design system added). Read this first; it supersedes the "what remains" lists in
+Last updated: 2026-09-28 (Windows-only deployment round). Read this first; it supersedes the "what remains" lists in
 `P3-FINAL-INTERIM-REPORT.md` and `P3-ENVIRONMENT-VERIFICATION.md` where they differ, and those two files remain the
 detailed record of P3 verification.
+
+## Windows deployment (current focus) - status as of 2026-09-28
+
+**Requisite is a Windows-only product for customers: `Requisite-Setup.exe`. Docker is internal (development, CI,
+integration/PostgreSQL testing) and is not a supported customer deployment.** Customer instructions:
+`docs/INSTALL_WINDOWS.md`. How it is tested and what each layer proves: `docs/WINDOWS_TESTING.md`. Signing:
+`docs/WINDOWS_SIGNING.md`.
+
+**The Windows installer is NOT declared production-ready.** The mandatory clean-VM run (install, reboot, service
+recovery, upgrade, uninstall, reinstall) has **not been executed** - this environment is Linux and cannot build the MSI
+or run Windows services. What has been executed, and what has not:
+
+| Area                | Executed here (Linux)                                                                                                                                                                                                                                                          | Not executed (needs a clean Windows VM)                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Application         | 79 suites / 563 API tests, 37 web tests, 4 Playwright E2E, lint/tsc/prettier clean                                                                                                                                                                                             | -                                                                                             |
+| First-run journey   | 25-step real-browser journey against a simulated install (setup link, licence file, MFA + recovery code, invitation + RBAC, backup/damage/restore, service restart)                                                                                                            | Same journey on Windows                                                                       |
+| Provisioning script | Real `provision-postgres.ps1` under PowerShell 7: fresh install, upgrade with new migration (pre-upgrade dump, secrets untouched), repair, both refusal guards. **Found and fixed a bug that would have failed every fresh install** (role check used `-notmatch` on an array) | Same on Windows with PostgreSQL 17                                                            |
+| Installer authoring | WiX schema check of Product.wxs/Bundle.wxs (only Linux path artefacts remain); source validator; service wiring rules                                                                                                                                                          | `wix build` of the MSI/bundle, ICE validation, install/uninstall on Windows                   |
+| Services            | Definitions validated (WinSW for the app, `pg_ctl runservice` for PostgreSQL, virtual accounts, Automatic start, dependency, restart on failure)                                                                                                                               | Actual start, reboot, kill-and-recover                                                        |
+| Acceptance harness  | API half run against the simulation (19 checks) incl. TOTP client verified to RFC 6238 vectors                                                                                                                                                                                 | Windows half (services, ACLs, ports, firewall, reboot, upgrade, uninstall, reinstall, repair) |
+
+Decisions and changes made in this round: real service hosts (node.exe/postgres.exe cannot be services); app reads
+its settings from a protected `hexyrn.env` and serves the web app itself; setup code delivered in the URL fragment,
+never printed when a token file is configured; **licence signing code and all private keys moved out of customer
+builds** (`src/vendor-tools/`, excluded from `tsc`, enforced by a test; release-signing test private keys likewise);
+production refuses the test licence key; starter roles on first activation; Users, account-security (MFA) and
+invitation pages; offline password recovery (`Reset-Password.ps1`); optional HTTPS + LAN tool
+(`Enable-LanAccess.ps1`, firewall rule only on request); support bundle with secret redaction; uninstall keeps data
+(separate typed-DELETE tool removes it); unsigned test builds are named `Requisite-Setup-UNSIGNED-TEST.exe`, and
+`-Release` refuses to build without a signing certificate.
+
+Known limitations: no QR code for MFA (manual key or `otpauth://` link); invitations are links the admin sends (no
+email delivery); changing the web port after install is not supported by the Start Menu shortcut (it defaults to
+3000); the new CI job `windows-deployment-sim` has not yet run on GitHub; SMTP send was not tested against a real mail
+server; the Authenticode certificate is Hexyrn's to obtain.
 
 ## What this is
 
@@ -18,8 +53,8 @@ VM, a real GitHub Actions runner, or a business/legal decision has been proven; 
 | Check                                                           | Result                                                                                                                                              |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run build` / `typecheck` / `lint`                          | pass (1 pre-existing warning: unused `_signingKeyId` in `release-verifier.ts`)                                                                      |
-| Backend Jest (`apps/api`)                                       | **71/71 suites, 523/523 tests** (Node 22; Node 20.20.2 was verified before the launcher/deployment work, and the production containers run Node 20) |
-| Web Vitest                                                      | **33/33 tests** in 7 files                                                                                                                          |
+| Backend Jest (`apps/api`)                                       | **79/79 suites, 563/563 tests** (Node 22; Node 20.20.2 was verified before the launcher/deployment work, and the production containers run Node 20) |
+| Web Vitest                                                      | **37/37 tests** in 8 files                                                                                                                          |
 | Playwright E2E (`e2e/`)                                         | **4/4**: full purchasing lifecycle, 2 session-lifecycle tests, suite-launcher test                                                                  |
 | Migrations                                                      | 33 apply to an empty DB; second run is a no-op                                                                                                      |
 | `npm audit --omit=dev`                                          | **0 vulnerabilities** (was 1 critical / 4 high / 7 moderate)                                                                                        |

@@ -218,6 +218,41 @@ jobs:
           name: e2e-screenshots
           path: docs/screenshots/
 
+  # ---- Windows deployment checks that can run without a Windows installer build ----
+  windows-deployment-sim:
+    name: Windows deployment simulation (real provisioning script + first-run browser journey)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Install PostgreSQL 16 server binaries (stand-in for the bundled 17; the script guards on the version string only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16
+          sudo systemctl stop postgresql
+      - run: npm run build --workspaces --if-present
+      - run: npx playwright install --with-deps chromium
+      - name: Installer source checks
+        run: node scripts/windows/__tests__/validate-installer-source.js
+      - name: PowerShell script tests
+        shell: pwsh
+        run: |
+          ./scripts/windows/__tests__/provision-guards.tests.ps1
+          ./scripts/windows/__tests__/env-file-helpers.tests.ps1
+          ./scripts/windows/__tests__/support-bundle-redaction.tests.ps1
+          ./scripts/windows/acceptance/totp.tests.ps1
+      - name: Provisioning end to end (fresh, upgrade, repair, refusals)
+        run: sudo -E env "PATH=$PATH" NODE="$(which node)" PWSH="$(which pwsh)" bash scripts/windows/simulate/provision-e2e.sh /tmp/hxprov
+      - name: First-run browser journey against a simulated install
+        run: |
+          sudo -E env "PATH=$PATH" NODE="$(which node)" PWSH="$(which pwsh)" bash scripts/windows/simulate/sim-install.sh /tmp/hxsim
+          sudo -E env "PATH=$PATH" E2E_CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")" node scripts/windows/simulate/first-run-journey.js /tmp/hxsim
+
   # ---- Production build + packaging + signing + artifact hashing ----
   package-and-sign:
     name: Package, sign, hash artifacts

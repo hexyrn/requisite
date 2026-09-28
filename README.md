@@ -23,16 +23,21 @@ packages/
 docs/
   ARCHITECTURE.md       Frozen architecture spec
   decisions/             ADRs and the P0 deviations log
-  SETUP.md               This document's detail, dev environment
+  internal/SETUP.md      Developer environment detail
   BOOTSTRAP.md            First-run setup flow
 ```
 
-## Quick start
+## Installing (customers)
 
-**Deploying or just want to run it?** Follow **[`docs/internal/DEVELOPER_DOCKER_RUNBOOK.md`](docs/internal/DEVELOPER_DOCKER_RUNBOOK.md)** (Docker Compose, HTTPS, licensing, backups).
-The steps below are for local development.
+Requisite is a **Windows product**. Customers receive one file, `Requisite-Setup.exe`, and follow
+**[`docs/INSTALL_WINDOWS.md`](docs/INSTALL_WINDOWS.md)**. Nothing else has to be installed or configured.
 
-Prerequisites: Node.js 20+, Docker (for local Postgres).
+## Developing (Hexyrn engineers)
+
+Everything below is for working on the code, not for customer deployment. Docker is used here only for a local
+PostgreSQL and for CI/integration testing; it is not a supported way for customers to run Requisite.
+
+Prerequisites: Node.js 20+, and a PostgreSQL 17 (Docker is the easiest way to get one locally).
 
 ```bash
 git clone <this repo>
@@ -46,11 +51,12 @@ npm run dev:api                # http://localhost:3000
 npm run dev:web                # http://localhost:5173
 ```
 
-On first API boot, a one-time setup token is printed to the console and
-written to `bootstrap-token.txt` in the API's working directory. Visit
-`http://localhost:5173/setup`, enter the token, and complete the setup
-wizard to create your organisation and owner account. See
-`docs/BOOTSTRAP.md` for details.
+On first API boot a one-time setup token is printed to the console and written to `bootstrap-token.txt`. Visit
+`http://localhost:5173/setup#token=<token>` to create the organisation. See `docs/BOOTSTRAP.md`.
+
+Windows installer work: build with `scripts/windows/build-release.ps1` (see `docs/WINDOWS_SIGNING.md`), and test with
+the layers described in **[`docs/WINDOWS_TESTING.md`](docs/WINDOWS_TESTING.md)** — including the clean-VM acceptance
+script, which must pass on a real Windows VM before a release. Other internal docs live in `docs/internal/`.
 
 ## Tests
 

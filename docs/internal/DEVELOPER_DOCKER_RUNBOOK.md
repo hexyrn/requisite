@@ -4,7 +4,6 @@
 > (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
 > and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
 
-
 Three ways to run it. **Docker (A) is the supported deployment path** and the only one verified end to end.
 
 |                                    | For                                                 | Status                                        |

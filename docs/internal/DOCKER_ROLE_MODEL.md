@@ -4,7 +4,6 @@
 > (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
 > and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
 
-
 This file documents the Postgres role model introduced alongside
 `docker-compose.yml` and `docker/postgres-init/01-app-role.sh`, as part of
 P3 item 18's database-role security review. It is a starting point for the

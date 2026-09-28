@@ -4,7 +4,6 @@
 > (`Requisite-Setup.exe`, see [`../INSTALL_WINDOWS.md`](../INSTALL_WINDOWS.md)). Docker is used by Hexyrn for development, CI
 > and integration/PostgreSQL testing; it is **not** a supported customer deployment method.
 
-
 Operational checklist for deploying Hexyrn Core + Requisite to an actual
 paying customer, distinct from the general `docs/internal/OPERATOR_GUIDE.md`
 reference documentation - this is the sequence to follow, in order, once.

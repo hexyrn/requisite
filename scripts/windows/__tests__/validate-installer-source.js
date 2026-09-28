@@ -82,7 +82,7 @@ check('Product.wxs and Bundle.wxs are well-formed XML', () => {
 
 check('Installer source targets PostgreSQL 17, never 16', () => {
   const productWxs = read('installer/windows/Product.wxs');
-  const designDoc = read('docs/WINDOWS_INSTALLER_DESIGN.md');
+  const designDoc = read('docs/internal/WINDOWS_INSTALLER_DESIGN.md');
   assert(
     !/postgres(ql)?[\s:]*16\b/i.test(productWxs.replace(/PostgreSQL\/17/g, '')),
     'Product.wxs references PostgreSQL 16',
@@ -135,7 +135,7 @@ check('Service account is not the LocalSystem placeholder', () => {
 check(
   'WiX toolchain version is pinned to 4.0.6 in acceptance prep docs, not an unpinned "latest"',
   () => {
-    const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
+    const prep = read('docs/internal/WINDOWS_ACCEPTANCE_PREP.md');
     assert(
       /wix@4\.0\.6|--version 4\.0\.6/.test(prep),
       'WINDOWS_ACCEPTANCE_PREP.md does not pin the wix CLI install to 4.0.6',
@@ -178,8 +178,8 @@ check(
 check(
   'No test/dev-only signing or licence trust material referenced as if it were production in installer docs',
   () => {
-    const designDoc = read('docs/WINDOWS_INSTALLER_DESIGN.md');
-    const prep = read('docs/WINDOWS_ACCEPTANCE_PREP.md');
+    const designDoc = read('docs/internal/WINDOWS_INSTALLER_DESIGN.md');
+    const prep = read('docs/internal/WINDOWS_ACCEPTANCE_PREP.md');
     // The acceptance prep doc's signing step must reference a REAL cert/key
     // placeholder path, never the repo's own committed TEST keys.
     assert(

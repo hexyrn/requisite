@@ -59,12 +59,12 @@ that appears (it works once). They choose their own password.
 
 Roles decide what people can do. Requisite comes with:
 
-| Role                      | Intended for                                                  |
-| ------------------------- | ------------------------------------------------------------- |
-| Owner                     | Full access, including Administration, licences and users     |
-| Requisite - Requester     | Raise and submit requisitions; view suppliers and orders      |
-| Requisite - Approver      | Review and approve requisitions; view orders and reports      |
-| Requisite - Buyer         | Manage suppliers, purchase orders, receipts, RFQs and reports |
+| Role                  | Intended for                                                  |
+| --------------------- | ------------------------------------------------------------- |
+| Owner                 | Full access, including Administration, licences and users     |
+| Requisite - Requester | Raise and submit requisitions; view suppliers and orders      |
+| Requisite - Approver  | Review and approve requisitions; view orders and reports      |
+| Requisite - Buyer     | Manage suppliers, purchase orders, receipts, RFQs and reports |
 
 A licence switches Requisite on for your organisation; it never gives anyone extra permissions. What a person
 can do is decided only by their role.
@@ -129,20 +129,20 @@ administrator runs, in an administrator PowerShell:
   `& "C:\Program Files\Hexyrn Core\scripts\Get-SupportBundle.ps1"` from an administrator PowerShell, creates a zip
   of logs and status for Hexyrn support. Passwords, keys and your data are not included.
 
-| Problem                                           | What to do                                                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| The browser says the page can't be reached        | Wait a minute after starting the computer, then try again. Open **Services** and check that **Requisite Database (PostgreSQL)** and **Requisite** are *Running*; start the database first, then Requisite. |
-| The installer says another program uses port 3000 | Run `Requisite-Setup.exe HEXYRNWEBPORT=8080` from a Command Prompt (choose any free port).             |
-| Someone is locked out or forgot their password    | An administrator runs `& "C:\Program Files\Hexyrn Core\scripts\Reset-Password.ps1" -Email person@company.com` from an administrator PowerShell and types a new password. |
-| You lost your phone (two-factor)                  | Sign in with a recovery code, or ask an administrator to reset your two-factor sign-in.               |
+| Problem                                           | What to do                                                                                                                                                                                                 |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The browser says the page can't be reached        | Wait a minute after starting the computer, then try again. Open **Services** and check that **Requisite Database (PostgreSQL)** and **Requisite** are _Running_; start the database first, then Requisite. |
+| The installer says another program uses port 3000 | Run `Requisite-Setup.exe HEXYRNWEBPORT=8080` from a Command Prompt (choose any free port).                                                                                                                 |
+| Someone is locked out or forgot their password    | An administrator runs `& "C:\Program Files\Hexyrn Core\scripts\Reset-Password.ps1" -Email person@company.com` from an administrator PowerShell and types a new password.                                   |
+| You lost your phone (two-factor)                  | Sign in with a recovery code, or ask an administrator to reset your two-factor sign-in.                                                                                                                    |
 
 ## Where things are
 
-| What                          | Where                                                     |
-| ----------------------------- | --------------------------------------------------------- |
-| Program                       | `C:\Program Files\Hexyrn Core`                            |
-| Your data, backups, logs      | `C:\ProgramData\Hexyrn Core` (`backups`, `logs`, …)       |
-| Windows services              | **Requisite** and **Requisite Database (PostgreSQL)**     |
-| Start menu                    | **Requisite**                                             |
+| What                     | Where                                                 |
+| ------------------------ | ----------------------------------------------------- |
+| Program                  | `C:\Program Files\Hexyrn Core`                        |
+| Your data, backups, logs | `C:\ProgramData\Hexyrn Core` (`backups`, `logs`, …)   |
+| Windows services         | **Requisite** and **Requisite Database (PostgreSQL)** |
+| Start menu               | **Requisite**                                         |
 
 For IT administrators: `Requisite-Setup.exe /quiet` installs silently (add `/log install.log` for a log).
