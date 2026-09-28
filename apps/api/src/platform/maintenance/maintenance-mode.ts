@@ -46,7 +46,10 @@ export function isMaintenanceModeActive(): boolean {
 /** Sets the in-memory flag AND persists it - called by update.controller.ts's enter/exitMaintenanceMode callbacks. */
 export async function setMaintenanceMode(pool: Pool, active: boolean): Promise<void> {
   maintenanceModeActive = active;
-  await pool.query(`UPDATE installations SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{maintenanceMode}', $1::jsonb, true)`, [JSON.stringify(active)]);
+  await pool.query(
+    `UPDATE installations SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{maintenanceMode}', $1::jsonb, true)`,
+    [JSON.stringify(active)],
+  );
 }
 
 /** Test-only escape hatches - production code should only ever go through setMaintenanceMode above (which also persists to Postgres). These exist purely so checkMaintenanceMode's routing logic can be unit-tested without a database. */
@@ -57,7 +60,16 @@ export function setMaintenanceModeFlagForTests(active: boolean): void {
   maintenanceModeActive = active;
 }
 
-const ALLOWED_PATH_PREFIXES = ['/api/v1/health', '/api/v1/system/health', '/api/v1/system/diagnostics', '/api/v1/backup', '/api/v1/update', '/api/v1/support-bundle', '/api/v1/auth/login', '/api/v1/auth/logout'];
+const ALLOWED_PATH_PREFIXES = [
+  '/api/v1/health',
+  '/api/v1/system/health',
+  '/api/v1/system/diagnostics',
+  '/api/v1/backup',
+  '/api/v1/update',
+  '/api/v1/support-bundle',
+  '/api/v1/auth/login',
+  '/api/v1/auth/logout',
+];
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -76,6 +88,7 @@ export function checkMaintenanceMode(method: string, path: string): MaintenanceC
 export const MAINTENANCE_RESPONSE_BODY = {
   statusCode: 503,
   error: 'Service Unavailable',
-  message: 'Hexyrn is currently in maintenance mode (an update or restore is in progress). Please try again shortly.',
+  message:
+    'Hexyrn is currently in maintenance mode (an update or restore is in progress). Please try again shortly.',
   maintenanceMode: true,
 };

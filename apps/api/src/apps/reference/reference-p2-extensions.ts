@@ -42,9 +42,30 @@ export async function registerReferenceAppP2Extensions(
       isExportable: true,
       fields: [
         { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
-        { key: 'widget_number', label: 'Widget Number', fieldType: 'string', isDimension: true, filterable: true, sortable: true },
-        { key: 'title', label: 'Title', fieldType: 'string', isDimension: true, filterable: true, sortable: true, searchable: true },
-        { key: 'created_at', label: 'Created At', fieldType: 'string', isDimension: true, sortable: true },
+        {
+          key: 'widget_number',
+          label: 'Widget Number',
+          fieldType: 'string',
+          isDimension: true,
+          filterable: true,
+          sortable: true,
+        },
+        {
+          key: 'title',
+          label: 'Title',
+          fieldType: 'string',
+          isDimension: true,
+          filterable: true,
+          sortable: true,
+          searchable: true,
+        },
+        {
+          key: 'created_at',
+          label: 'Created At',
+          fieldType: 'string',
+          isDimension: true,
+          sortable: true,
+        },
       ],
     },
     pool,
@@ -62,22 +83,69 @@ export async function registerReferenceAppP2Extensions(
         { key: 'id', label: 'ID', fieldType: 'string', isDimension: true },
         { key: 'widget_id', label: 'Widget ID', fieldType: 'string', isDimension: true },
         { key: 'note_text', label: 'Note', fieldType: 'string', isDimension: true },
-        { key: 'note_value', label: 'Value', fieldType: 'number', isMeasure: true, allowedAggregations: ['sum', 'avg', 'count', 'min', 'max'] },
+        {
+          key: 'note_value',
+          label: 'Value',
+          fieldType: 'number',
+          isMeasure: true,
+          allowedAggregations: ['sum', 'avg', 'count', 'min', 'max'],
+        },
       ],
     },
     pool,
   );
 
-  await datasets.registerRelationship('reference.widgets', 'id', 'reference.widget_notes', 'widget_id', 'one-to-many', 'widget_notes', pool);
-
-  await withNoOrgContext(
-    (db) => savedReports.registerTemplate('reference.widgets_by_status', APP_ID, 'All Reference Widgets', 'reference.widgets', { datasetKey: 'reference.widgets', fields: ['widget_number', 'title', 'created_at'], sort: [{ field: 'created_at', direction: 'desc' }] }, db),
+  await datasets.registerRelationship(
+    'reference.widgets',
+    'id',
+    'reference.widget_notes',
+    'widget_id',
+    'one-to-many',
+    'widget_notes',
     pool,
   );
 
-  await dashboards.registerWidget({ widgetKey: 'reference.widget-count-kpi', appId: APP_ID, displayName: 'Total Widgets', widgetType: 'kpi', datasetKey: 'reference.widgets', defaultConfig: { aggregations: [{ field: 'id', fn: 'count', alias: 'total' }] } }, pool);
+  await withNoOrgContext(
+    (db) =>
+      savedReports.registerTemplate(
+        'reference.widgets_by_status',
+        APP_ID,
+        'All Reference Widgets',
+        'reference.widgets',
+        {
+          datasetKey: 'reference.widgets',
+          fields: ['widget_number', 'title', 'created_at'],
+          sort: [{ field: 'created_at', direction: 'desc' }],
+        },
+        db,
+      ),
+    pool,
+  );
 
-  await withNoOrgContext((db) => search.registerEntityType(db, 'reference.widget', APP_ID, 'reference.widget.view', '{title}', '/reference/widgets/{id}'), pool);
+  await dashboards.registerWidget(
+    {
+      widgetKey: 'reference.widget-count-kpi',
+      appId: APP_ID,
+      displayName: 'Total Widgets',
+      widgetType: 'kpi',
+      datasetKey: 'reference.widgets',
+      defaultConfig: { aggregations: [{ field: 'id', fn: 'count', alias: 'total' }] },
+    },
+    pool,
+  );
+
+  await withNoOrgContext(
+    (db) =>
+      search.registerEntityType(
+        db,
+        'reference.widget',
+        APP_ID,
+        'reference.widget.view',
+        '{title}',
+        '/reference/widgets/{id}',
+      ),
+    pool,
+  );
 
   await withNoOrgContext(
     (db) =>
@@ -88,8 +156,22 @@ export async function registerReferenceAppP2Extensions(
     pool,
   );
   importHandlers.register('reference.widget', async (db, organisationId, row) => {
-    await db.insertInto('reference_widgets').values({ organisation_id: organisationId, widget_number: String(row.widgetNumber), title: String(row.title) }).execute();
+    await db
+      .insertInto('reference_widgets')
+      .values({
+        organisation_id: organisationId,
+        widget_number: String(row.widgetNumber),
+        title: String(row.title),
+      })
+      .execute();
   });
 
-  await withNoOrgContext((db) => eventSchemas.registerSchema(db, 'reference.widget.approved', 1, APP_ID, { required: ['widgetId'], properties: { widgetId: 'string' } }), pool);
+  await withNoOrgContext(
+    (db) =>
+      eventSchemas.registerSchema(db, 'reference.widget.approved', 1, APP_ID, {
+        required: ['widgetId'],
+        properties: { widgetId: 'string' },
+      }),
+    pool,
+  );
 }

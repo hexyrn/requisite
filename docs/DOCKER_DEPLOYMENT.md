@@ -14,10 +14,10 @@ implications are tracked separately and not all written up here.
 runs `docker/postgres-init/01-app-role.sh` on first container init, which
 creates a second role, `hexyrn_app`:
 
-| Role | Privileges | Used for | Env var |
-|---|---|---|---|
-| `hexyrn` | Superuser (image default), owns every table after migrations run | `npm run migrate` only | `MIGRATE_DATABASE_URL` |
-| `hexyrn_app` | `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`, granted `SELECT/INSERT/UPDATE/DELETE` via default privileges | The running API server, always | `DATABASE_URL` |
+| Role         | Privileges                                                                                                      | Used for                       | Env var                |
+| ------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------------- |
+| `hexyrn`     | Superuser (image default), owns every table after migrations run                                                | `npm run migrate` only         | `MIGRATE_DATABASE_URL` |
+| `hexyrn_app` | `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`, granted `SELECT/INSERT/UPDATE/DELETE` via default privileges | The running API server, always | `DATABASE_URL`         |
 
 **Why two roles:** Architecture §8's entire RLS design assumes the
 connecting role cannot bypass row-level security. A superuser always can,

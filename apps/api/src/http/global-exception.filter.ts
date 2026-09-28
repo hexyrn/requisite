@@ -43,7 +43,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const body = exception.getResponse();
-      const normalized = typeof body === 'string' ? { message: body } : (body as Record<string, unknown>);
+      const normalized =
+        typeof body === 'string' ? { message: body } : (body as Record<string, unknown>);
 
       logStructured({
         event: 'http.request.error',

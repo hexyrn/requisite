@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { HexyrnAppContext } from '@hexyrn/app-sdk';
 import { Database } from '../../db/types';
@@ -44,8 +50,17 @@ export interface GeneratePoInput {
 export class PurchaseOrderService {
   constructor(private readonly onboarding: RequisiteOnboardingService) {}
 
-  private computeTotals(lines: PoLineInput[], carriageMinor: bigint): { lines: { line: PoLineInput; lineTotalMinor: bigint }[]; subtotalMinor: bigint; taxMinor: bigint; totalMinor: bigint } {
-    if (lines.length === 0) throw new BadRequestException('A purchase order must have at least one line.');
+  private computeTotals(
+    lines: PoLineInput[],
+    carriageMinor: bigint,
+  ): {
+    lines: { line: PoLineInput; lineTotalMinor: bigint }[];
+    subtotalMinor: bigint;
+    taxMinor: bigint;
+    totalMinor: bigint;
+  } {
+    if (lines.length === 0)
+      throw new BadRequestException('A purchase order must have at least one line.');
     const computed = lines.map((line) => {
       const unitPrice = BigInt(line.unitPriceMinor || '0');
       const qty = line.quantityOrdered;
@@ -56,8 +71,15 @@ export class PurchaseOrderService {
       return { line, lineTotalMinor };
     });
     const subtotalMinor = sumMinor(computed.map((c) => c.lineTotalMinor));
-    const taxMinor = sumMinor(computed.map((c) => applyTaxRateBp(c.lineTotalMinor, c.line.taxRateBp ?? 0)));
-    return { lines: computed, subtotalMinor, taxMinor, totalMinor: subtotalMinor + taxMinor + carriageMinor };
+    const taxMinor = sumMinor(
+      computed.map((c) => applyTaxRateBp(c.lineTotalMinor, c.line.taxRateBp ?? 0)),
+    );
+    return {
+      lines: computed,
+      subtotalMinor,
+      taxMinor,
+      totalMinor: subtotalMinor + taxMinor + carriageMinor,
+    };
   }
 
   /**
@@ -68,15 +90,28 @@ export class PurchaseOrderService {
    * multiple times / by omitting requisitionId - deliberately not
    * over-built into a single "smart" consolidation call for v1.
    */
-  async generateFromRequisition(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string, input: GeneratePoInput) {
+  async generateFromRequisition(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId: string,
+    input: GeneratePoInput,
+  ) {
     await this.onboarding.onboardOrganisation(db, ctx.organisationId);
 
-    const requisition = await db.selectFrom('requisite_requisitions').selectAll().where('id', '=', requisitionId).where('organisation_id', '=', ctx.organisationId).executeTakeFirst();
+    const requisition = await db
+      .selectFrom('requisite_requisitions')
+      .selectAll()
+      .where('id', '=', requisitionId)
+      .where('organisation_id', '=', ctx.organisationId)
+      .executeTakeFirst();
     if (!requisition) throw new NotFoundException('Requisition not found.');
     if (requisition.status !== 'approved') {
       // PO generation without approval - item 41 security review concern,
       // enforced here server-side regardless of caller.
-      throw new ForbiddenException(`Cannot generate a purchase order from a requisition in status "${requisition.status}" - it must be "approved".`);
+      throw new ForbiddenException(
+        `Cannot generate a purchase order from a requisition in status "${requisition.status}" - it must be "approved".`,
+      );
     }
 
     // Item 39 - duplicate PO generation race: atomically CLAIM the
@@ -99,15 +134,26 @@ export class PurchaseOrderService {
       .returningAll()
       .executeTakeFirst();
     if (!claimed) {
-      throw new ConflictException('A purchase order has already been generated from this requisition (or its status changed concurrently).');
+      throw new ConflictException(
+        'A purchase order has already been generated from this requisition (or its status changed concurrently).',
+      );
     }
 
-    const supplier = await db.selectFrom('requisite_suppliers').selectAll().where('id', '=', input.supplierId).where('organisation_id', '=', ctx.organisationId).executeTakeFirst();
+    const supplier = await db
+      .selectFrom('requisite_suppliers')
+      .selectAll()
+      .where('id', '=', input.supplierId)
+      .where('organisation_id', '=', ctx.organisationId)
+      .executeTakeFirst();
     if (!supplier) throw new NotFoundException('Supplier not found.');
-    if (supplier.status !== 'active') throw new BadRequestException('Cannot issue a purchase order to an inactive supplier.');
+    if (supplier.status !== 'active')
+      throw new BadRequestException('Cannot issue a purchase order to an inactive supplier.');
 
     const carriageMinor = BigInt(input.carriageMinor || '0');
-    const { lines, subtotalMinor, taxMinor, totalMinor } = this.computeTotals(input.lines, carriageMinor);
+    const { lines, subtotalMinor, taxMinor, totalMinor } = this.computeTotals(
+      input.lines,
+      carriageMinor,
+    );
 
     const poNumber = await ctx.numbering.next(db, 'purchase-order');
     const po = await db
@@ -158,8 +204,25 @@ export class PurchaseOrderService {
     }
 
     await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'ordered', actorUserAccountId);
-    await ctx.events.publish(db, 'requisite.purchase-order.created.v1', { purchaseOrderId: po.id, poNumber: po.po_number, requisitionId, supplierId: input.supplierId }, 1);
-    await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.purchase_order_created', `PO created: ${po.po_number}`, `A purchase order has been generated from your requisition "${requisition.reason}".`, { type: 'requisite_purchase_order', id: po.id });
+    await ctx.events.publish(
+      db,
+      'requisite.purchase-order.created.v1',
+      {
+        purchaseOrderId: po.id,
+        poNumber: po.po_number,
+        requisitionId,
+        supplierId: input.supplierId,
+      },
+      1,
+    );
+    await ctx.notifications.send(
+      db,
+      requisition.requester_user_account_id,
+      'requisite.purchase_order_created',
+      `PO created: ${po.po_number}`,
+      `A purchase order has been generated from your requisition "${requisition.reason}".`,
+      { type: 'requisite_purchase_order', id: po.id },
+    );
 
     return this.getPurchaseOrder(db, ctx.organisationId, po.id);
   }
@@ -170,10 +233,18 @@ export class PurchaseOrderService {
    * the same PO simultaneously - only one atomic UPDATE...WHERE version=$N
    * can succeed.
    */
-  async issue(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, purchaseOrderId: string, expectedVersion: number) {
+  async issue(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    purchaseOrderId: string,
+    expectedVersion: number,
+  ) {
     const po = await this.getPurchaseOrderRaw(db, ctx.organisationId, purchaseOrderId);
     if (po.status !== 'draft') {
-      throw new ForbiddenException(`Cannot issue a purchase order in status "${po.status}" - only draft purchase orders may be issued.`);
+      throw new ForbiddenException(
+        `Cannot issue a purchase order in status "${po.status}" - only draft purchase orders may be issued.`,
+      );
     }
     const result = await db
       .updateTable('requisite_purchase_orders')
@@ -184,9 +255,16 @@ export class PurchaseOrderService {
       .returningAll()
       .executeTakeFirst();
     if (!result) {
-      throw new ConflictException('This purchase order was already modified (e.g. issued by another request) - reload and try again.');
+      throw new ConflictException(
+        'This purchase order was already modified (e.g. issued by another request) - reload and try again.',
+      );
     }
-    await ctx.events.publish(db, 'requisite.purchase-order.issued.v1', { purchaseOrderId, poNumber: po.po_number, supplierId: po.supplier_id }, 1);
+    await ctx.events.publish(
+      db,
+      'requisite.purchase-order.issued.v1',
+      { purchaseOrderId, poNumber: po.po_number, supplierId: po.supplier_id },
+      1,
+    );
     return result;
   }
 
@@ -195,22 +273,43 @@ export class PurchaseOrderService {
     if (!['draft', 'issued'].includes(po.status)) {
       throw new ForbiddenException(`Cannot cancel a purchase order in status "${po.status}".`);
     }
-    return db.updateTable('requisite_purchase_orders').set({ status: 'cancelled', updated_at: new Date() as any }).where('id', '=', purchaseOrderId).where('organisation_id', '=', organisationId).returningAll().executeTakeFirstOrThrow();
+    return db
+      .updateTable('requisite_purchase_orders')
+      .set({ status: 'cancelled', updated_at: new Date() as any })
+      .where('id', '=', purchaseOrderId)
+      .where('organisation_id', '=', organisationId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 
   async getPurchaseOrderRaw(db: Kysely<Database>, organisationId: string, purchaseOrderId: string) {
-    const po = await db.selectFrom('requisite_purchase_orders').selectAll().where('id', '=', purchaseOrderId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const po = await db
+      .selectFrom('requisite_purchase_orders')
+      .selectAll()
+      .where('id', '=', purchaseOrderId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!po) throw new NotFoundException('Purchase order not found.');
     return po;
   }
 
   async getPurchaseOrder(db: Kysely<Database>, organisationId: string, purchaseOrderId: string) {
     const po = await this.getPurchaseOrderRaw(db, organisationId, purchaseOrderId);
-    const lines = await db.selectFrom('requisite_purchase_order_lines').selectAll().where('purchase_order_id', '=', purchaseOrderId).orderBy('line_number', 'asc').execute();
+    const lines = await db
+      .selectFrom('requisite_purchase_order_lines')
+      .selectAll()
+      .where('purchase_order_id', '=', purchaseOrderId)
+      .orderBy('line_number', 'asc')
+      .execute();
     return { ...po, lines };
   }
 
   async listPurchaseOrders(db: Kysely<Database>, organisationId: string) {
-    return db.selectFrom('requisite_purchase_orders').selectAll().where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').execute();
+    return db
+      .selectFrom('requisite_purchase_orders')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .orderBy('created_at', 'desc')
+      .execute();
   }
 }

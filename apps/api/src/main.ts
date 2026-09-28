@@ -3,7 +3,10 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { GlobalExceptionFilter } from './http/global-exception.filter';
-import { checkMaintenanceMode, MAINTENANCE_RESPONSE_BODY } from './platform/maintenance/maintenance-mode';
+import {
+  checkMaintenanceMode,
+  MAINTENANCE_RESPONSE_BODY,
+} from './platform/maintenance/maintenance-mode';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
@@ -13,9 +16,15 @@ import { ApplicationRegistryService } from './platform/app-registry/application-
 import { registerReferenceApp } from './apps/reference/reference.manifest';
 import { registerRequisiteApp } from './apps/requisite/requisite.manifest';
 import { registerRequisiteP2Extensions } from './apps/requisite/requisite-p2-extensions';
-import { DeliveryMonitoringService, DELIVERY_MONITORING_JOB_TYPE } from './apps/requisite/delivery-monitoring.service';
+import {
+  DeliveryMonitoringService,
+  DELIVERY_MONITORING_JOB_TYPE,
+} from './apps/requisite/delivery-monitoring.service';
 import { JobHandlerRegistryService } from './platform/scheduling/scheduled-job.service';
-import { ScheduledReportService, SCHEDULED_REPORT_JOB_TYPE } from './platform/reporting/scheduled-report.service';
+import {
+  ScheduledReportService,
+  SCHEDULED_REPORT_JOB_TYPE,
+} from './platform/reporting/scheduled-report.service';
 import { ConnectorRegistryService } from './platform/integrations/connector-registry.service';
 import { SyncAdapterRegistryService } from './platform/integrations/sync-adapter-registry.service';
 import { SyncHandlerRegistryService } from './platform/integrations/sync-row-handler';
@@ -166,12 +175,18 @@ async function bootstrap() {
   // Requisite delivery-monitoring reminders (item 18) - same scheduling-
   // engine reuse pattern as scheduled reports above.
   const deliveryMonitoring = app.get(DeliveryMonitoringService);
-  jobHandlers.register(DELIVERY_MONITORING_JOB_TYPE, (db, organisationId) => deliveryMonitoring.runCheck(db, organisationId).then(() => undefined));
+  jobHandlers.register(DELIVERY_MONITORING_JOB_TYPE, (db, organisationId) =>
+    deliveryMonitoring.runCheck(db, organisationId).then(() => undefined),
+  );
 
   // Registers the reference connector (P2 item 27) the same way the
   // reference app itself is registered above - a compiled-in demonstration
   // of the Integration Framework/Sync Engine end to end.
-  await registerReferenceConnector(app.get(ConnectorRegistryService), app.get(SyncAdapterRegistryService), app.get(SyncHandlerRegistryService));
+  await registerReferenceConnector(
+    app.get(ConnectorRegistryService),
+    app.get(SyncAdapterRegistryService),
+    app.get(SyncHandlerRegistryService),
+  );
 
   // Registers com.hexyrn.reference against every P2 extension point
   // (P2 item 26) - dataset/relationship, saved report template, dashboard

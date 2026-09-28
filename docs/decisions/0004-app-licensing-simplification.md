@@ -1,15 +1,18 @@
 # ADR 0004: Simplified license verification in P1
 
 ## Status
+
 Accepted (P1), documented simplification.
 
 ## What Architecture v1.0 §9 specifies
+
 A signed license file, asymmetrically verified against an embedded public
 key, with `signature_valid_at` recording when that verification last
 succeeded. Once recorded, a license is durable local state - re-verification
 is a pure local cryptographic check, never a network call.
 
 ## What P1 actually implements
+
 `ApplicationRegistryService.grantLicense()` accepts a `licensePayload`
 object, checks only that it is a non-null object, and records
 `signature_valid_at = now()`. **No asymmetric signature verification is
@@ -17,7 +20,8 @@ performed.** There is no embedded public key, no signing tooling, and no
 verification step beyond "is this a plausible object."
 
 ## Why
-P1's job is the *platform mechanism* - the three-property model (license /
+
+P1's job is the _platform mechanism_ - the three-property model (license /
 compatibility / support) as independent, non-conflated state, the data
 shape, and every consumer of that state (`getApplicationState`,
 `ApplicationActiveGuard`, the capability resolver, the event dispatcher)
@@ -27,12 +31,13 @@ service, embedding a public key in the Core build, and a verification
 routine with proper failure handling) is a separable, security-sensitive
 piece of work with no dependency on anything else in P1 - none of the P1
 acceptance criteria require it to be cryptographically real, only that the
-*mechanism* (a license record independently gates activation, survives
+_mechanism_ (a license record independently gates activation, survives
 compatibility failures, isn't destroyed by installing a newer major
 version) works correctly, which is fully testable and tested
 (`app-registry.integration.spec.ts`) without real signatures.
 
 ## Consequences
+
 - Any caller of `grantLicense` can currently "license" any app for any
   organisation - there is no cryptographic barrier preventing a
   self-hosted operator (or, more importantly, application code with access
@@ -50,6 +55,7 @@ version) works correctly, which is fully testable and tested
   optional polish.
 
 ## Migration path
+
 1. Add a real signing tool (offline, Hexyrn-side) producing a payload +
    detached signature.
 2. Embed the corresponding public key in the Core build (environment/

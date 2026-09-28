@@ -6,7 +6,7 @@ Status: **FROZEN.** This is the approved architecture for Hexyrn Core v1. The de
 
 ## 1. Scoped Authorisation
 
-**Decision: no `role_scope_conditions` table in v1.** Scoping is deferred as a *designed extension point*, not a placeholder schema.
+**Decision: no `role_scope_conditions` table in v1.** Scoping is deferred as a _designed extension point_, not a placeholder schema.
 
 **v1 model (unchanged):** `permissions` are flat strings (`requisite.requisitions.approve`). `roles` grant permissions organisation-wide. `PermissionGuard` checks "does this user hold this permission," full stop.
 
@@ -20,10 +20,11 @@ Status: **FROZEN.** This is the approved architecture for Hexyrn Core v1. The de
 - Reporting/search/export scoping (§11 in Rev 1) goes through the same evaluator, so scoped conditions automatically apply to aggregates once introduced — the "Manchester totals" leak concern stays closed under the future model, not just the flat one.
 
 **Path to the examples given:**
-- *Org-unit-limited access* → context carries the target record's `organisationalUnitId`; future evaluator checks it against the role's granted unit set (which may include "and descendants").
-- *Location-limited access* → same pattern with `locationId`.
-- *Approval ceiling* → context carries `amount`; future evaluator checks it against a per-role/permission ceiling.
-- *Combinations* → the future rule row supports multiple condition clauses ANDed together; this is a detail of the scope model's internal design, not something the calling code needs to know about, because callers only ever pass raw context and get a boolean back.
+
+- _Org-unit-limited access_ → context carries the target record's `organisationalUnitId`; future evaluator checks it against the role's granted unit set (which may include "and descendants").
+- _Location-limited access_ → same pattern with `locationId`.
+- _Approval ceiling_ → context carries `amount`; future evaluator checks it against a per-role/permission ceiling.
+- _Combinations_ → the future rule row supports multiple condition clauses ANDed together; this is a detail of the scope model's internal design, not something the calling code needs to know about, because callers only ever pass raw context and get a boolean back.
 
 This is deferred correctly: nothing in v1 forecloses it, and nothing in v1 guesses at its shape.
 
@@ -74,7 +75,7 @@ CREATE INDEX ix_cfv_values_gin ON custom_field_values USING GIN (values jsonb_pa
 
 ```ts
 interface CustomFieldQueryProvider {
-  expression(fieldDefinition: CustomFieldDefinition): SqlExpression;   // typed, castable reference to this field's value
+  expression(fieldDefinition: CustomFieldDefinition): SqlExpression; // typed, castable reference to this field's value
   filterCondition(fieldDefinition, operator, value): SqlCondition;
   sortExpression(fieldDefinition, direction): SqlExpression;
   groupExpression(fieldDefinition): SqlExpression;
@@ -117,6 +118,7 @@ Because the index expression and the query-generation expression are generated f
 **100,000 assets, 20 custom fields:** one row per asset in `custom_field_values`, one JSONB document per row holding all 20 keys — 100,000 rows total, not 2,000,000 (EAV would produce the latter).
 
 **Filter assets by a custom select field** (`warranty_status = 'active'`) — via `CustomFieldQueryProvider.filterCondition()`:
+
 ```sql
 SELECT a.* FROM assets a
 JOIN custom_field_values cfv
@@ -124,14 +126,17 @@ JOIN custom_field_values cfv
 WHERE cfv.organisation_id = :org
   AND (cfv.values->>'warranty_status') = 'active';
 ```
+
 Backed by the GIN index for broad containment-style filters, or a targeted expression index (2.2) if this specific field is high-traffic.
 
 **Sort by a custom numeric field** (`purchase_cost`) — via `sortExpression()`:
+
 ```sql
 ... ORDER BY ((cfv.values->>'purchase_cost')::numeric) DESC;
 ```
 
 **Group/report by a custom field, sum grouped by project code** — via `groupExpression()` + `expression()`:
+
 ```sql
 SELECT (cfv.values->>'project_code') AS project_code,
        SUM((cfv.values->>'purchase_cost')::numeric) AS total_cost
@@ -139,19 +144,20 @@ FROM custom_field_values cfv
 WHERE cfv.organisation_id = :org AND cfv.entity_type = 'asset'
 GROUP BY (cfv.values->>'project_code');
 ```
+
 The Reporting engine (§11) builds this by calling the provider once per reportable field it needs — it never constructs the JSONB path itself.
 
 **Indexing frequently queried fields:** targeted expression indexes as in 2.2, added deliberately for fields an administrator/operator has identified as hot, not automatically for every filterable field.
 
 ### 2.4 Comparison against alternatives (updated)
 
-| Approach | Type safety | Filter/sort perf | Reporting | Write cost | Verdict |
-|---|---|---|---|---|---|
-| **JSONB-only, no abstraction, ad hoc paths in every caller** | Weak, and inconsistently applied since every call site re-derives casts | Poor without targeted indexes | Every report/query site duplicates JSONB path logic — no single point of evolution | Cheap | Rejected as implemented this way — the storage is right, the missing abstraction was the problem |
-| **Conventional EAV** | Requires joins/pivots to reconstruct a record; text-stored values are error-prone to sort/aggregate correctly | Poor — multi-field filters self-join repeatedly | Group-by/sum requires pivoting — awkward and slow | 100k assets × 20 fields = 2,000,000+ rows | Rejected |
-| **Per-tenant physical columns** | Strong | Best possible | Best possible | High — schema migration per customer per field, operationally unworkable for self-hosted SME admins and incompatible with a shared-schema managed offering | Rejected |
-| **Pooled generated shadow columns** (Revision 2 proposal) | Strong for indexed fields | Good | Good | Moderate | **Rejected per this review** — a generated column's expression is fixed at schema level and cannot represent a different JSON key per organisation without per-org columns (unworkable) or a shared key namespace across orgs (defeats per-tenant custom fields) |
-| **JSONB canonical store + type-aware `CustomFieldQueryProvider` abstraction + targeted expression indexes on hot fields (chosen)** | Strong — enforced by field-type-driven expression generation at the one seam all callers use | Good on GIN for broad queries, native index performance on any field given a targeted expression index | Native GROUP BY/SUM via the same provider, no per-caller JSONB knowledge | Low — single JSONB write, indexes only where explicitly added | **Chosen** |
+| Approach                                                                                                                           | Type safety                                                                                                   | Filter/sort perf                                                                                       | Reporting                                                                          | Write cost                                                                                                                                                 | Verdict                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JSONB-only, no abstraction, ad hoc paths in every caller**                                                                       | Weak, and inconsistently applied since every call site re-derives casts                                       | Poor without targeted indexes                                                                          | Every report/query site duplicates JSONB path logic — no single point of evolution | Cheap                                                                                                                                                      | Rejected as implemented this way — the storage is right, the missing abstraction was the problem                                                                                                                                                                 |
+| **Conventional EAV**                                                                                                               | Requires joins/pivots to reconstruct a record; text-stored values are error-prone to sort/aggregate correctly | Poor — multi-field filters self-join repeatedly                                                        | Group-by/sum requires pivoting — awkward and slow                                  | 100k assets × 20 fields = 2,000,000+ rows                                                                                                                  | Rejected                                                                                                                                                                                                                                                         |
+| **Per-tenant physical columns**                                                                                                    | Strong                                                                                                        | Best possible                                                                                          | Best possible                                                                      | High — schema migration per customer per field, operationally unworkable for self-hosted SME admins and incompatible with a shared-schema managed offering | Rejected                                                                                                                                                                                                                                                         |
+| **Pooled generated shadow columns** (Revision 2 proposal)                                                                          | Strong for indexed fields                                                                                     | Good                                                                                                   | Good                                                                               | Moderate                                                                                                                                                   | **Rejected per this review** — a generated column's expression is fixed at schema level and cannot represent a different JSON key per organisation without per-org columns (unworkable) or a shared key namespace across orgs (defeats per-tenant custom fields) |
+| **JSONB canonical store + type-aware `CustomFieldQueryProvider` abstraction + targeted expression indexes on hot fields (chosen)** | Strong — enforced by field-type-driven expression generation at the one seam all callers use                  | Good on GIN for broad queries, native index performance on any field given a targeted expression index | Native GROUP BY/SUM via the same provider, no per-caller JSONB knowledge           | Low — single JSONB write, indexes only where explicitly added                                                                                              | **Chosen**                                                                                                                                                                                                                                                       |
 
 ### 2.5 Performance evidence, not assumption
 
@@ -172,16 +178,17 @@ Before this subsystem is considered production-ready, the P0/P1 test suite inclu
 These four booleans/attributes are independent columns/derived states on `installed_applications`, not conflated into one status flag — this is what lets "licensed but incompatible," "compatible but disabled," "installed but unlicensed trial" etc. all be representable without special-casing.
 
 **Inactivity invariant (added per approval feedback):** an app whose code is present but not `enabled ∧ licensed ∧ compatible` must be operationally inert, not merely hidden. This is enforced structurally, not by convention:
-- **Routes/API:** commercial app controllers are registered behind a Nest guard evaluated before the app's own route handlers — `ApplicationActiveGuard` — that checks the full `enabled ∧ licensed ∧ compatible` state on every request and returns 404 (not 403, to avoid confirming the route's existence) if not active. Route *registration* itself is also conditional on this state at boot for apps that are disabled at startup, so an inactive app's endpoints don't appear in the OpenAPI surface at all.
+
+- **Routes/API:** commercial app controllers are registered behind a Nest guard evaluated before the app's own route handlers — `ApplicationActiveGuard` — that checks the full `enabled ∧ licensed ∧ compatible` state on every request and returns 404 (not 403, to avoid confirming the route's existence) if not active. Route _registration_ itself is also conditional on this state at boot for apps that are disabled at startup, so an inactive app's endpoints don't appear in the OpenAPI surface at all.
 - **Navigation:** nav entries are filtered by the same active-state check at the point the frontend requests the nav manifest — an inactive app contributes zero nav entries.
 - **Scheduled/background jobs:** the job scheduler checks active state immediately before executing any job whose `app_id` is not Core's own; an inactive app's scheduled jobs are skipped (and logged as skipped, not silently dropped) rather than deregistered, so re-enabling resumes normal scheduling without redefinition.
 - **Event consumption:** the event dispatcher checks active state before invoking a consumer handler; an inactive app's registered event subscriptions are not invoked (events are not queued for later replay to a newly-enabled app unless the app's own onboarding logic explicitly requests a backfill — this is a per-app concern, not a Core guarantee).
 - **APIs/data exposure:** because commercial data access always goes through the app's own service layer (never direct cross-app table access, per the module-boundary rule in §2 of the original spec), gating that service layer's entry points via `ApplicationActiveGuard` is sufficient — there is no separate path (report dataset, search index, webhook) that could expose an inactive app's data, since every one of those subsystems reaches app data only through the same gated service layer or through registrations (datasets, capabilities, search entity types) that are themselves only made available while active.
 - This invariant is a P0-adjacent architectural rule enforced by the App Registry loader itself, so every future commercial app gets it automatically rather than having to reimplement the check.
 
-**v1 packaging mechanism:** apps remain npm workspace packages compiled into the same Node process (unchanged from Rev 1) — but the loader is written against the same `HexyrnAppManifest` contract regardless of *how* the code arrived in the process. Concretely, the App Registry's loader has one job: given a set of manifest+code bundles, register and boot them. In v1, "how the bundle arrived" is "compiled into this build." Nothing in the registry, permission system, event bus, or reporting layer knows or cares about that fact.
+**v1 packaging mechanism:** apps remain npm workspace packages compiled into the same Node process (unchanged from Rev 1) — but the loader is written against the same `HexyrnAppManifest` contract regardless of _how_ the code arrived in the process. Concretely, the App Registry's loader has one job: given a set of manifest+code bundles, register and boot them. In v1, "how the bundle arrived" is "compiled into this build." Nothing in the registry, permission system, event bus, or reporting layer knows or cares about that fact.
 
-**Why this isn't an accidental commercial lock-in:** because loading is behind that one seam, the evolution path is swapping *only* the loader's bundle-acquisition step, not the app contract itself:
+**Why this isn't an accidental commercial lock-in:** because loading is behind that one seam, the evolution path is swapping _only_ the loader's bundle-acquisition step, not the app contract itself:
 
 1. **v1 (now):** monorepo workspace packages, compiled into one build. A customer "adds Requisite" by us shipping them a build that includes it (license-gated at runtime as above), or by them pulling an updated Docker image where it's compiled in but license-gated. Not a bespoke per-customer build — the same image ships all licensable apps; the license file (§9/§13) is what turns each on, so "add Requisite" is a license-file drop plus enabling it in admin UI, not a redeploy of different code.
 2. **Near-future evolution (documented extension point, not built now):** apps published as independently versioned, digitally-signed npm-compatible packages fetched at deploy/update time (self-hosted admin runs `hexyrn app install requisite@1.x`, verifying package signature against Hexyrn's public key) and loaded into the same process at boot — still no dynamic marketplace, no arbitrary remote code execution, still same-process, just decoupled build/release cadence per app instead of one monolithic build containing everything.
@@ -197,19 +204,19 @@ Because "install all apps in one compiled image, license-gate at runtime" is alr
 
 ```ts
 interface CapabilityDeclaration {
-  capability: string;      // 'hexyrn.capability.purchasing.cost-source.v1'
-  provides?: CapabilityInterfaceRef;  // the service interface this app exposes for the capability
-  requires?: string[];     // capabilities this app wants to consume, if present
+  capability: string; // 'hexyrn.capability.purchasing.cost-source.v1'
+  provides?: CapabilityInterfaceRef; // the service interface this app exposes for the capability
+  requires?: string[]; // capabilities this app wants to consume, if present
 }
 ```
 
-**Naming scheme (revised per approval feedback — prefix dropped):** `<domain>.<noun>.v<n>` — e.g. `purchasing.cost-source.v1`, `asset.registry.v1`, `maintenance.work-orders.v1`, `profitability.cost-consumer.v1`. The capability registry is itself the namespace (only Hexyrn Core's registry produces or resolves these identifiers), so a `hexyrn.capability.` prefix is redundant — the registry membership already establishes what a string is. Domain-scoped rather than app-scoped (describes *what*, not *who*), and explicitly versioned per capability, independently of the providing app's own version and of Core's version — an app can keep shipping v1.x of itself while adding a `.v2` capability alongside `.v1` for a transition period. Application IDs remain reverse-DNS (`com.hexyrn.requisite`) since those *do* need global namespace uniqueness outside any Hexyrn-controlled registry (e.g. if a customer or partner ever registers their own app ID). **Capability version, application version, and Core version are three independent axes** — none is derived from or assumed to track another.
+**Naming scheme (revised per approval feedback — prefix dropped):** `<domain>.<noun>.v<n>` — e.g. `purchasing.cost-source.v1`, `asset.registry.v1`, `maintenance.work-orders.v1`, `profitability.cost-consumer.v1`. The capability registry is itself the namespace (only Hexyrn Core's registry produces or resolves these identifiers), so a `hexyrn.capability.` prefix is redundant — the registry membership already establishes what a string is. Domain-scoped rather than app-scoped (describes _what_, not _who_), and explicitly versioned per capability, independently of the providing app's own version and of Core's version — an app can keep shipping v1.x of itself while adding a `.v2` capability alongside `.v1` for a transition period. Application IDs remain reverse-DNS (`com.hexyrn.requisite`) since those _do_ need global namespace uniqueness outside any Hexyrn-controlled registry (e.g. if a customer or partner ever registers their own app ID). **Capability version, application version, and Core version are three independent axes** — none is derived from or assumed to track another.
 
-**Resolution:** the App Registry maintains a `capability_providers` table (`capability`, `app_id`, `service_ref`) populated at each app's registration. A consuming app asks Core for "who provides `purchasing.cost-source.v1`?" via `CapabilityResolver.resolve(capability)`, never for "is Requisite installed?" — this is the entire point: Margin depends on the *capability* of being a cost source, not on Requisite specifically, so a future app (or a customer's own integration registering as a capability provider — see below) can satisfy the same dependency.
+**Resolution:** the App Registry maintains a `capability_providers` table (`capability`, `app_id`, `service_ref`) populated at each app's registration. A consuming app asks Core for "who provides `purchasing.cost-source.v1`?" via `CapabilityResolver.resolve(capability)`, never for "is Requisite installed?" — this is the entire point: Margin depends on the _capability_ of being a cost source, not on Requisite specifically, so a future app (or a customer's own integration registering as a capability provider — see below) can satisfy the same dependency.
 
 **Multiple providers coexisting:** `resolve()` returns a list, not a single result. Callers that need exactly one either (a) use the list to build a picker (e.g. a dashboard widget listing cost sources from every installed provider), or (b) apply a configured preference (an organisation-level setting, "primary cost source = Requisite," stored in Core config, editable by an admin) when a single answer is required. Core never hardcodes an assumption that only one provider can exist — that would immediately break the "Requisite and a customer's external ERP both provide cost data" case that the "open by design, no lock-in" principle requires.
 
-**Zero-config native integration preserved:** because resolution happens automatically at the capability layer using only what's *installed and enabled* (per the §3 inactivity invariant — an inactive app is not a resolvable provider), two Hexyrn apps that both exist in the same deployment discover each other's capabilities with no customer action — installing and enabling Assets when Maintain is already active makes `asset.registry.v1` resolvable to it automatically, satisfying §29's zero-config requirement, while still leaving room for a customer's external system to register as an alternate provider through the integration framework (§12) without special-casing.
+**Zero-config native integration preserved:** because resolution happens automatically at the capability layer using only what's _installed and enabled_ (per the §3 inactivity invariant — an inactive app is not a resolvable provider), two Hexyrn apps that both exist in the same deployment discover each other's capabilities with no customer action — installing and enabling Assets when Maintain is already active makes `asset.registry.v1` resolvable to it automatically, satisfying §29's zero-config requirement, while still leaving room for a customer's external system to register as an alternate provider through the integration framework (§12) without special-casing.
 
 **Absent provider:** `resolve()` returns an empty list; consuming app features degrade gracefully (documented per-capability fallback behaviour, e.g. Margin shows "no cost source connected" rather than erroring) — same tolerance-of-absence principle as the event bus (§9/§27).
 
@@ -223,12 +230,12 @@ Extends the dataset-registration model (Rev 1 §11) with an explicit, declared r
 
 ```ts
 interface DatasetRelationship {
-  fromDataset: string;          // 'assets.asset'
-  fromField: string;            // 'assigned_person_id'
-  toDataset: string;            // 'core.person'  or  'requisite.purchase_order_line'
-  toField: string;              // 'id'
+  fromDataset: string; // 'assets.asset'
+  fromField: string; // 'assigned_person_id'
+  toDataset: string; // 'core.person'  or  'requisite.purchase_order_line'
+  toField: string; // 'id'
   cardinality: 'one-to-one' | 'many-to-one' | 'one-to-many';
-  label: string;                // "Assigned Person"
+  label: string; // "Assigned Person"
 }
 ```
 
@@ -242,7 +249,7 @@ This is metadata, not SQL — the report engine, not app code, translates an aut
 
 **Aggregate permission enforcement:** unchanged from Rev 1 — every dataset in a report, joined or not, is queried through the org-scoped, permission-scoped query layer; a joined report's aggregate is the intersection of what the user can see on every participating dataset, not the union.
 
-**Preventing arbitrary/unsafe joins:** three independent constraints, not one: (1) only *registered* relationships are traversable — there is no free-text join field in the report builder; (2) both endpoints must be *registered reportable datasets*, so an app can expose a relationship to one of its own internal tables without that table becoming independently queryable; (3) the permission check in "Join authorisation" above runs per-relationship, not just per top-level dataset, so a relationship into a dataset the user can't otherwise see is invisible even as a join target, not just as a standalone report.
+**Preventing arbitrary/unsafe joins:** three independent constraints, not one: (1) only _registered_ relationships are traversable — there is no free-text join field in the report builder; (2) both endpoints must be _registered reportable datasets_, so an app can expose a relationship to one of its own internal tables without that table becoming independently queryable; (3) the permission check in "Join authorisation" above runs per-relationship, not just per top-level dataset, so a relationship into a dataset the user can't otherwise see is invisible even as a join target, not just as a standalone report.
 
 **Worked example (Assets → Requisite):** Assets registers `assets.asset.purchase_source_id → requisite.purchase_order_line.id` (many-to-one). If Requisite isn't installed, this relationship registration is skipped and the field behaves as a plain reference value with no drill-through. If Requisite is installed but the current user lacks `requisite.purchase_orders.view`, the relationship exists in the registry but is excluded from that user's report-builder options and rejected if attempted via API. Only when both apps are installed and the user is authorised on both datasets does "show me asset total cost grouped by purchase order supplier" become an available cross-app report.
 
@@ -277,7 +284,7 @@ This is metadata, not SQL — the report engine, not app code, translates an aut
 Corrected: **Installation → Organisation(s)** is now explicit in the data model, not implicit-single-row as Rev 1 stated.
 
 - `installations` — one conceptual row representing this deployment (Core version, install id, install-level config: SMTP, storage provider, license verification key location). Not itself organisation-owned data.
-- `organisations` — one-to-many under an installation. Every organisation-owned table still carries `organisation_id NOT NULL` exactly as Rev 1 described; that part of the design already supported this and required no change — what changes is that the *product* explicitly models "installation" as its own top-level entity rather than treating the single organisation row as a stand-in for the installation.
+- `organisations` — one-to-many under an installation. Every organisation-owned table still carries `organisation_id NOT NULL` exactly as Rev 1 described; that part of the design already supported this and required no change — what changes is that the _product_ explicitly models "installation" as its own top-level entity rather than treating the single organisation row as a stand-in for the installation.
 - **v1 product behaviour:** the self-hosted bootstrap flow (§4 of the original spec) creates exactly one organisation as part of first-run setup, and the UI does not expose "create another organisation" — this is a product/UX constraint for v1, not a schema constraint. The schema already permits more.
 - **Future managed/multi-org hosting:** becomes "allow bootstrap/admin flow to create additional `organisations` rows under the same `installations` row," with all existing per-organisation scoping (RLS, base-repository injection, permission evaluation, capability resolution, reporting) unchanged, because none of those mechanisms were ever written against "there is exactly one organisation" — they were already written against `organisation_id` as a first-class scoping key. This is the "preserves a clean path" property the review asked for.
 
@@ -309,17 +316,17 @@ it('never leaks organisation context across a pooled connection reused for a dif
   await withOrgContext(pool, orgA.id, async (tx) => {
     await tx.query('SELECT set_config($1,$2,true)', ['app.current_organisation_id', orgA.id]);
     const rows = await tx.query('SELECT * FROM assets'); // seeded: orgA has assets, orgB has assets
-    expect(rows.every(r => r.organisation_id === orgA.id)).toBe(true);
+    expect(rows.every((r) => r.organisation_id === orgA.id)).toBe(true);
   });
 
   // Same underlying physical connection is now reused for orgB.
   await withOrgContext(pool, orgB.id, async (tx) => {
     const leaked = await tx.query(
-      "SELECT current_setting('app.current_organisation_id', true) AS ctx"
+      "SELECT current_setting('app.current_organisation_id', true) AS ctx",
     );
     expect(leaked[0].ctx).toBe(orgB.id); // not orgA.id — proves no residual context
     const rows = await tx.query('SELECT * FROM assets');
-    expect(rows.every(r => r.organisation_id === orgB.id)).toBe(true); // never sees orgA rows
+    expect(rows.every((r) => r.organisation_id === orgB.id)).toBe(true); // never sees orgA rows
   });
 });
 
@@ -388,7 +395,7 @@ A row, once inserted with a valid signature, is never deleted by anything other 
 
 **Upgrade behaviour:** installing app v2 when only a v1 license exists is permitted (installed=true) but v2 runs unlicensed/restricted (per the installed/enabled/licensed/compatible separation in §3) — **critically, the v1 license row and the customer's v1 data are untouched.** If the customer rolls back to v2's predecessor build or simply never enables v2, their legitimately licensed v1 functionality is unaffected. This directly satisfies "accidentally installing an unlicensed newer major version must not destroy or invalidate the older installation."
 
-**Rollback behaviour:** because app versions are independently tracked with their own migration ledger (§3), rolling back an app's code to an earlier compiled build is safe with respect to licensing (the v1 license row is still there, still valid) but is only safe with respect to *data* if no v2-only migration has run an irreversible transformation — this is a standard migration-design discipline (documented requirement: destructive migrations must ship a tested down-migration or an explicit "not reversible past this point" flag surfaced to the admin before upgrade), not a licensing concern per se.
+**Rollback behaviour:** because app versions are independently tracked with their own migration ledger (§3), rolling back an app's code to an earlier compiled build is safe with respect to licensing (the v1 license row is still there, still valid) but is only safe with respect to _data_ if no v2-only migration has run an irreversible transformation — this is a standard migration-design discipline (documented requirement: destructive migrations must ship a tested down-migration or an explicit "not reversible past this point" flag surfaced to the admin before upgrade), not a licensing concern per se.
 
 ---
 
@@ -397,6 +404,7 @@ A row, once inserted with a valid signature, is never deleted by anything other 
 Administrative surface: **Administration → System → Backup**, distinct from the raw "coordinated backup unit" mechanism (Postgres dump/WAL + files directory + config + installed app/version manifest) described in Rev 1, which becomes the thing this UI orchestrates rather than something an admin operates directly.
 
 **v1 scope (P3, per phased plan):**
+
 - **Backup Now** — on-demand trigger, runs the coordinated backup (DB + files + config + version manifest) as one atomic job, writes a manifest recording exactly what was included and its checksums.
 - **Destination** — configurable target: local path (default, simplest for a first SME deployment) or an S3-compatible bucket (reuses the same storage abstraction already built for file attachments, §20 of the original spec) — no bespoke backup-transport code needed.
 - **Schedule** — cron-style recurring backup (reuses the Postgres-backed job scheduler already in the architecture, no new scheduling subsystem).

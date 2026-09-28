@@ -13,7 +13,9 @@ export function AdminSupportBundlePage() {
     supportBundleApi
       .previewCategories()
       .then((res) => setCategories(res.categories))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load support bundle categories.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load support bundle categories.'),
+      );
   }, []);
 
   async function onGenerate() {
@@ -42,7 +44,11 @@ export function AdminSupportBundlePage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>What's included</h2>
@@ -56,8 +62,9 @@ export function AdminSupportBundlePage() {
           </ul>
         )}
         <p style={{ color: '#616e7c', marginTop: 8 }}>
-          Secrets and credentials are redacted before the bundle is generated. Nothing is uploaded automatically - the
-          bundle is only ever returned directly to you to download and share as you choose.
+          Secrets and credentials are redacted before the bundle is generated. Nothing is uploaded
+          automatically - the bundle is only ever returned directly to you to download and share as
+          you choose.
         </p>
       </Card>
 
@@ -74,7 +81,18 @@ export function AdminSupportBundlePage() {
           )}
         </div>
         {bundle && (
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, background: '#f5f6f8', padding: 12, borderRadius: 6, marginTop: 12, maxHeight: 400, overflow: 'auto' }}>
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontSize: 12,
+              background: '#f5f6f8',
+              padding: 12,
+              borderRadius: 6,
+              marginTop: 12,
+              maxHeight: 400,
+              overflow: 'auto',
+            }}
+          >
             {JSON.stringify(bundle, null, 2)}
           </pre>
         )}

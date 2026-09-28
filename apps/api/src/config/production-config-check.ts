@@ -51,10 +51,14 @@ export function checkProductionConfig(env: NodeJS.ProcessEnv): ProductionConfigI
   if (!totpKey) {
     issues.push({
       variable: 'TOTP_MASTER_KEY_CURRENT',
-      message: 'must be set in production (generate with: openssl rand -base64 32). The legacy TOTP_MASTER_KEY var is also accepted as a fallback.',
+      message:
+        'must be set in production (generate with: openssl rand -base64 32). The legacy TOTP_MASTER_KEY var is also accepted as a fallback.',
     });
   } else if (Buffer.from(totpKey, 'base64').length !== 32) {
-    issues.push({ variable: 'TOTP_MASTER_KEY_CURRENT', message: 'must decode to exactly 32 bytes (base64-encoded).' });
+    issues.push({
+      variable: 'TOTP_MASTER_KEY_CURRENT',
+      message: 'must decode to exactly 32 bytes (base64-encoded).',
+    });
   }
 
   if (!env.HEXYRN_LICENSE_PUBLIC_KEY) {
@@ -68,7 +72,8 @@ export function checkProductionConfig(env: NodeJS.ProcessEnv): ProductionConfigI
   if (env.COOKIE_SECURE === 'false') {
     issues.push({
       variable: 'COOKIE_SECURE',
-      message: "must not be 'false' in production - session cookies would be sent without the Secure flag over what is expected to be a TLS-terminated deployment (Architecture §6 / P3 item 8).",
+      message:
+        "must not be 'false' in production - session cookies would be sent without the Secure flag over what is expected to be a TLS-terminated deployment (Architecture §6 / P3 item 8).",
     });
   }
 

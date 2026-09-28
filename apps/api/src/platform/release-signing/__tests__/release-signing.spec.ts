@@ -25,7 +25,13 @@ const BASE_MANIFEST: Omit<ReleaseManifest, 'artifactSha256' | 'artifactSizeBytes
 };
 
 function fakeManifest(overrides: Partial<ReleaseManifest> = {}): ReleaseManifest {
-  return { ...BASE_MANIFEST, artifactSha256: 'a'.repeat(64), artifactSizeBytes: 1234, builtAt: new Date().toISOString(), ...overrides };
+  return {
+    ...BASE_MANIFEST,
+    artifactSha256: 'a'.repeat(64),
+    artifactSizeBytes: 1234,
+    builtAt: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
 describe('Release signing (P3 items 16/26/27)', () => {
@@ -38,7 +44,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
     it('a manifest signed with a trusted key verifies successfully', () => {
       delete process.env.HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS; // use the committed test trust set
       const manifest = fakeManifest();
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
 
       const verifier = new ReleaseVerifier();
       const result = verifier.verifyManifest(signed);
@@ -47,7 +57,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
 
     it('every manifest field is covered by the signature - modifying ANY field invalidates it', () => {
       const manifest = fakeManifest();
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
       const verifier = new ReleaseVerifier();
 
       const tamperedVersion = { ...signed, version: '1.0.0-rc2' };
@@ -74,8 +88,16 @@ describe('Release signing (P3 items 16/26/27)', () => {
       // 'current' - proving historical material does not become
       // unverifiable merely because a newer key now signs new releases.
       delete process.env.HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS;
-      const oldSigned = signReleaseManifest(fakeManifest({ version: '0.9.0' }), TEST_RELEASE_KEY_ID_2, TEST_RELEASE_PRIVATE_KEY_2_PEM);
-      const newSigned = signReleaseManifest(fakeManifest({ version: '1.0.0' }), TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const oldSigned = signReleaseManifest(
+        fakeManifest({ version: '0.9.0' }),
+        TEST_RELEASE_KEY_ID_2,
+        TEST_RELEASE_PRIVATE_KEY_2_PEM,
+      );
+      const newSigned = signReleaseManifest(
+        fakeManifest({ version: '1.0.0' }),
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
 
       const verifier = new ReleaseVerifier();
       expect(verifier.verifyManifest(oldSigned).valid).toBe(true);
@@ -87,7 +109,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
       const untrustedPrivatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
 
       const manifest = fakeManifest();
-      const signed = signReleaseManifest(manifest, 'some-attacker-controlled-key-id', untrustedPrivatePem);
+      const signed = signReleaseManifest(
+        manifest,
+        'some-attacker-controlled-key-id',
+        untrustedPrivatePem,
+      );
 
       const verifier = new ReleaseVerifier();
       const result = verifier.verifyManifest(signed);
@@ -100,7 +126,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
       // Signs with key 2's private key but claims to be key 1 - the
       // signature check against key 1's public key must fail.
       const manifest = fakeManifest();
-      const spoofed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_2_PEM);
+      const spoofed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_2_PEM,
+      );
 
       const verifier = new ReleaseVerifier();
       const result = verifier.verifyManifest(spoofed);
@@ -113,7 +143,9 @@ describe('Release signing (P3 items 16/26/27)', () => {
       const publicPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
       const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
 
-      process.env.HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS = JSON.stringify([{ keyId: 'prod-key-2026', publicKeyPem: publicPem, status: 'current' }]);
+      process.env.HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS = JSON.stringify([
+        { keyId: 'prod-key-2026', publicKeyPem: publicPem, status: 'current' },
+      ]);
 
       const manifest = fakeManifest();
       const signed = signReleaseManifest(manifest, 'prod-key-2026', privatePem);
@@ -121,7 +153,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
       expect(verifier.verifyManifest(signed).valid).toBe(true);
 
       // The committed TEST key is no longer trusted once a real trust set is configured.
-      const testSigned = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const testSigned = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
       expect(verifier.verifyManifest(testSigned).valid).toBe(false);
     });
 
@@ -142,7 +178,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
     it('a real artifact file, hashed and signed, verifies end to end', async () => {
       const artifactPath = await mkTmpFile('FAKE INSTALLER BYTES FOR TEST');
       const manifest = await buildReleaseManifest(artifactPath, BASE_MANIFEST);
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
 
       const verifier = new ReleaseVerifier();
       const result = await verifier.verifyArtifactFile(artifactPath, signed);
@@ -152,7 +192,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
     it('detects a tampered artifact file even though the manifest signature itself is valid', async () => {
       const artifactPath = await mkTmpFile('ORIGINAL BYTES');
       const manifest = await buildReleaseManifest(artifactPath, BASE_MANIFEST);
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
 
       // Swap the artifact's bytes AFTER signing, same length, so this
       // specifically exercises the checksum path rather than the (also
@@ -169,7 +213,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
     it('detects a truncated/wrong-length artifact file via the size check', async () => {
       const artifactPath = await mkTmpFile('ORIGINAL BYTES OF SOME LENGTH');
       const manifest = await buildReleaseManifest(artifactPath, BASE_MANIFEST);
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
 
       await fs.writeFile(artifactPath, 'SHORT');
 
@@ -181,9 +229,16 @@ describe('Release signing (P3 items 16/26/27)', () => {
 
     it('fails closed if the artifact file is missing entirely', async () => {
       const manifest = fakeManifest();
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
       const verifier = new ReleaseVerifier();
-      const result = await verifier.verifyArtifactFile('/nonexistent/path/definitely-not-here', signed);
+      const result = await verifier.verifyArtifactFile(
+        '/nonexistent/path/definitely-not-here',
+        signed,
+      );
       expect(result.valid).toBe(false);
     });
   });
@@ -199,7 +254,11 @@ describe('Release signing (P3 items 16/26/27)', () => {
       const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../../licensing/keys');
       // Sign a release manifest with the LICENSING private key, claiming a release key id.
       const manifest = fakeManifest();
-      const crossSigned = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_LICENSE_PRIVATE_KEY_PEM);
+      const crossSigned = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_LICENSE_PRIVATE_KEY_PEM,
+      );
       const verifier = new ReleaseVerifier();
       // Must fail: the licensing key's signature does not match TEST_RELEASE_KEY_ID_1's registered public key.
       expect(verifier.verifyManifest(crossSigned).valid).toBe(false);

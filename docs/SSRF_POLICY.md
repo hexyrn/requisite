@@ -30,7 +30,7 @@ therefore:
 ## DNS rebinding
 
 The policy resolves a hostname to its actual IP address and validates
-*that*, not the hostname string. This check runs on **every request and
+_that_, not the hostname string. This check runs on **every request and
 every redirect hop** (not once at webhook-registration time) - a hostname
 that currently resolves to an allowed address could later resolve to an
 internal one, and re-checking per-request is what closes that gap.

@@ -84,7 +84,7 @@ After bootstrap:
    reset links are shown directly to the admin to share manually - a
    supported, safe fallback, not a failure state.
 2. **Requisite licence import** - `Administration -> Applications ->
-   Requisite -> Licence` (`GET/POST /api/v1/apps/com.hexyrn.requisite/licence`):
+Requisite -> Licence` (`GET/POST /api/v1/apps/com.hexyrn.requisite/licence`):
    import the signed licence file provided with your purchase. No internet
    activation required - verification is entirely offline (Ed25519
    signature check against the locally-configured trusted public key).

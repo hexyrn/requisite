@@ -26,14 +26,35 @@ export class DeliveryMonitoringService {
 
   /** Registers the recurring daily check for an organisation - idempotent (ON CONFLICT-safe via a fixed job_type + recurring interval; a second call simply enqueues another recurring entry, acceptable for v1). */
   async scheduleDailyCheck(db: Kysely<Database>, organisationId: string): Promise<void> {
-    await this.jobs.enqueue(db, organisationId, APP_ID, DELIVERY_MONITORING_JOB_TYPE, {}, new Date(), 24 * 60 * 60);
+    await this.jobs.enqueue(
+      db,
+      organisationId,
+      APP_ID,
+      DELIVERY_MONITORING_JOB_TYPE,
+      {},
+      new Date(),
+      24 * 60 * 60,
+    );
   }
 
-  async runCheck(db: Kysely<Database>, organisationId: string): Promise<{ dueSoon: number; dueToday: number; overdue: number }> {
+  async runCheck(
+    db: Kysely<Database>,
+    organisationId: string,
+  ): Promise<{ dueSoon: number; dueToday: number; overdue: number }> {
     const lines = await db
       .selectFrom('requisite_purchase_order_lines as pol')
       .innerJoin('requisite_purchase_orders as po', 'po.id', 'pol.purchase_order_id')
-      .select(['pol.id', 'pol.description', 'pol.expected_delivery_date', 'pol.quantity_ordered', 'pol.quantity_received', 'po.id as po_id', 'po.po_number', 'po.buyer_user_account_id', 'po.status'])
+      .select([
+        'pol.id',
+        'pol.description',
+        'pol.expected_delivery_date',
+        'pol.quantity_ordered',
+        'pol.quantity_received',
+        'po.id as po_id',
+        'po.po_number',
+        'po.buyer_user_account_id',
+        'po.status',
+      ])
       .where('po.organisation_id', '=', organisationId)
       .where('po.status', 'in', ['issued', 'partially_received'])
       .where('pol.expected_delivery_date', 'is not', null)
@@ -56,13 +77,40 @@ export class DeliveryMonitoringService {
 
       if (due.getTime() < today.getTime()) {
         overdue++;
-        await this.notifications.send(db, organisationId, APP_ID, line.buyer_user_account_id, 'requisite.delivery_overdue', `Overdue delivery: ${line.po_number}`, `"${line.description}" was expected ${line.expected_delivery_date} and is still outstanding (${line.status}).`, { type: 'requisite_purchase_order', id: line.po_id });
+        await this.notifications.send(
+          db,
+          organisationId,
+          APP_ID,
+          line.buyer_user_account_id,
+          'requisite.delivery_overdue',
+          `Overdue delivery: ${line.po_number}`,
+          `"${line.description}" was expected ${line.expected_delivery_date} and is still outstanding (${line.status}).`,
+          { type: 'requisite_purchase_order', id: line.po_id },
+        );
       } else if (due.getTime() === today.getTime()) {
         dueToday++;
-        await this.notifications.send(db, organisationId, APP_ID, line.buyer_user_account_id, 'requisite.delivery_due_today', `Delivery due today: ${line.po_number}`, `"${line.description}" is expected today.`, { type: 'requisite_purchase_order', id: line.po_id });
+        await this.notifications.send(
+          db,
+          organisationId,
+          APP_ID,
+          line.buyer_user_account_id,
+          'requisite.delivery_due_today',
+          `Delivery due today: ${line.po_number}`,
+          `"${line.description}" is expected today.`,
+          { type: 'requisite_purchase_order', id: line.po_id },
+        );
       } else if (due.getTime() <= in3Days.getTime()) {
         dueSoon++;
-        await this.notifications.send(db, organisationId, APP_ID, line.buyer_user_account_id, 'requisite.delivery_due_soon', `Delivery due soon: ${line.po_number}`, `"${line.description}" is expected ${line.expected_delivery_date}.`, { type: 'requisite_purchase_order', id: line.po_id });
+        await this.notifications.send(
+          db,
+          organisationId,
+          APP_ID,
+          line.buyer_user_account_id,
+          'requisite.delivery_due_soon',
+          `Delivery due soon: ${line.po_number}`,
+          `"${line.description}" is expected ${line.expected_delivery_date}.`,
+          { type: 'requisite_purchase_order', id: line.po_id },
+        );
       }
     }
 

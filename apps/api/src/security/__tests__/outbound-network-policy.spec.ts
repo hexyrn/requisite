@@ -1,4 +1,9 @@
-import { validateOutboundUrl, classifyIp, getConfiguredOutboundNetworkPolicy, DEFAULT_OUTBOUND_NETWORK_POLICY } from '../outbound-network-policy';
+import {
+  validateOutboundUrl,
+  classifyIp,
+  getConfiguredOutboundNetworkPolicy,
+  DEFAULT_OUTBOUND_NETWORK_POLICY,
+} from '../outbound-network-policy';
 
 describe('Outbound network policy / SSRF hardening (P3 item 34/12)', () => {
   describe('classifyIp', () => {
@@ -72,7 +77,10 @@ describe('Outbound network policy / SSRF hardening (P3 item 34/12)', () => {
     });
 
     it('allows a literal public IP with no policy exceptions configured', async () => {
-      const result = await validateOutboundUrl('https://8.8.8.8/hook', DEFAULT_OUTBOUND_NETWORK_POLICY);
+      const result = await validateOutboundUrl(
+        'https://8.8.8.8/hook',
+        DEFAULT_OUTBOUND_NETWORK_POLICY,
+      );
       expect(result.allowed).toBe(true);
     });
   });
@@ -95,7 +103,9 @@ describe('Outbound network policy / SSRF hardening (P3 item 34/12)', () => {
 
   describe('administrator-controlled allow-list (self-hosted internal destinations)', () => {
     it('an explicitly allowed hostname bypasses the private-range block', async () => {
-      const result = await validateOutboundUrl('http://internal-erp.local/hook', { allowedHosts: ['internal-erp.local'] });
+      const result = await validateOutboundUrl('http://internal-erp.local/hook', {
+        allowedHosts: ['internal-erp.local'],
+      });
       // internal-erp.local won't resolve via real DNS in this test
       // environment, so this specific case is expected to fail at the
       // allowedHosts-by-hostname check path before DNS is even attempted -
@@ -104,12 +114,16 @@ describe('Outbound network policy / SSRF hardening (P3 item 34/12)', () => {
     });
 
     it('an explicitly allowed literal private IP is permitted', async () => {
-      const result = await validateOutboundUrl('http://192.168.1.50/hook', { allowedHosts: ['192.168.1.50'] });
+      const result = await validateOutboundUrl('http://192.168.1.50/hook', {
+        allowedHosts: ['192.168.1.50'],
+      });
       expect(result.allowed).toBe(true);
     });
 
     it('a private IP NOT on the allow-list is still blocked even when the policy has other entries', async () => {
-      const result = await validateOutboundUrl('http://192.168.1.99/hook', { allowedHosts: ['192.168.1.50'] });
+      const result = await validateOutboundUrl('http://192.168.1.99/hook', {
+        allowedHosts: ['192.168.1.50'],
+      });
       expect(result.allowed).toBe(false);
     });
   });
@@ -127,7 +141,9 @@ describe('Outbound network policy / SSRF hardening (P3 item 34/12)', () => {
 
     it('parses a comma-separated HEXYRN_OUTBOUND_ALLOWED_HOSTS', () => {
       process.env.HEXYRN_OUTBOUND_ALLOWED_HOSTS = '192.168.1.50, internal-erp.local ,10.0.0.5';
-      expect(getConfiguredOutboundNetworkPolicy()).toEqual({ allowedHosts: ['192.168.1.50', 'internal-erp.local', '10.0.0.5'] });
+      expect(getConfiguredOutboundNetworkPolicy()).toEqual({
+        allowedHosts: ['192.168.1.50', 'internal-erp.local', '10.0.0.5'],
+      });
     });
   });
 });

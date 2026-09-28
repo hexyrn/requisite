@@ -19,7 +19,9 @@ function getMasterKey(): Buffer {
   }
   const key = Buffer.from(raw, 'base64');
   if (key.length !== 32) {
-    throw new Error('SECRET_ENCRYPTION_MASTER_KEY must decode to exactly 32 bytes (base64-encoded)');
+    throw new Error(
+      'SECRET_ENCRYPTION_MASTER_KEY must decode to exactly 32 bytes (base64-encoded)',
+    );
   }
   return key;
 }
@@ -30,7 +32,9 @@ export function encryptSecret(plaintext: string): string {
   const cipher = createCipheriv(ALGO, key, iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
-  return [iv.toString('base64'), authTag.toString('base64'), ciphertext.toString('base64')].join('.');
+  return [iv.toString('base64'), authTag.toString('base64'), ciphertext.toString('base64')].join(
+    '.',
+  );
 }
 
 export function decryptSecret(stored: string): string {

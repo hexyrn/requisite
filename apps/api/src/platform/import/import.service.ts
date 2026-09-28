@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 import { PermissionCheckSubject } from '../../rbac/permission-evaluator';
@@ -25,11 +30,27 @@ export interface ImportFieldDefinition {
 export class ImportService {
   constructor(private readonly handlers: ImportHandlerRegistryService) {}
 
-  async registerEntityType(db: Kysely<Database>, entityType: string, appId: string, requiredPermission: string, fields: ImportFieldDefinition[]): Promise<void> {
+  async registerEntityType(
+    db: Kysely<Database>,
+    entityType: string,
+    appId: string,
+    requiredPermission: string,
+    fields: ImportFieldDefinition[],
+  ): Promise<void> {
     await db
       .insertInto('import_definitions')
-      .values({ entity_type: entityType, app_id: appId, required_permission: requiredPermission, fields: toJsonbParam(fields) as any })
-      .onConflict((oc) => oc.column('entity_type').doUpdateSet({ required_permission: requiredPermission, fields: toJsonbParam(fields) as any }))
+      .values({
+        entity_type: entityType,
+        app_id: appId,
+        required_permission: requiredPermission,
+        fields: toJsonbParam(fields) as any,
+      })
+      .onConflict((oc) =>
+        oc.column('entity_type').doUpdateSet({
+          required_permission: requiredPermission,
+          fields: toJsonbParam(fields) as any,
+        }),
+      )
       .execute();
   }
 
@@ -47,21 +68,36 @@ export class ImportService {
     rows: Record<string, string>[],
     columnMapping: Record<string, string>,
   ): Promise<{ jobId: string; successCount: number; errorCount: number }> {
-    const definition = await db.selectFrom('import_definitions').selectAll().where('entity_type', '=', entityType).executeTakeFirst();
-    if (!definition) throw new NotFoundException(`Import entity type "${entityType}" is not registered.`);
+    const definition = await db
+      .selectFrom('import_definitions')
+      .selectAll()
+      .where('entity_type', '=', entityType)
+      .executeTakeFirst();
+    if (!definition)
+      throw new NotFoundException(`Import entity type "${entityType}" is not registered.`);
     if (!subject.grantedPermissions.has(definition.required_permission)) {
-      throw new ForbiddenException(`Missing required permission "${definition.required_permission}" to import "${entityType}".`);
+      throw new ForbiddenException(
+        `Missing required permission "${definition.required_permission}" to import "${entityType}".`,
+      );
     }
 
     const handler = this.handlers.get(entityType);
-    if (!handler) throw new BadRequestException(`No import handler registered for "${entityType}".`);
+    if (!handler)
+      throw new BadRequestException(`No import handler registered for "${entityType}".`);
 
     const fields = definition.fields as unknown as ImportFieldDefinition[];
     const declaredKeys = new Set(fields.map((f) => f.key));
 
     const job = await db
       .insertInto('import_jobs')
-      .values({ organisation_id: subject.organisationId, entity_type: entityType, requested_by: subject.userAccountId, column_mapping: columnMapping as any, status: 'processing', total_rows: rows.length })
+      .values({
+        organisation_id: subject.organisationId,
+        entity_type: entityType,
+        requested_by: subject.userAccountId,
+        column_mapping: columnMapping as any,
+        status: 'processing',
+        total_rows: rows.length,
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
 
@@ -74,7 +110,11 @@ export class ImportService {
       for (const field of fields) {
         const sourceColumn = columnMapping[field.key];
         if (!sourceColumn) {
-          if (field.required) rowErrors.push({ row: i, error: `Missing column mapping for required field "${field.key}"` });
+          if (field.required)
+            rowErrors.push({
+              row: i,
+              error: `Missing column mapping for required field "${field.key}"`,
+            });
           continue;
         }
         const raw = sourceRow[sourceColumn];
@@ -103,10 +143,17 @@ export class ImportService {
       }
     }
 
-    const status = rowErrors.length === 0 ? 'completed' : successCount > 0 ? 'completed_with_errors' : 'failed';
+    const status =
+      rowErrors.length === 0 ? 'completed' : successCount > 0 ? 'completed_with_errors' : 'failed';
     await db
       .updateTable('import_jobs')
-      .set({ status, success_count: successCount, error_count: rowErrors.length, row_errors: toJsonbParam(rowErrors) as any, completed_at: new Date() as any })
+      .set({
+        status,
+        success_count: successCount,
+        error_count: rowErrors.length,
+        row_errors: toJsonbParam(rowErrors) as any,
+        completed_at: new Date() as any,
+      })
       .where('id', '=', job.id)
       .execute();
 

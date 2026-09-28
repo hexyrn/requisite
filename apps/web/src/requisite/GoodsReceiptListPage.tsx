@@ -16,14 +16,32 @@ export function GoodsReceiptListPage() {
   useEffect(() => {
     requisiteApi
       .listPurchaseOrders()
-      .then((all) => setOrders(all.filter((o) => o.status === 'partially_received' || o.status === 'received' || o.status === 'completed')))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load goods receipts.'));
+      .then((all) =>
+        setOrders(
+          all.filter(
+            (o) =>
+              o.status === 'partially_received' ||
+              o.status === 'received' ||
+              o.status === 'completed',
+          ),
+        ),
+      )
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load goods receipts.'),
+      );
   }, []);
 
   return (
     <div>
-      <PageHeader title="Goods Receipts" subtitle="Purchase orders with at least one recorded delivery" />
-      {error && <div role="alert" style={{ color: '#991b1b' }}>{error}</div>}
+      <PageHeader
+        title="Goods Receipts"
+        subtitle="Purchase orders with at least one recorded delivery"
+      />
+      {error && (
+        <div role="alert" style={{ color: '#991b1b' }}>
+          {error}
+        </div>
+      )}
       {orders === null ? (
         <p>Loading…</p>
       ) : orders.length === 0 ? (
@@ -33,7 +51,11 @@ export function GoodsReceiptListPage() {
           rowKey={(o) => o.id}
           rows={orders}
           columns={[
-            { key: 'po_number', header: 'Purchase Order', render: (o) => <Link to={`/requisite/purchase-orders/${o.id}`}>{o.po_number}</Link> },
+            {
+              key: 'po_number',
+              header: 'Purchase Order',
+              render: (o) => <Link to={`/requisite/purchase-orders/${o.id}`}>{o.po_number}</Link>,
+            },
             { key: 'status', header: 'Status' },
           ]}
         />

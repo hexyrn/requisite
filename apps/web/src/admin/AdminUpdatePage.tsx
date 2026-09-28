@@ -8,7 +8,11 @@ export function AdminUpdatePage() {
   const [packagePath, setPackagePath] = useState('');
   const [manifestJson, setManifestJson] = useState('');
   const [checkResult, setCheckResult] = useState<UpdateCheckResult | null>(null);
-  const [applyLog, setApplyLog] = useState<Array<{ step: string; ok: boolean; detail?: string }> | null>(null);
+  const [applyLog, setApplyLog] = useState<Array<{
+    step: string;
+    ok: boolean;
+    detail?: string;
+  }> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +20,9 @@ export function AdminUpdatePage() {
     try {
       return JSON.parse(manifestJson);
     } catch {
-      setError('Manifest must be valid JSON (paste the .manifest.json contents from the release package).');
+      setError(
+        'Manifest must be valid JSON (paste the .manifest.json contents from the release package).',
+      );
       return null;
     }
   }
@@ -54,15 +60,25 @@ export function AdminUpdatePage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Offline update package</h2>
         <p style={{ color: '#616e7c', marginBottom: 8 }}>
-          No internet connection is used - place the signed update package on disk, then check and apply it here.
+          No internet connection is used - place the signed update package on disk, then check and
+          apply it here.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 640 }}>
-          <Input label="Package path" value={packagePath} onChange={(e) => setPackagePath(e.target.value)} placeholder="C:\path\to\release.hxpkg" />
+          <Input
+            label="Package path"
+            value={packagePath}
+            onChange={(e) => setPackagePath(e.target.value)}
+            placeholder="C:\path\to\release.hxpkg"
+          />
           <label style={{ fontSize: 13, fontWeight: 600 }}>
             Release manifest (JSON)
             <textarea
@@ -87,19 +103,40 @@ export function AdminUpdatePage() {
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Check result</h2>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Running version: {checkResult.runningCoreVersion} → Package version: {checkResult.packageVersion}</li>
             <li>
-              Authentic: <StatusBadge label={checkResult.packageAuthentic ? 'Yes' : 'No'} tone={toneForBool(checkResult.packageAuthentic)} /> — {checkResult.packageAuthenticityDetail}
+              Running version: {checkResult.runningCoreVersion} → Package version:{' '}
+              {checkResult.packageVersion}
             </li>
             <li>
-              Compatible: <StatusBadge label={checkResult.compatible ? 'Yes' : 'No'} tone={toneForBool(checkResult.compatible)} /> — {checkResult.compatibilityDetail}
+              Authentic:{' '}
+              <StatusBadge
+                label={checkResult.packageAuthentic ? 'Yes' : 'No'}
+                tone={toneForBool(checkResult.packageAuthentic)}
+              />{' '}
+              — {checkResult.packageAuthenticityDetail}
             </li>
             <li>
-              Disk space OK: <StatusBadge label={checkResult.diskSpaceOk ? 'Yes' : 'No'} tone={toneForBool(checkResult.diskSpaceOk)} />
+              Compatible:{' '}
+              <StatusBadge
+                label={checkResult.compatible ? 'Yes' : 'No'}
+                tone={toneForBool(checkResult.compatible)}
+              />{' '}
+              — {checkResult.compatibilityDetail}
+            </li>
+            <li>
+              Disk space OK:{' '}
+              <StatusBadge
+                label={checkResult.diskSpaceOk ? 'Yes' : 'No'}
+                tone={toneForBool(checkResult.diskSpaceOk)}
+              />
             </li>
             {checkResult.migrationNotes && <li>Migration notes: {checkResult.migrationNotes}</li>}
             <li>
-              Ready to apply: <StatusBadge label={checkResult.readyToApply ? 'Yes' : 'No'} tone={toneForBool(checkResult.readyToApply)} />
+              Ready to apply:{' '}
+              <StatusBadge
+                label={checkResult.readyToApply ? 'Yes' : 'No'}
+                tone={toneForBool(checkResult.readyToApply)}
+              />
             </li>
           </ul>
         </Card>

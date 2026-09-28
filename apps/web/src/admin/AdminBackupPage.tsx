@@ -57,14 +57,24 @@ export function AdminBackupPage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
-      {message && <div role="status" style={{ color: '#166534', marginBottom: 12 }}>{message}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+      {message && (
+        <div role="status" style={{ color: '#166534', marginBottom: 12 }}>
+          {message}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Backup now</h2>
         <p style={{ color: '#616e7c', marginBottom: 8 }}>
           Captures the full installation database and uploaded files as one coordinated unit.
-          {lastGood ? ` Last successful backup: ${lastGood.backupId}.` : ' No successful backup yet.'}
+          {lastGood
+            ? ` Last successful backup: ${lastGood.backupId}.`
+            : ' No successful backup yet.'}
         </p>
         <Button onClick={onCreate} disabled={creating}>
           {creating ? 'Creating backup…' : 'Backup Now'}
@@ -88,7 +98,9 @@ export function AdminBackupPage() {
               {
                 key: 'valid',
                 header: 'Integrity',
-                render: (b) => <StatusBadge label={b.valid ? 'Valid' : 'Invalid'} tone={toneForBool(b.valid)} />,
+                render: (b) => (
+                  <StatusBadge label={b.valid ? 'Valid' : 'Invalid'} tone={toneForBool(b.valid)} />
+                ),
               },
               {
                 key: 'actions',
@@ -96,8 +108,14 @@ export function AdminBackupPage() {
                 render: (b) =>
                   confirmId === b.backupId ? (
                     <span style={{ display: 'flex', gap: 8 }}>
-                      <span style={{ color: '#991b1b', fontSize: 12 }}>Overwrites current data.</span>
-                      <Button variant="secondary" onClick={() => onRestore(b.backupId)} disabled={restoringId === b.backupId}>
+                      <span style={{ color: '#991b1b', fontSize: 12 }}>
+                        Overwrites current data.
+                      </span>
+                      <Button
+                        variant="secondary"
+                        onClick={() => onRestore(b.backupId)}
+                        disabled={restoringId === b.backupId}
+                      >
                         {restoringId === b.backupId ? 'Restoring…' : 'Confirm restore'}
                       </Button>
                       <Button variant="secondary" onClick={() => setConfirmId(null)}>
@@ -105,7 +123,11 @@ export function AdminBackupPage() {
                       </Button>
                     </span>
                   ) : (
-                    <Button variant="secondary" onClick={() => setConfirmId(b.backupId)} disabled={!b.valid}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setConfirmId(b.backupId)}
+                      disabled={!b.valid}
+                    >
                       Restore…
                     </Button>
                   ),

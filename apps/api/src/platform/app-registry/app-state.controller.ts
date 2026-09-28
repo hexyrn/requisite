@@ -25,7 +25,9 @@ export class AppStateController {
   @Get(':appId/state')
   async getState(@Req() req: FastifyRequest, @Param('appId') appId: string) {
     const organisationId = (req as any).currentOrganisationId;
-    return withOrgContext(organisationId, (db) => this.registry.getApplicationState(db, organisationId, appId));
+    return withOrgContext(organisationId, (db) =>
+      this.registry.getApplicationState(db, organisationId, appId),
+    );
   }
 
   /** P3 item 10/25: the full licence administration detail view. */
@@ -33,7 +35,9 @@ export class AppStateController {
   @Get(':appId/licence')
   async getLicence(@Req() req: FastifyRequest, @Param('appId') appId: string) {
     const organisationId = (req as any).currentOrganisationId;
-    return withOrgContext(organisationId, (db) => this.registry.getLicenceDetail(db, organisationId, appId));
+    return withOrgContext(organisationId, (db) =>
+      this.registry.getLicenceDetail(db, organisationId, appId),
+    );
   }
 
   /**
@@ -45,9 +49,17 @@ export class AppStateController {
    */
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Post(':appId/licence')
-  async importLicence(@Req() req: FastifyRequest, @Param('appId') appId: string, @Body() body: { majorVersion: number; licence: Record<string, unknown> }) {
+  async importLicence(
+    @Req() req: FastifyRequest,
+    @Param('appId') appId: string,
+    @Body() body: { majorVersion: number; licence: Record<string, unknown> },
+  ) {
     const organisationId = (req as any).currentOrganisationId;
-    await withOrgContext(organisationId, (db) => this.registry.grantLicense(db, organisationId, appId, body.majorVersion, body.licence));
-    return withOrgContext(organisationId, (db) => this.registry.getLicenceDetail(db, organisationId, appId));
+    await withOrgContext(organisationId, (db) =>
+      this.registry.grantLicense(db, organisationId, appId, body.majorVersion, body.licence),
+    );
+    return withOrgContext(organisationId, (db) =>
+      this.registry.getLicenceDetail(db, organisationId, appId),
+    );
   }
 }

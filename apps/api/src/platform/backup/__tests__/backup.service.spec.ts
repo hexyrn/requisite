@@ -96,7 +96,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
       const storageDir = await mkTmpDir('hexyrn-storage-');
       await fs.writeFile(join(storageDir, 'file-a'), 'hello');
 
-      await createBackup({ destinationDir: dest, storageRootDir: storageDir, pool, runPgDump: fakePgDump('DUMP') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: storageDir,
+        pool,
+        runPgDump: fakePgDump('DUMP'),
+      });
       const result = await verifyBackupIntegrity(dest);
 
       expect(result.valid).toBe(true);
@@ -106,7 +111,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
     it('detects a tampered database dump file', async () => {
       const dest = await mkTmpDir('hexyrn-backup-');
       const storageDir = await mkTmpDir('hexyrn-storage-empty-');
-      await createBackup({ destinationDir: dest, storageRootDir: storageDir, pool, runPgDump: fakePgDump('ORIGINAL') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: storageDir,
+        pool,
+        runPgDump: fakePgDump('ORIGINAL'),
+      });
 
       await fs.writeFile(join(dest, 'database.dump'), 'TAMPERED CONTENT');
 
@@ -119,7 +129,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
       const dest = await mkTmpDir('hexyrn-backup-');
       const storageDir = await mkTmpDir('hexyrn-storage-');
       await fs.writeFile(join(storageDir, 'file-a'), 'original');
-      await createBackup({ destinationDir: dest, storageRootDir: storageDir, pool, runPgDump: fakePgDump('DUMP') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: storageDir,
+        pool,
+        runPgDump: fakePgDump('DUMP'),
+      });
 
       await fs.writeFile(join(dest, 'files', 'file-a'), 'tampered');
 
@@ -169,7 +184,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
   describe('applyRetentionPolicy', () => {
     it('keeps only the N most recent backup directories, deleting the rest', async () => {
       const root = await mkTmpDir('hexyrn-backups-root-');
-      const names = ['2026-01-01T00-00-00', '2026-01-02T00-00-00', '2026-01-03T00-00-00', '2026-01-04T00-00-00'];
+      const names = [
+        '2026-01-01T00-00-00',
+        '2026-01-02T00-00-00',
+        '2026-01-03T00-00-00',
+        '2026-01-04T00-00-00',
+      ];
       for (const name of names) {
         await fs.mkdir(join(root, name));
       }
@@ -188,7 +208,10 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
     });
 
     it('is a no-op on a directory that does not exist yet (no backups taken)', async () => {
-      const result = await applyRetentionPolicy(join(tmpdir(), 'hexyrn-never-created-' + Date.now()), 5);
+      const result = await applyRetentionPolicy(
+        join(tmpdir(), 'hexyrn-never-created-' + Date.now()),
+        5,
+      );
       expect(result).toEqual({ kept: [], deleted: [] });
     });
   });
@@ -197,7 +220,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
     it('refuses to run without explicit confirmation - no partial destructive action', async () => {
       const dest = await mkTmpDir('hexyrn-backup-');
       const storageDir = await mkTmpDir('hexyrn-storage-empty-');
-      await createBackup({ destinationDir: dest, storageRootDir: storageDir, pool, runPgDump: fakePgDump('DUMP') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: storageDir,
+        pool,
+        runPgDump: fakePgDump('DUMP'),
+      });
 
       let restoreCalled = false;
       await expect(
@@ -216,7 +244,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
     it('refuses to restore a backup that fails integrity verification', async () => {
       const dest = await mkTmpDir('hexyrn-backup-');
       const storageDir = await mkTmpDir('hexyrn-storage-empty-');
-      await createBackup({ destinationDir: dest, storageRootDir: storageDir, pool, runPgDump: fakePgDump('DUMP') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: storageDir,
+        pool,
+        runPgDump: fakePgDump('DUMP'),
+      });
       await fs.writeFile(join(dest, 'database.dump'), 'TAMPERED');
 
       await expect(
@@ -234,7 +267,12 @@ describeIfDb('BackupService (P3 items 9-13)', () => {
       const sourceStorageDir = await mkTmpDir('hexyrn-storage-source-');
       await fs.writeFile(join(sourceStorageDir, 'important-file'), 'original contents');
 
-      await createBackup({ destinationDir: dest, storageRootDir: sourceStorageDir, pool, runPgDump: fakePgDump('DUMP') });
+      await createBackup({
+        destinationDir: dest,
+        storageRootDir: sourceStorageDir,
+        pool,
+        runPgDump: fakePgDump('DUMP'),
+      });
 
       // Simulate a "live" storage directory that has since diverged (item
       // 13's "alter/delete data" step) - restore must fully replace it.

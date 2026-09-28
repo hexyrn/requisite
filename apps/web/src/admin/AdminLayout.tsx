@@ -33,7 +33,8 @@ export function AdminLayout() {
     <div>
       <h1 style={{ fontSize: 20, marginBottom: 4 }}>Administration</h1>
       <p style={{ color: '#616e7c', marginBottom: 16 }}>
-        Operator tools: system health, backup/restore, updates, licensing, SMTP, and support bundles.
+        Operator tools: system health, backup/restore, updates, licensing, SMTP, and support
+        bundles.
       </p>
       <nav style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map((tab) => (

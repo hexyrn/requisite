@@ -30,13 +30,32 @@ export class RequisiteOnboardingService {
 
   async onboardOrganisation(db: Kysely<Database>, organisationId: string): Promise<void> {
     for (const seq of REQUISITE_APP_MANIFEST.numberingSequences ?? []) {
-      await this.numbering.registerSequence(db, organisationId, { appId: APP_ID, sequenceKey: seq.sequenceKey, prefix: seq.prefix, padLength: seq.padLength, yearReset: seq.yearReset });
+      await this.numbering.registerSequence(db, organisationId, {
+        appId: APP_ID,
+        sequenceKey: seq.sequenceKey,
+        prefix: seq.prefix,
+        padLength: seq.padLength,
+        yearReset: seq.yearReset,
+      });
     }
     for (const form of REQUISITE_APP_MANIFEST.defaultForms ?? []) {
-      await this.forms.seedDefault(db, organisationId, APP_ID, form.formKey, form.label, form.definition as any);
+      await this.forms.seedDefault(
+        db,
+        organisationId,
+        APP_ID,
+        form.formKey,
+        form.label,
+        form.definition as any,
+      );
     }
     for (const wf of REQUISITE_APP_MANIFEST.defaultWorkflows ?? []) {
-      await this.workflow.registerDefinition(db, organisationId, APP_ID, wf.workflowKey, wf.definition as any);
+      await this.workflow.registerDefinition(
+        db,
+        organisationId,
+        APP_ID,
+        wf.workflowKey,
+        wf.definition as any,
+      );
     }
     // Item 7's example default: a single-step approval by anyone holding
     // requisite.requisitions.approve. A real SME rollout is expected to
@@ -52,11 +71,47 @@ export class RequisiteOnboardingService {
     // search/export per Core's normal custom-field capabilities. Examples
     // only, not an exhaustive or mandatory set - customers add their own
     // through Core's supported custom-field mechanism.
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_requisition', key: 'customer_job_number', label: 'Customer Job Number', fieldType: 'short_text' });
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_requisition', key: 'grant_funding_code', label: 'Grant Funding Code', fieldType: 'short_text' });
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_requisition', key: 'emergency_purchase_reason', label: 'Emergency Purchase Reason', fieldType: 'short_text' });
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_supplier', key: 'account_manager', label: 'Account Manager', fieldType: 'short_text' });
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_supplier', key: 'framework_agreement_number', label: 'Framework Agreement Number', fieldType: 'short_text' });
-    await this.customFields.defineField(db, organisationId, { appId: APP_ID, entityType: 'requisite_purchase_order', key: 'external_accounting_reference', label: 'External Accounting Reference', fieldType: 'short_text' });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_requisition',
+      key: 'customer_job_number',
+      label: 'Customer Job Number',
+      fieldType: 'short_text',
+    });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_requisition',
+      key: 'grant_funding_code',
+      label: 'Grant Funding Code',
+      fieldType: 'short_text',
+    });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_requisition',
+      key: 'emergency_purchase_reason',
+      label: 'Emergency Purchase Reason',
+      fieldType: 'short_text',
+    });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_supplier',
+      key: 'account_manager',
+      label: 'Account Manager',
+      fieldType: 'short_text',
+    });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_supplier',
+      key: 'framework_agreement_number',
+      label: 'Framework Agreement Number',
+      fieldType: 'short_text',
+    });
+    await this.customFields.defineField(db, organisationId, {
+      appId: APP_ID,
+      entityType: 'requisite_purchase_order',
+      key: 'external_accounting_reference',
+      label: 'External Accounting Reference',
+      fieldType: 'short_text',
+    });
   }
 }

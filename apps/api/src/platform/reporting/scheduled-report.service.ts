@@ -49,7 +49,15 @@ export class ScheduledReportService {
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    await this.jobs.enqueue(db, organisationId, APP_ID, SCHEDULED_REPORT_JOB_TYPE, { scheduledReportId: row.id }, new Date(), cronIntervalSeconds);
+    await this.jobs.enqueue(
+      db,
+      organisationId,
+      APP_ID,
+      SCHEDULED_REPORT_JOB_TYPE,
+      { scheduledReportId: row.id },
+      new Date(),
+      cronIntervalSeconds,
+    );
     return row;
   }
 
@@ -65,20 +73,40 @@ export class ScheduledReportService {
    * re-derive a specific human's live permission set. This mirrors how a
    * cron-triggered job has no interactive "current user" to check against.
    */
-  async runDelivery(db: Kysely<Database>, organisationId: string, scheduledReportId: string): Promise<void> {
-    const schedule = await db.selectFrom('scheduled_reports').selectAll().where('id', '=', scheduledReportId).executeTakeFirst();
+  async runDelivery(
+    db: Kysely<Database>,
+    organisationId: string,
+    scheduledReportId: string,
+  ): Promise<void> {
+    const schedule = await db
+      .selectFrom('scheduled_reports')
+      .selectAll()
+      .where('id', '=', scheduledReportId)
+      .executeTakeFirst();
     if (!schedule || !schedule.enabled) return;
 
-    const report = await db.selectFrom('saved_reports').selectAll().where('id', '=', schedule.report_id).executeTakeFirst();
+    const report = await db
+      .selectFrom('saved_reports')
+      .selectAll()
+      .where('id', '=', schedule.report_id)
+      .executeTakeFirst();
     if (!report) {
       await this.recordRun(db, scheduledReportId, 'failed');
-      throw new NotFoundException(`Saved report "${schedule.report_id}" not found for scheduled delivery.`);
+      throw new NotFoundException(
+        `Saved report "${schedule.report_id}" not found for scheduled delivery.`,
+      );
     }
 
-    const dataset = await db.selectFrom('dataset_definitions').selectAll().where('dataset_key', '=', report.primary_dataset).executeTakeFirst();
+    const dataset = await db
+      .selectFrom('dataset_definitions')
+      .selectAll()
+      .where('dataset_key', '=', report.primary_dataset)
+      .executeTakeFirst();
     if (!dataset) {
       await this.recordRun(db, scheduledReportId, 'failed');
-      throw new NotFoundException(`Dataset "${report.primary_dataset}" not found for scheduled delivery.`);
+      throw new NotFoundException(
+        `Dataset "${report.primary_dataset}" not found for scheduled delivery.`,
+      );
     }
 
     const subject: PermissionCheckSubject = {
@@ -93,11 +121,35 @@ export class ScheduledReportService {
 
       for (const format of schedule.formats as ExportFormat[]) {
         const columns = definition.fields ?? Object.keys(rows[0] ?? {});
-        const buffer = format === 'csv' ? this.exportsService.toCsvBuffer(rows, columns) : format === 'xlsx' ? await this.exportsService.toXlsxBuffer(rows, columns) : await this.exportsService.toPdfBuffer(rows, columns, { organisationName: organisationId, reportTitle: report.name });
-        const jobId = await this.exportsService.recordExportJob(db, organisationId, report.primary_dataset, format, rows.length, `scheduled:${scheduledReportId}:${format}:${buffer.length}bytes`);
+        const buffer =
+          format === 'csv'
+            ? this.exportsService.toCsvBuffer(rows, columns)
+            : format === 'xlsx'
+              ? await this.exportsService.toXlsxBuffer(rows, columns)
+              : await this.exportsService.toPdfBuffer(rows, columns, {
+                  organisationName: organisationId,
+                  reportTitle: report.name,
+                });
+        const jobId = await this.exportsService.recordExportJob(
+          db,
+          organisationId,
+          report.primary_dataset,
+          format,
+          rows.length,
+          `scheduled:${scheduledReportId}:${format}:${buffer.length}bytes`,
+        );
 
         for (const recipientId of schedule.recipient_user_account_ids) {
-          await this.notifications.send(db, organisationId, APP_ID, recipientId, 'scheduled_report.ready', `Report ready: ${report.name}`, `Your scheduled report "${report.name}" (${format.toUpperCase()}) is ready.`, { type: 'export_job', id: jobId });
+          await this.notifications.send(
+            db,
+            organisationId,
+            APP_ID,
+            recipientId,
+            'scheduled_report.ready',
+            `Report ready: ${report.name}`,
+            `Your scheduled report "${report.name}" (${format.toUpperCase()}) is ready.`,
+            { type: 'export_job', id: jobId },
+          );
         }
       }
 
@@ -108,7 +160,15 @@ export class ScheduledReportService {
     }
   }
 
-  private async recordRun(db: Kysely<Database>, scheduledReportId: string, status: 'success' | 'failed'): Promise<void> {
-    await db.updateTable('scheduled_reports').set({ last_run_at: new Date() as any, last_status: status }).where('id', '=', scheduledReportId).execute();
+  private async recordRun(
+    db: Kysely<Database>,
+    scheduledReportId: string,
+    status: 'success' | 'failed',
+  ): Promise<void> {
+    await db
+      .updateTable('scheduled_reports')
+      .set({ last_run_at: new Date() as any, last_status: status })
+      .where('id', '=', scheduledReportId)
+      .execute();
   }
 }

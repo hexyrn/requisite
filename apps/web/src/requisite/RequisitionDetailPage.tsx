@@ -15,7 +15,9 @@ export function RequisitionDetailPage() {
   const navigate = useNavigate();
   const [requisition, setRequisition] = useState<Requisition | null>(null);
   const [history, setHistory] = useState<ApprovalHistoryEntry[]>([]);
-  const [attachments, setAttachments] = useState<Array<{ id: string; original_filename: string }>>([]);
+  const [attachments, setAttachments] = useState<Array<{ id: string; original_filename: string }>>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -39,7 +41,12 @@ export function RequisitionDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [req, hist, files, sups] = await Promise.all([requisiteApi.getRequisition(id), requisiteApi.getApprovalHistory(id), requisiteApi.listAttachments(id), requisiteApi.listSuppliers()]);
+      const [req, hist, files, sups] = await Promise.all([
+        requisiteApi.getRequisition(id),
+        requisiteApi.getApprovalHistory(id),
+        requisiteApi.listAttachments(id),
+        requisiteApi.listSuppliers(),
+      ]);
       setRequisition(req);
       setHistory(hist);
       setAttachments(files);
@@ -82,10 +89,17 @@ export function RequisitionDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await requisiteApi.decideRequisition(requisition.id, pendingStep.id, decision, rejectReason || undefined);
+      await requisiteApi.decideRequisition(
+        requisition.id,
+        pendingStep.id,
+        decision,
+        rejectReason || undefined,
+      );
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : `Could not ${decision} this requisition.`);
+      setActionError(
+        err instanceof Error ? err.message : `Could not ${decision} this requisition.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -98,7 +112,11 @@ export function RequisitionDetailPage() {
     try {
       const po = await requisiteApi.generatePurchaseOrder(requisition.id, {
         supplierId,
-        lines: requisition.lines.map((l) => ({ description: l.description, quantityOrdered: l.quantity, unitPriceMinor: l.estimated_unit_price_minor })),
+        lines: requisition.lines.map((l) => ({
+          description: l.description,
+          quantityOrdered: l.quantity,
+          unitPriceMinor: l.estimated_unit_price_minor,
+        })),
       });
       navigate(`/requisite/purchase-orders/${po.id}`);
     } catch (err) {
@@ -108,7 +126,12 @@ export function RequisitionDetailPage() {
     }
   }
 
-  if (error) return <div role="alert" style={{ color: '#991b1b' }}>{error}</div>;
+  if (error)
+    return (
+      <div role="alert" style={{ color: '#991b1b' }}>
+        {error}
+      </div>
+    );
   if (!requisition) return <p>Loading…</p>;
 
   const pendingStep = history.flatMap((h) => h.steps).find((s) => s.status === 'pending');
@@ -117,7 +140,12 @@ export function RequisitionDetailPage() {
     <div>
       <PageHeader
         title={requisition.requisition_number}
-        subtitle={<StatusBadge label={statusLabel(requisition.status)} tone={statusTone(requisition.status)} />}
+        subtitle={
+          <StatusBadge
+            label={statusLabel(requisition.status)}
+            tone={statusTone(requisition.status)}
+          />
+        }
         actions={
           requisition.status === 'draft' ? (
             <Button onClick={onSubmit} disabled={busy}>
@@ -128,7 +156,12 @@ export function RequisitionDetailPage() {
       />
 
       {actionError && (
-        <div ref={actionErrorRef} role="alert" tabIndex={-1} style={{ color: '#991b1b', marginBottom: 12, outline: 'none' }}>
+        <div
+          ref={actionErrorRef}
+          role="alert"
+          tabIndex={-1}
+          style={{ color: '#991b1b', marginBottom: 12, outline: 'none' }}
+        >
           {actionError}
         </div>
       )}
@@ -137,16 +170,29 @@ export function RequisitionDetailPage() {
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Summary</h2>
         <p>{requisition.reason}</p>
         <p>
-          Estimated total: <strong><Money minorUnits={requisition.estimated_value_minor} currency={requisition.currency} /></strong>
+          Estimated total:{' '}
+          <strong>
+            <Money minorUnits={requisition.estimated_value_minor} currency={requisition.currency} />
+          </strong>
         </p>
-        {requisition.cost_object_reference && <p>Project/cost reference: {requisition.cost_object_reference}</p>}
+        {requisition.cost_object_reference && (
+          <p>Project/cost reference: {requisition.cost_object_reference}</p>
+        )}
         {requisition.required_by_date && <p>Required by: {requisition.required_by_date}</p>}
       </Card>
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Lines</h2>
         {requisition.lines.map((line) => (
-          <div key={line.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+          <div
+            key={line.id}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              padding: '6px 0',
+              borderBottom: '1px solid #f3f4f6',
+            }}
+          >
             <span>
               {line.quantity} {line.unit ?? ''} × {line.description}
             </span>
@@ -161,7 +207,18 @@ export function RequisitionDetailPage() {
           <label htmlFor="po-supplier" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
             Supplier
           </label>
-          <select id="po-supplier" value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #d1d5db', marginBottom: 12, minWidth: 240 }}>
+          <select
+            id="po-supplier"
+            value={selectedSupplierId}
+            onChange={(e) => setSelectedSupplierId(e.target.value)}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              border: '1px solid #d1d5db',
+              marginBottom: 12,
+              minWidth: 240,
+            }}
+          >
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -169,7 +226,10 @@ export function RequisitionDetailPage() {
             ))}
           </select>
           <div>
-            <Button onClick={() => onGeneratePo(selectedSupplierId)} disabled={busy || !selectedSupplierId}>
+            <Button
+              onClick={() => onGeneratePo(selectedSupplierId)}
+              disabled={busy || !selectedSupplierId}
+            >
               Generate Purchase Order
             </Button>
           </div>
@@ -179,10 +239,25 @@ export function RequisitionDetailPage() {
       {pendingStep && (
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Your decision</h2>
-          <label htmlFor="reject-reason" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+          <label
+            htmlFor="reject-reason"
+            style={{ fontSize: 13, display: 'block', marginBottom: 4 }}
+          >
             Comment (required to reject)
           </label>
-          <textarea id="reject-reason" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} style={{ width: '100%', minHeight: 60, marginBottom: 12, padding: 8, borderRadius: 6, border: '1px solid #d1d5db' }} />
+          <textarea
+            id="reject-reason"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: 60,
+              marginBottom: 12,
+              padding: 8,
+              borderRadius: 6,
+              border: '1px solid #d1d5db',
+            }}
+          />
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={() => onDecide('approve')} disabled={busy}>
               Approve
@@ -196,21 +271,37 @@ export function RequisitionDetailPage() {
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Approval history</h2>
-        {history.length === 0 || history.every((h) => h.steps.every((s) => s.decisions.length === 0)) ? (
+        {history.length === 0 ||
+        history.every((h) => h.steps.every((s) => s.decisions.length === 0)) ? (
           <p style={{ color: '#6b7280', fontSize: 14 }}>No decisions have been recorded yet.</p>
         ) : (
-          history.flatMap((h) => h.steps).flatMap((s) => s.decisions).map((d, i) => (
-            <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}>
-              {d.decision === 'approve' ? 'Approved' : 'Rejected'} on {new Date(d.decided_at).toLocaleString()}
-              {d.comment && <div style={{ color: '#6b7280' }}>"{d.comment}"</div>}
-            </div>
-          ))
+          history
+            .flatMap((h) => h.steps)
+            .flatMap((s) => s.decisions)
+            .map((d, i) => (
+              <div
+                key={i}
+                style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}
+              >
+                {d.decision === 'approve' ? 'Approved' : 'Rejected'} on{' '}
+                {new Date(d.decided_at).toLocaleString()}
+                {d.comment && <div style={{ color: '#6b7280' }}>"{d.comment}"</div>}
+              </div>
+            ))
         )}
       </Card>
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Documents</h2>
-        {attachments.length === 0 ? <p style={{ color: '#6b7280', fontSize: 14 }}>No files attached.</p> : <ul>{attachments.map((a) => <li key={a.id}>{a.original_filename}</li>)}</ul>}
+        {attachments.length === 0 ? (
+          <p style={{ color: '#6b7280', fontSize: 14 }}>No files attached.</p>
+        ) : (
+          <ul>
+            {attachments.map((a) => (
+              <li key={a.id}>{a.original_filename}</li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Link to="/requisite/requisitions">← Back to Requisitions</Link>

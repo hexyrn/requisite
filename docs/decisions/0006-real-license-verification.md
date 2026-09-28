@@ -1,12 +1,14 @@
 # ADR 0006: Real Ed25519 license verification (resolves ADR 0004)
 
 ## Status
+
 Accepted (P2). Supersedes the verification approach in ADR 0004 - the
 LICENSE/COMPATIBILITY/SUPPORT separation and schema from that ADR are
 unchanged and remain correct; only the "no real signature verification"
 gap is closed.
 
 ## What changed
+
 `ApplicationRegistryService.grantLicense` now requires a genuine
 `SignedLicense` (`apps/api/src/platform/licensing/license-payload.ts`) and
 rejects anything that doesn't verify - a missing/malformed signature, a
@@ -18,6 +20,7 @@ via Node's built-in `crypto.verify`, using a locally-configured public key
 in the verification path.
 
 ## Key handling
+
 - **Production**: the private signing key lives only in Hexyrn's own
   offline license-generation environment and is never committed here.
   Core ships (via `HEXYRN_LICENSE_PUBLIC_KEY`) only the public
@@ -34,6 +37,7 @@ in the verification path.
   be mistaken for quiet, intended production behaviour.
 
 ## Canonical payload format
+
 `LicensePayload` = `{ licenseId, appId, organisationId, majorVersion,
 issuedAt, supportExpiresAt }`. Signed as `Ed25519(canonicalize(payload))`
 where `canonicalize` produces a deterministic, sorted-key JSON string - the
@@ -43,6 +47,7 @@ the signature onto a modified payload (`canonicalize`'s output changes,
 so the signature no longer matches).
 
 ## Verified test coverage (`licensing.spec.ts`, 14/14 passing)
+
 Valid signature; invalid/garbage signature; modified payload (both a
 structural field like `majorVersion` and a semantically-tempting field like
 `supportExpiresAt`); wrong organisation; wrong product; wrong major
@@ -57,8 +62,9 @@ rejected, proving the public key is actually enforced; and the
 trusted.
 
 ## Consequences
+
 - Every P1-era test that called `grantLicense` with a fake `{ signature:
-  'x' }` payload was updated to use a real signed test license
+'x' }` payload was updated to use a real signed test license
   (`test-utils/test-db.ts`'s `createTestLicense` helper, built on
   `LicenseSigner` + the committed test keypair) - all 198 tests across the
   full P0+P1+P2 suite pass with real verification now enforced everywhere,

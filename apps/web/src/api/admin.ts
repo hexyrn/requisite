@@ -26,7 +26,8 @@ export interface BackupDetail {
 export const backupApi = {
   list: () => request<{ backups: BackupSummary[] }>('/backup'),
   get: (id: string) => request<BackupDetail>(`/backup/${encodeURIComponent(id)}`),
-  createNow: () => request<{ backupId: string; manifest: Record<string, unknown> }>('/backup', { method: 'POST' }),
+  createNow: () =>
+    request<{ backupId: string; manifest: Record<string, unknown> }>('/backup', { method: 'POST' }),
   restore: (id: string) =>
     request<{ restored: boolean; manifest: Record<string, unknown>; filesRestored: number }>(
       `/backup/${encodeURIComponent(id)}/restore`,
@@ -49,12 +50,18 @@ export interface UpdateCheckResult {
 
 export const updateApi = {
   check: (packagePath: string, manifest: Record<string, unknown>) =>
-    request<UpdateCheckResult>('/update/check', { method: 'POST', body: JSON.stringify({ packagePath, manifest }) }),
-  apply: (packagePath: string, manifest: Record<string, unknown>, requireBackup: boolean) =>
-    request<{ succeeded: boolean; steps: Array<{ step: string; ok: boolean; detail?: string }> }>('/update/apply', {
+    request<UpdateCheckResult>('/update/check', {
       method: 'POST',
-      body: JSON.stringify({ packagePath, manifest, confirmed: true, requireBackup }),
+      body: JSON.stringify({ packagePath, manifest }),
     }),
+  apply: (packagePath: string, manifest: Record<string, unknown>, requireBackup: boolean) =>
+    request<{ succeeded: boolean; steps: Array<{ step: string; ok: boolean; detail?: string }> }>(
+      '/update/apply',
+      {
+        method: 'POST',
+        body: JSON.stringify({ packagePath, manifest, confirmed: true, requireBackup }),
+      },
+    ),
 };
 
 // --- Support bundle (apps/api/src/platform/support-bundle/support-bundle.controller.ts) ---
@@ -72,8 +79,10 @@ export interface LicenceDetail {
 }
 
 export const licenceApi = {
-  getState: (appId: string) => request<Record<string, unknown>>(`/apps/${encodeURIComponent(appId)}/state`),
-  getLicence: (appId: string) => request<LicenceDetail>(`/apps/${encodeURIComponent(appId)}/licence`),
+  getState: (appId: string) =>
+    request<Record<string, unknown>>(`/apps/${encodeURIComponent(appId)}/state`),
+  getLicence: (appId: string) =>
+    request<LicenceDetail>(`/apps/${encodeURIComponent(appId)}/licence`),
   importLicence: (appId: string, majorVersion: number, licence: Record<string, unknown>) =>
     request<LicenceDetail>(`/apps/${encodeURIComponent(appId)}/licence`, {
       method: 'POST',
@@ -93,10 +102,20 @@ export interface SmtpConfigDisplay {
 
 export const smtpApi = {
   get: () => request<SmtpConfigDisplay>('/smtp'),
-  set: (config: { host: string; port: number; secure: boolean; username?: string; password?: string; fromAddress: string }) =>
-    request<SmtpConfigDisplay>('/smtp', { method: 'POST', body: JSON.stringify(config) }),
+  set: (config: {
+    host: string;
+    port: number;
+    secure: boolean;
+    username?: string;
+    password?: string;
+    fromAddress: string;
+  }) => request<SmtpConfigDisplay>('/smtp', { method: 'POST', body: JSON.stringify(config) }),
   clear: () => request<{ cleared: boolean }>('/smtp', { method: 'DELETE' }),
-  sendTest: (to: string) => request<{ success: boolean; error?: string }>('/smtp/test', { method: 'POST', body: JSON.stringify({ to }) }),
+  sendTest: (to: string) =>
+    request<{ success: boolean; error?: string }>('/smtp/test', {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    }),
 };
 
 // --- Health/diagnostics (apps/api/src/platform/health/health-diagnostics.controller.ts) ---

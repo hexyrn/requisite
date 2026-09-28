@@ -108,8 +108,9 @@ found and fixed in the root `package.json`), re-runs typecheck and lint
 against THIS build, then stages the production-only payload (compiled
 `dist/`, production-only `node_modules` via `npm ci --omit=dev` after
 building, `packages/*/dist`, `apps/web/dist`) into `dist-release\payload`
+
 - verified to contain zero stray `.ts` source files and zero `.env`
-files.
+  files.
 
 Separately, run the full test suite (not part of the payload script
 itself, since it's slower and the payload script's own typecheck/lint
@@ -285,7 +286,7 @@ being tested - a real SME administrator's machine):
    roles (`hexyrn`/`hexyrn_app`/`hexyrn_backup`) are created with the
    correct privileges (verify via `psql` from the bundled `bin\`
    directory - `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles
-   WHERE rolname LIKE 'hexyrn%'` should show exactly the same three-row
+WHERE rolname LIKE 'hexyrn%'` should show exactly the same three-row
    result this phase already proved in Docker AND on this Windows
    machine's own isolated test instance - see this phase's commit
    history for that direct verification); migrations run; the Hexyrn

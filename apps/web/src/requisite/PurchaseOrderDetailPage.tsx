@@ -25,7 +25,10 @@ export function PurchaseOrderDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [order, poReceipts] = await Promise.all([requisiteApi.getPurchaseOrder(id), requisiteApi.listGoodsReceiptsForPo(id)]);
+      const [order, poReceipts] = await Promise.all([
+        requisiteApi.getPurchaseOrder(id),
+        requisiteApi.listGoodsReceiptsForPo(id),
+      ]);
       setPo(order);
       setReceipts(poReceipts);
       const defaults: Record<string, string> = {};
@@ -60,7 +63,10 @@ export function PurchaseOrderDetailPage() {
   async function onRecordReceipt() {
     if (!po) return;
     const lines = po.lines
-      .map((line) => ({ purchaseOrderLineId: line.id, quantityReceived: receiveQuantities[line.id] ?? '0' }))
+      .map((line) => ({
+        purchaseOrderLineId: line.id,
+        quantityReceived: receiveQuantities[line.id] ?? '0',
+      }))
       .filter((l) => Number(l.quantityReceived) > 0);
     if (lines.length === 0) {
       setActionError('Enter a quantity to receive for at least one line.');
@@ -69,17 +75,29 @@ export function PurchaseOrderDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await requisiteApi.recordGoodsReceipt(po.id, { lines, deliveryNoteReference: deliveryNoteRef || undefined });
+      await requisiteApi.recordGoodsReceipt(po.id, {
+        lines,
+        deliveryNoteReference: deliveryNoteRef || undefined,
+      });
       setDeliveryNoteRef('');
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not record this goods receipt - check the quantity does not exceed what is outstanding.');
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : 'Could not record this goods receipt - check the quantity does not exceed what is outstanding.',
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  if (error) return <div role="alert" style={{ color: '#991b1b' }}>{error}</div>;
+  if (error)
+    return (
+      <div role="alert" style={{ color: '#991b1b' }}>
+        {error}
+      </div>
+    );
   if (!po) return <p>Loading…</p>;
 
   const canReceive = po.status === 'issued' || po.status === 'partially_received';
@@ -96,19 +114,32 @@ export function PurchaseOrderDetailPage() {
                 Issue Purchase Order
               </Button>
             )}
-            <a href={`/api/v1/requisite/purchase-orders/${po.id}/document.pdf`} target="_blank" rel="noreferrer">
+            <a
+              href={`/api/v1/requisite/purchase-orders/${po.id}/document.pdf`}
+              target="_blank"
+              rel="noreferrer"
+            >
               <Button variant="secondary">View PDF</Button>
             </a>
           </>
         }
       />
 
-      {actionError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{actionError}</div>}
+      {actionError && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {actionError}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Summary</h2>
         <p>
-          Total: <strong><Money minorUnits={po.total_minor} currency={po.currency} /></strong> (net <Money minorUnits={po.subtotal_minor} currency={po.currency} />, tax <Money minorUnits={po.tax_minor} currency={po.currency} />)
+          Total:{' '}
+          <strong>
+            <Money minorUnits={po.total_minor} currency={po.currency} />
+          </strong>{' '}
+          (net <Money minorUnits={po.subtotal_minor} currency={po.currency} />, tax{' '}
+          <Money minorUnits={po.tax_minor} currency={po.currency} />)
         </p>
         {po.expected_delivery_date && <p>Expected delivery: {po.expected_delivery_date}</p>}
       </Card>
@@ -122,7 +153,9 @@ export function PurchaseOrderDetailPage() {
               <th style={{ textAlign: 'right', padding: '4px 8px' }}>Ordered</th>
               <th style={{ textAlign: 'right', padding: '4px 8px' }}>Received</th>
               <th style={{ textAlign: 'right', padding: '4px 8px' }}>Outstanding</th>
-              {canReceive && <th style={{ textAlign: 'right', padding: '4px 8px' }}>Receive Now</th>}
+              {canReceive && (
+                <th style={{ textAlign: 'right', padding: '4px 8px' }}>Receive Now</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -131,8 +164,12 @@ export function PurchaseOrderDetailPage() {
               return (
                 <tr key={line.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '4px 8px' }}>{line.description}</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>{line.quantity_ordered}</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>{line.quantity_received}</td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                    {line.quantity_ordered}
+                  </td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                    {line.quantity_received}
+                  </td>
                   <td style={{ padding: '4px 8px', textAlign: 'right' }}>{outstanding}</td>
                   {canReceive && (
                     <td style={{ padding: '4px 8px', textAlign: 'right' }}>
@@ -142,8 +179,15 @@ export function PurchaseOrderDetailPage() {
                         min={0}
                         max={outstanding}
                         value={receiveQuantities[line.id] ?? '0'}
-                        onChange={(e) => setReceiveQuantities((prev) => ({ ...prev, [line.id]: e.target.value }))}
-                        style={{ width: 70, padding: 4, borderRadius: 4, border: '1px solid #d1d5db' }}
+                        onChange={(e) =>
+                          setReceiveQuantities((prev) => ({ ...prev, [line.id]: e.target.value }))
+                        }
+                        style={{
+                          width: 70,
+                          padding: 4,
+                          borderRadius: 4,
+                          border: '1px solid #d1d5db',
+                        }}
                       />
                     </td>
                   )}
@@ -155,9 +199,15 @@ export function PurchaseOrderDetailPage() {
 
         {canReceive && (
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-            <Input label="Delivery note reference" value={deliveryNoteRef} onChange={(e) => setDeliveryNoteRef(e.target.value)} />
+            <Input
+              label="Delivery note reference"
+              value={deliveryNoteRef}
+              onChange={(e) => setDeliveryNoteRef(e.target.value)}
+            />
             <Button onClick={onRecordReceipt} disabled={busy}>
-              {po.status === 'partially_received' ? 'Record Remaining Delivery' : 'Record Goods Receipt'}
+              {po.status === 'partially_received'
+                ? 'Record Remaining Delivery'
+                : 'Record Goods Receipt'}
             </Button>
           </div>
         )}
@@ -166,7 +216,9 @@ export function PurchaseOrderDetailPage() {
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Goods Receipt History</h2>
         {receipts.length === 0 ? (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>No deliveries have been recorded against this order.</p>
+          <p style={{ color: '#6b7280', fontSize: 14 }}>
+            No deliveries have been recorded against this order.
+          </p>
         ) : (
           <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
             <thead>

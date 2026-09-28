@@ -20,7 +20,9 @@ describe('design-system primitives (frontend test infra sanity check)', () => {
   });
 
   it('EmptyState renders message and action', () => {
-    render(<EmptyState message="Nothing requested yet." action={<button>Create requisition</button>} />);
+    render(
+      <EmptyState message="Nothing requested yet." action={<button>Create requisition</button>} />,
+    );
     expect(screen.getByText('Nothing requested yet.')).toBeInTheDocument();
     expect(screen.getByText('Create requisition')).toBeInTheDocument();
   });

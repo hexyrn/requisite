@@ -38,7 +38,10 @@ export class SmtpController {
       // configured - only an explicitly non-empty password overwrites it,
       // so an admin editing the host/port doesn't have to re-enter (or
       // accidentally blank out) a password they can never see again.
-      password: body.password && body.password.length > 0 ? body.password : await this.keepExistingPassword(),
+      password:
+        body.password && body.password.length > 0
+          ? body.password
+          : await this.keepExistingPassword(),
       fromAddress: body.fromAddress,
     };
     await this.config.setConfig(getPool(), config);
@@ -64,7 +67,10 @@ export class SmtpController {
   async sendTestEmail(@Req() req: FastifyRequest, @Body() body: { to: string }) {
     const config = await this.config.getConfigForSending(getPool());
     if (!config) {
-      return { success: false, error: 'SMTP is not configured yet - set a configuration before sending a test email.' };
+      return {
+        success: false,
+        error: 'SMTP is not configured yet - set a configuration before sending a test email.',
+      };
     }
     const user = (req as any).currentUser;
     return sendSmtpMail(config, {

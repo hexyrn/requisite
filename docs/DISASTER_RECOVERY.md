@@ -25,6 +25,7 @@ database backup** (the backup mechanism backs up DATA, not installation
 secrets - see §5 below) - without these, encrypted data in the restored
 database is permanently unrecoverable even though the backup itself
 succeeded:
+
 - `TOTP_MASTER_KEY_CURRENT` (and `_PREVIOUS` if mid-rotation) - loses
   this, every user's MFA is permanently unusable via the normal path
   (admin-assisted reset still works, since it doesn't need to decrypt the

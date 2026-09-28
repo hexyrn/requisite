@@ -7,7 +7,8 @@ import { getPool } from '../../db/pool';
 import { ReportQueryService } from '../reporting/report-query.service';
 import { PermissionCheckSubject } from '../../rbac/permission-evaluator';
 
-export type WidgetType = 'kpi' | 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'status_queue' | 'alert_list';
+export type WidgetType =
+  'kpi' | 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'status_queue' | 'alert_list';
 
 export interface WidgetDefinitionInput {
   widgetKey: string;
@@ -32,27 +33,77 @@ export class DashboardService {
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     await db
       .insertInto('widget_definitions')
-      .values({ widget_key: input.widgetKey, app_id: input.appId, display_name: input.displayName, widget_type: input.widgetType, dataset_key: input.datasetKey, default_config: (input.defaultConfig ?? {}) as any })
-      .onConflict((oc) => oc.column('widget_key').doUpdateSet({ display_name: input.displayName, widget_type: input.widgetType, dataset_key: input.datasetKey }))
+      .values({
+        widget_key: input.widgetKey,
+        app_id: input.appId,
+        display_name: input.displayName,
+        widget_type: input.widgetType,
+        dataset_key: input.datasetKey,
+        default_config: (input.defaultConfig ?? {}) as any,
+      })
+      .onConflict((oc) =>
+        oc.column('widget_key').doUpdateSet({
+          display_name: input.displayName,
+          widget_type: input.widgetType,
+          dataset_key: input.datasetKey,
+        }),
+      )
       .execute();
   }
 
-  async createDashboard(db: Kysely<Database>, organisationId: string, ownerUserAccountId: string, name: string) {
-    return db.insertInto('dashboards').values({ organisation_id: organisationId, owner_user_account_id: ownerUserAccountId, name }).returningAll().executeTakeFirstOrThrow();
-  }
-
-  async addWidget(db: Kysely<Database>, organisationId: string, dashboardId: string, widgetKey: string, config: Record<string, unknown> = {}, layout?: { x: number; y: number; w: number; h: number }) {
-    const widget = await db.selectFrom('widget_definitions').selectAll().where('widget_key', '=', widgetKey).executeTakeFirst();
-    if (!widget) throw new NotFoundException(`Widget "${widgetKey}" is not registered.`);
+  async createDashboard(
+    db: Kysely<Database>,
+    organisationId: string,
+    ownerUserAccountId: string,
+    name: string,
+  ) {
     return db
-      .insertInto('dashboard_widgets')
-      .values({ organisation_id: organisationId, dashboard_id: dashboardId, widget_key: widgetKey, config: config as any, position_x: layout?.x ?? 0, position_y: layout?.y ?? 0, width: layout?.w ?? 4, height: layout?.h ?? 3 })
+      .insertInto('dashboards')
+      .values({ organisation_id: organisationId, owner_user_account_id: ownerUserAccountId, name })
       .returningAll()
       .executeTakeFirstOrThrow();
   }
 
-  async removeWidget(db: Kysely<Database>, organisationId: string, widgetInstanceId: string): Promise<void> {
-    await db.deleteFrom('dashboard_widgets').where('id', '=', widgetInstanceId).where('organisation_id', '=', organisationId).execute();
+  async addWidget(
+    db: Kysely<Database>,
+    organisationId: string,
+    dashboardId: string,
+    widgetKey: string,
+    config: Record<string, unknown> = {},
+    layout?: { x: number; y: number; w: number; h: number },
+  ) {
+    const widget = await db
+      .selectFrom('widget_definitions')
+      .selectAll()
+      .where('widget_key', '=', widgetKey)
+      .executeTakeFirst();
+    if (!widget) throw new NotFoundException(`Widget "${widgetKey}" is not registered.`);
+    return db
+      .insertInto('dashboard_widgets')
+      .values({
+        organisation_id: organisationId,
+        dashboard_id: dashboardId,
+        widget_key: widgetKey,
+        config: config as any,
+        position_x: layout?.x ?? 0,
+        position_y: layout?.y ?? 0,
+        width: layout?.w ?? 4,
+        height: layout?.h ?? 3,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  }
+
+  async removeWidget(
+    db: Kysely<Database>,
+    organisationId: string,
+    widgetInstanceId: string,
+  ): Promise<void> {
+    await db
+      .deleteFrom('dashboard_widgets')
+      .where('id', '=', widgetInstanceId)
+      .where('organisation_id', '=', organisationId)
+      .execute();
   }
 
   /**
@@ -64,10 +115,23 @@ export class DashboardService {
    * caller (dashboard rendering) is expected to treat a widget it cannot
    * resolve as absent from the dashboard for that viewer, not as zero.
    */
-  async resolveWidgetData(db: Kysely<Database>, subject: PermissionCheckSubject, widgetInstanceId: string): Promise<Record<string, unknown>[]> {
-    const instance = await db.selectFrom('dashboard_widgets').selectAll().where('id', '=', widgetInstanceId).where('organisation_id', '=', subject.organisationId).executeTakeFirst();
+  async resolveWidgetData(
+    db: Kysely<Database>,
+    subject: PermissionCheckSubject,
+    widgetInstanceId: string,
+  ): Promise<Record<string, unknown>[]> {
+    const instance = await db
+      .selectFrom('dashboard_widgets')
+      .selectAll()
+      .where('id', '=', widgetInstanceId)
+      .where('organisation_id', '=', subject.organisationId)
+      .executeTakeFirst();
     if (!instance) throw new NotFoundException('Widget instance not found.');
-    const widget = await db.selectFrom('widget_definitions').selectAll().where('widget_key', '=', instance.widget_key).executeTakeFirstOrThrow();
+    const widget = await db
+      .selectFrom('widget_definitions')
+      .selectAll()
+      .where('widget_key', '=', instance.widget_key)
+      .executeTakeFirstOrThrow();
 
     const config = instance.config as Record<string, unknown>;
     return this.queryEngine.execute(db, subject, {
@@ -80,13 +144,30 @@ export class DashboardService {
     });
   }
 
-  async getDashboard(db: Kysely<Database>, organisationId: string, dashboardId: string, requestingUserAccountId: string) {
-    const dashboard = await db.selectFrom('dashboards').selectAll().where('id', '=', dashboardId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async getDashboard(
+    db: Kysely<Database>,
+    organisationId: string,
+    dashboardId: string,
+    requestingUserAccountId: string,
+  ) {
+    const dashboard = await db
+      .selectFrom('dashboards')
+      .selectAll()
+      .where('id', '=', dashboardId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!dashboard) throw new NotFoundException('Dashboard not found.');
-    if (dashboard.owner_user_account_id && dashboard.owner_user_account_id !== requestingUserAccountId) {
+    if (
+      dashboard.owner_user_account_id &&
+      dashboard.owner_user_account_id !== requestingUserAccountId
+    ) {
       throw new ForbiddenException('This dashboard belongs to another user.');
     }
-    const widgets = await db.selectFrom('dashboard_widgets').selectAll().where('dashboard_id', '=', dashboardId).execute();
+    const widgets = await db
+      .selectFrom('dashboard_widgets')
+      .selectAll()
+      .where('dashboard_id', '=', dashboardId)
+      .execute();
     return { dashboard, widgets };
   }
 }

@@ -15,7 +15,8 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
   version: '1.0.0',
   majorVersion: 1,
   requiresCoreVersion: '^0.1.0',
-  description: 'Purchasing and procurement control: requisitions, approvals, purchase orders, and goods receipt.',
+  description:
+    'Purchasing and procurement control: requisitions, approvals, purchase orders, and goods receipt.',
 
   permissions: [
     { key: 'requisite.suppliers.view', label: 'View suppliers' },
@@ -36,13 +37,55 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
   ],
 
   navigation: [
-    { key: 'requisite-home', label: 'Home', path: '/requisite', permission: 'requisite.requisitions.view', order: 900 },
-    { key: 'requisite-requisitions', label: 'Requisitions', path: '/requisite/requisitions', permission: 'requisite.requisitions.view', order: 901 },
-    { key: 'requisite-purchase-orders', label: 'Purchase Orders', path: '/requisite/purchase-orders', permission: 'requisite.purchase-orders.view', order: 902 },
-    { key: 'requisite-goods-receipts', label: 'Goods Receipts', path: '/requisite/goods-receipts', permission: 'requisite.goods-receipts.view', order: 903 },
-    { key: 'requisite-suppliers', label: 'Suppliers', path: '/requisite/suppliers', permission: 'requisite.suppliers.view', order: 904 },
-    { key: 'requisite-rfqs', label: 'Quotes/RFQs', path: '/requisite/rfqs', permission: 'requisite.rfqs.manage', order: 905 },
-    { key: 'requisite-reports', label: 'Reports', path: '/requisite/reports', permission: 'requisite.reports.view', order: 906 },
+    {
+      key: 'requisite-home',
+      label: 'Home',
+      path: '/requisite',
+      permission: 'requisite.requisitions.view',
+      order: 900,
+    },
+    {
+      key: 'requisite-requisitions',
+      label: 'Requisitions',
+      path: '/requisite/requisitions',
+      permission: 'requisite.requisitions.view',
+      order: 901,
+    },
+    {
+      key: 'requisite-purchase-orders',
+      label: 'Purchase Orders',
+      path: '/requisite/purchase-orders',
+      permission: 'requisite.purchase-orders.view',
+      order: 902,
+    },
+    {
+      key: 'requisite-goods-receipts',
+      label: 'Goods Receipts',
+      path: '/requisite/goods-receipts',
+      permission: 'requisite.goods-receipts.view',
+      order: 903,
+    },
+    {
+      key: 'requisite-suppliers',
+      label: 'Suppliers',
+      path: '/requisite/suppliers',
+      permission: 'requisite.suppliers.view',
+      order: 904,
+    },
+    {
+      key: 'requisite-rfqs',
+      label: 'Quotes/RFQs',
+      path: '/requisite/rfqs',
+      permission: 'requisite.rfqs.manage',
+      order: 905,
+    },
+    {
+      key: 'requisite-reports',
+      label: 'Reports',
+      path: '/requisite/reports',
+      permission: 'requisite.reports.view',
+      order: 906,
+    },
   ],
 
   capabilities: [
@@ -53,15 +96,51 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
   ],
 
   eventsPublished: [
-    { eventType: 'requisite.requisition.created.v1', version: 1, description: 'A requisition was created.' },
-    { eventType: 'requisite.requisition.submitted.v1', version: 1, description: 'A requisition was submitted for approval.' },
-    { eventType: 'requisite.requisition.approved.v1', version: 1, description: 'A requisition completed approval.' },
-    { eventType: 'requisite.requisition.rejected.v1', version: 1, description: 'A requisition was rejected.' },
-    { eventType: 'requisite.purchase-order.created.v1', version: 1, description: 'A purchase order was generated from an approved requisition.' },
-    { eventType: 'requisite.purchase-order.issued.v1', version: 1, description: 'A purchase order was issued to its supplier.' },
-    { eventType: 'requisite.goods-receipt.created.v1', version: 1, description: 'A goods receipt was recorded against a purchase order.' },
-    { eventType: 'requisite.goods-received.v1', version: 1, description: 'A purchase order line received goods (partial or full).' },
-    { eventType: 'requisite.purchase-order.completed.v1', version: 1, description: 'A purchase order reached fully-received completion.' },
+    {
+      eventType: 'requisite.requisition.created.v1',
+      version: 1,
+      description: 'A requisition was created.',
+    },
+    {
+      eventType: 'requisite.requisition.submitted.v1',
+      version: 1,
+      description: 'A requisition was submitted for approval.',
+    },
+    {
+      eventType: 'requisite.requisition.approved.v1',
+      version: 1,
+      description: 'A requisition completed approval.',
+    },
+    {
+      eventType: 'requisite.requisition.rejected.v1',
+      version: 1,
+      description: 'A requisition was rejected.',
+    },
+    {
+      eventType: 'requisite.purchase-order.created.v1',
+      version: 1,
+      description: 'A purchase order was generated from an approved requisition.',
+    },
+    {
+      eventType: 'requisite.purchase-order.issued.v1',
+      version: 1,
+      description: 'A purchase order was issued to its supplier.',
+    },
+    {
+      eventType: 'requisite.goods-receipt.created.v1',
+      version: 1,
+      description: 'A goods receipt was recorded against a purchase order.',
+    },
+    {
+      eventType: 'requisite.goods-received.v1',
+      version: 1,
+      description: 'A purchase order line received goods (partial or full).',
+    },
+    {
+      eventType: 'requisite.purchase-order.completed.v1',
+      version: 1,
+      description: 'A purchase order reached fully-received completion.',
+    },
   ],
 
   numberingSequences: [
@@ -82,7 +161,12 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
             key: 'main',
             label: 'Purpose',
             fields: [
-              { key: 'reason', label: 'Reason / business justification', type: 'text', required: true },
+              {
+                key: 'reason',
+                label: 'Reason / business justification',
+                type: 'text',
+                required: true,
+              },
               { key: 'required_by_date', label: 'Required by', type: 'date' },
               { key: 'cost_object_reference', label: 'Project / cost reference', type: 'text' },
               { key: 'category', label: 'Category', type: 'text' },
@@ -121,21 +205,56 @@ export const REQUISITE_APP_MANIFEST: HexyrnAppManifest = {
     {
       workflowKey: 'requisition-lifecycle',
       definition: {
-        states: ['draft', 'submitted', 'awaiting_approval', 'approved', 'rejected', 'ordered', 'partially_received', 'received', 'closed', 'cancelled'],
+        states: [
+          'draft',
+          'submitted',
+          'awaiting_approval',
+          'approved',
+          'rejected',
+          'ordered',
+          'partially_received',
+          'received',
+          'closed',
+          'cancelled',
+        ],
         initialState: 'draft',
         transitions: [
           { from: 'draft', to: 'submitted', permission: 'requisite.requisitions.submit' },
-          { from: 'submitted', to: 'awaiting_approval', permission: 'requisite.requisitions.submit' },
-          { from: 'awaiting_approval', to: 'approved', permission: 'requisite.requisitions.approve' },
-          { from: 'awaiting_approval', to: 'rejected', permission: 'requisite.requisitions.approve' },
+          {
+            from: 'submitted',
+            to: 'awaiting_approval',
+            permission: 'requisite.requisitions.submit',
+          },
+          {
+            from: 'awaiting_approval',
+            to: 'approved',
+            permission: 'requisite.requisitions.approve',
+          },
+          {
+            from: 'awaiting_approval',
+            to: 'rejected',
+            permission: 'requisite.requisitions.approve',
+          },
           { from: 'approved', to: 'ordered', permission: 'requisite.purchase-orders.create' },
-          { from: 'ordered', to: 'partially_received', permission: 'requisite.goods-receipts.create' },
-          { from: 'partially_received', to: 'received', permission: 'requisite.goods-receipts.create' },
+          {
+            from: 'ordered',
+            to: 'partially_received',
+            permission: 'requisite.goods-receipts.create',
+          },
+          {
+            from: 'partially_received',
+            to: 'received',
+            permission: 'requisite.goods-receipts.create',
+          },
           { from: 'ordered', to: 'received', permission: 'requisite.goods-receipts.create' },
           { from: 'received', to: 'closed', permission: 'requisite.requisitions.edit' },
           { from: 'draft', to: 'cancelled', permission: 'requisite.requisitions.cancel' },
           { from: 'submitted', to: 'cancelled', permission: 'requisite.requisitions.cancel' },
-          { from: 'awaiting_approval', to: 'cancelled', permission: 'requisite.requisitions.cancel' },
+          {
+            from: 'awaiting_approval',
+            to: 'cancelled',
+            permission: 'requisite.requisitions.cancel',
+          },
         ],
       },
     },

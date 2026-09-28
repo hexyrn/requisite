@@ -43,19 +43,40 @@ export function RfqListPage() {
           </Button>
         }
       />
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
       {rfqs === null ? (
         <p>Loading…</p>
       ) : rfqs.length === 0 ? (
-        <EmptyState message="No RFQs have been created yet." action={<Button onClick={onNewRfq}>Create your first RFQ</Button>} />
+        <EmptyState
+          message="No RFQs have been created yet."
+          action={<Button onClick={onNewRfq}>Create your first RFQ</Button>}
+        />
       ) : (
         <Table<Rfq>
           rowKey={(r) => r.id}
           rows={rfqs}
           columns={[
-            { key: 'rfq_number', header: 'RFQ', render: (r) => <Link to={`/requisite/rfqs/${r.id}`}>{r.rfq_number}</Link> },
-            { key: 'status', header: 'Status', render: (r) => <StatusBadge label={statusLabel(r.status)} tone={statusTone(r.status)} /> },
-            { key: 'created_at', header: 'Created', render: (r) => new Date(r.created_at).toLocaleDateString() },
+            {
+              key: 'rfq_number',
+              header: 'RFQ',
+              render: (r) => <Link to={`/requisite/rfqs/${r.id}`}>{r.rfq_number}</Link>,
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (r) => (
+                <StatusBadge label={statusLabel(r.status)} tone={statusTone(r.status)} />
+              ),
+            },
+            {
+              key: 'created_at',
+              header: 'Created',
+              render: (r) => new Date(r.created_at).toLocaleDateString(),
+            },
           ]}
         />
       )}

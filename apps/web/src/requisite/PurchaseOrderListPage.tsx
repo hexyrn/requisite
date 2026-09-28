@@ -13,13 +13,19 @@ export function PurchaseOrderListPage() {
     requisiteApi
       .listPurchaseOrders()
       .then(setOrders)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load purchase orders.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load purchase orders.'),
+      );
   }, []);
 
   return (
     <div>
       <PageHeader title="Purchase Orders" />
-      {error && <div role="alert" style={{ color: '#991b1b' }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b' }}>
+          {error}
+        </div>
+      )}
       {orders === null ? (
         <p>Loading…</p>
       ) : orders.length === 0 ? (
@@ -29,10 +35,28 @@ export function PurchaseOrderListPage() {
           rowKey={(o) => o.id}
           rows={orders}
           columns={[
-            { key: 'po_number', header: 'PO Number', render: (o) => <Link to={`/requisite/purchase-orders/${o.id}`}>{o.po_number}</Link> },
-            { key: 'total', header: 'Total', render: (o) => <Money minorUnits={o.total_minor} currency={o.currency} /> },
-            { key: 'status', header: 'Status', render: (o) => <StatusBadge label={statusLabel(o.status)} tone={statusTone(o.status)} /> },
-            { key: 'expected_delivery_date', header: 'Expected Delivery', render: (o) => o.expected_delivery_date ?? '—' },
+            {
+              key: 'po_number',
+              header: 'PO Number',
+              render: (o) => <Link to={`/requisite/purchase-orders/${o.id}`}>{o.po_number}</Link>,
+            },
+            {
+              key: 'total',
+              header: 'Total',
+              render: (o) => <Money minorUnits={o.total_minor} currency={o.currency} />,
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (o) => (
+                <StatusBadge label={statusLabel(o.status)} tone={statusTone(o.status)} />
+              ),
+            },
+            {
+              key: 'expected_delivery_date',
+              header: 'Expected Delivery',
+              render: (o) => o.expected_delivery_date ?? '—',
+            },
             { key: 'order_date', header: 'Order Date' },
           ]}
         />

@@ -60,7 +60,9 @@ describe('GlobalExceptionFilter (P3 item 13/23)', () => {
     const filter = new GlobalExceptionFilter();
     const { host, sendCalls, statusCalls } = fakeHost('req-ghi-789');
 
-    const rawError = new Error('duplicate key value violates unique constraint "user_accounts_email_key" DETAIL: Key (email)=(admin@real-customer.example) already exists.');
+    const rawError = new Error(
+      'duplicate key value violates unique constraint "user_accounts_email_key" DETAIL: Key (email)=(admin@real-customer.example) already exists.',
+    );
     filter.catch(rawError, host);
 
     expect(statusCalls).toEqual([500]);
@@ -96,11 +98,16 @@ describe('GlobalExceptionFilter (P3 item 13/23)', () => {
     expect(logged.correlationId).toBe('req-logged-1');
   });
 
-  it('scrubs a credential-shaped substring out of the SERVER-SIDE logged error message too (defense in depth, reuses support-bundle.service.ts\'s scrubFreeText)', () => {
+  it("scrubs a credential-shaped substring out of the SERVER-SIDE logged error message too (defense in depth, reuses support-bundle.service.ts's scrubFreeText)", () => {
     const filter = new GlobalExceptionFilter();
     const { host } = fakeHost('req-logged-2');
 
-    filter.catch(new Error('upstream call failed: Authorization: Bearer sk-live-canary-credential-abcdef123456'), host);
+    filter.catch(
+      new Error(
+        'upstream call failed: Authorization: Bearer sk-live-canary-credential-abcdef123456',
+      ),
+      host,
+    );
 
     const logged = JSON.parse(consoleSpy.mock.calls[0][0]);
     expect(logged.context.errorMessage).not.toContain('sk-live-canary-credential-abcdef123456');

@@ -41,11 +41,24 @@ export class SupportBundleController {
     const organisationId = (req as any).currentOrganisationId;
     const actor = (req as any).currentUser;
 
-    const bundle = await withOrgContext(organisationId, (db) => this.service.generate(db, getPool(), organisationId));
+    const bundle = await withOrgContext(organisationId, (db) =>
+      this.service.generate(db, getPool(), organisationId),
+    );
 
-    logStructured({ event: 'support_bundle.generated', level: 'info', userRef: actor?.id, context: { organisationId } });
+    logStructured({
+      event: 'support_bundle.generated',
+      level: 'info',
+      userRef: actor?.id,
+      context: { organisationId },
+    });
     await withOrgContext(organisationId, (db) =>
-      this.audit.record(db, { organisationId, eventType: 'config.changed', actorUserAccountId: actor?.id, entityType: 'support_bundle', entityRef: bundle.generatedAt }),
+      this.audit.record(db, {
+        organisationId,
+        eventType: 'config.changed',
+        actorUserAccountId: actor?.id,
+        entityType: 'support_bundle',
+        entityRef: bundle.generatedAt,
+      }),
     );
 
     return bundle;

@@ -17,7 +17,16 @@ export function RequisiteLayout() {
   return (
     <LicenceGate>
       <div>
-        <nav aria-label="Requisite navigation" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e5e7eb', paddingBottom: 8 }}>
+        <nav
+          aria-label="Requisite navigation"
+          style={{
+            display: 'flex',
+            gap: 4,
+            marginBottom: 20,
+            borderBottom: '1px solid #e5e7eb',
+            paddingBottom: 8,
+          }}
+        >
           {LINKS.map((link) => (
             <NavLink
               key={link.to}

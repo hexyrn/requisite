@@ -84,7 +84,14 @@ describeIfDb('SmtpConfigService (P3 item 9/24) - secure credential handling', ()
 
   it('clearConfig removes the configuration entirely', async () => {
     const service = new SmtpConfigService();
-    await service.setConfig(pool, { host: 'smtp.example.com', port: 587, secure: false, username: null, password: null, fromAddress: 'hexyrn@example.com' });
+    await service.setConfig(pool, {
+      host: 'smtp.example.com',
+      port: 587,
+      secure: false,
+      username: null,
+      password: null,
+      fromAddress: 'hexyrn@example.com',
+    });
     await service.clearConfig(pool);
     const display = await service.getConfigForDisplay(pool);
     expect(display.configured).toBe(false);
@@ -92,11 +99,25 @@ describeIfDb('SmtpConfigService (P3 item 9/24) - secure credential handling', ()
 
   it('updating the host/port does not require re-entering the password (SmtpController.keepExistingPassword behaviour is exercised at the config-service level here via direct getConfigForSending re-use)', async () => {
     const service = new SmtpConfigService();
-    await service.setConfig(pool, { host: 'old-host.example.com', port: 587, secure: false, username: 'u', password: CANARY_PASSWORD, fromAddress: 'hexyrn@example.com' });
+    await service.setConfig(pool, {
+      host: 'old-host.example.com',
+      port: 587,
+      secure: false,
+      username: 'u',
+      password: CANARY_PASSWORD,
+      fromAddress: 'hexyrn@example.com',
+    });
 
     // Simulate the controller's "blank password means keep existing" logic directly against the service.
     const existing = await service.getConfigForSending(pool);
-    await service.setConfig(pool, { host: 'new-host.example.com', port: 587, secure: false, username: 'u', password: existing!.password, fromAddress: 'hexyrn@example.com' });
+    await service.setConfig(pool, {
+      host: 'new-host.example.com',
+      port: 587,
+      secure: false,
+      username: 'u',
+      password: existing!.password,
+      fromAddress: 'hexyrn@example.com',
+    });
 
     const afterUpdate = await service.getConfigForSending(pool);
     expect(afterUpdate?.host).toBe('new-host.example.com');

@@ -16,11 +16,30 @@ import { minorToDecimalString } from './money';
  */
 @Injectable()
 export class PoDocumentService {
-  async generatePdf(db: Kysely<Database>, organisationId: string, purchaseOrderId: string, organisationName: string): Promise<Buffer> {
-    const po = await db.selectFrom('requisite_purchase_orders').selectAll().where('id', '=', purchaseOrderId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async generatePdf(
+    db: Kysely<Database>,
+    organisationId: string,
+    purchaseOrderId: string,
+    organisationName: string,
+  ): Promise<Buffer> {
+    const po = await db
+      .selectFrom('requisite_purchase_orders')
+      .selectAll()
+      .where('id', '=', purchaseOrderId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!po) throw new NotFoundException('Purchase order not found.');
-    const supplier = await db.selectFrom('requisite_suppliers').selectAll().where('id', '=', po.supplier_id).executeTakeFirstOrThrow();
-    const lines = await db.selectFrom('requisite_purchase_order_lines').selectAll().where('purchase_order_id', '=', purchaseOrderId).orderBy('line_number', 'asc').execute();
+    const supplier = await db
+      .selectFrom('requisite_suppliers')
+      .selectAll()
+      .where('id', '=', po.supplier_id)
+      .executeTakeFirstOrThrow();
+    const lines = await db
+      .selectFrom('requisite_purchase_order_lines')
+      .selectAll()
+      .where('purchase_order_id', '=', purchaseOrderId)
+      .orderBy('line_number', 'asc')
+      .execute();
 
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 40 });
@@ -58,17 +77,33 @@ export class PoDocumentService {
       for (const line of lines) {
         doc.fontSize(9).text(line.description, 40, doc.y, { continued: true, width: 250 });
         doc.text(String(line.quantity_ordered), 290, doc.y, { continued: true, width: 60 });
-        doc.text(minorToDecimalString(BigInt(line.unit_price_minor)), 350, doc.y, { continued: true, width: 80 });
+        doc.text(minorToDecimalString(BigInt(line.unit_price_minor)), 350, doc.y, {
+          continued: true,
+          width: 80,
+        });
         doc.text(minorToDecimalString(BigInt(line.line_total_minor)), 440, doc.y);
       }
 
       doc.moveDown();
       doc.moveTo(350, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.3);
-      doc.fontSize(9).text(`Subtotal: ${minorToDecimalString(BigInt(po.subtotal_minor))} ${po.currency}`, { align: 'right' });
-      doc.text(`Tax: ${minorToDecimalString(BigInt(po.tax_minor))} ${po.currency}`, { align: 'right' });
-      if (BigInt(po.carriage_minor) > 0n) doc.text(`Carriage: ${minorToDecimalString(BigInt(po.carriage_minor))} ${po.currency}`, { align: 'right' });
-      doc.fontSize(11).text(`Total: ${minorToDecimalString(BigInt(po.total_minor))} ${po.currency}`, { align: 'right' });
+      doc
+        .fontSize(9)
+        .text(`Subtotal: ${minorToDecimalString(BigInt(po.subtotal_minor))} ${po.currency}`, {
+          align: 'right',
+        });
+      doc.text(`Tax: ${minorToDecimalString(BigInt(po.tax_minor))} ${po.currency}`, {
+        align: 'right',
+      });
+      if (BigInt(po.carriage_minor) > 0n)
+        doc.text(`Carriage: ${minorToDecimalString(BigInt(po.carriage_minor))} ${po.currency}`, {
+          align: 'right',
+        });
+      doc
+        .fontSize(11)
+        .text(`Total: ${minorToDecimalString(BigInt(po.total_minor))} ${po.currency}`, {
+          align: 'right',
+        });
 
       if (po.notes) {
         doc.moveDown();

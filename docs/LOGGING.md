@@ -37,6 +37,7 @@ deployment layer this product targets.
 `hexyrn.log` file this application writes itself. This is why
 `support-bundle.service.ts`'s `logsNote` field states plainly that the
 generated bundle cannot include log excerpts - it has no file to read from
+
 - and recommends attaching relevant stdout capture manually.
 
 ## Correlation IDs / reference IDs
@@ -62,12 +63,12 @@ on just one:
    is ever written.
 2. `platform/support-bundle/support-bundle.service.ts`'s `scrubFreeText()`
    - a VALUE-based pass (contextual credential patterns plus a generic
-   token-shape fallback) for free-text fields a key-based redactor cannot
-   protect, such as an error message that happens to echo a credential.
-   `global-exception.filter.ts` reuses this exact function when logging an
-   unhandled error's message, for the same reason the support bundle
-   needed it: a canary test proved a credential CAN appear inside
-   ordinary free text, not just under a suspiciously-named key.
+     token-shape fallback) for free-text fields a key-based redactor cannot
+     protect, such as an error message that happens to echo a credential.
+     `global-exception.filter.ts` reuses this exact function when logging an
+     unhandled error's message, for the same reason the support bundle
+     needed it: a canary test proved a credential CAN appear inside
+     ordinary free text, not just under a suspiciously-named key.
 
 ## Error handling for ordinary users vs admins
 

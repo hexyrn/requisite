@@ -1,19 +1,22 @@
 # ADR 0001: Database layer — raw `pg` + Kysely + hand-written SQL migrations
 
 ## Status
+
 Accepted (P0).
 
 ## Decision
+
 Hexyrn Core uses `pg` (node-postgres) as the driver, [Kysely](https://kysely.dev) as a
 type-safe SQL query builder on top of it, and a small hand-written, versioned SQL
 migration runner (`apps/api/src/db/migrate.ts`), instead of Prisma.
 
 ## Why not Prisma
+
 Architecture §8 requires that every organisation-scoped query run inside a transaction
 that issues `SET LOCAL app.current_organisation_id = $1` as its first statement, via one
 wrapper (`withOrgContext`), and that this cannot be bypassed. Prisma's `$transaction`
 API only recently (and only in an interactive-callback form, `prisma.$transaction(async (tx) => {...})`)
-allows raw queries against the *same* connection used for the rest of the callback's
+allows raw queries against the _same_ connection used for the rest of the callback's
 queries. This works, but it means:
 
 - Every single Prisma model call inside the callback still goes through Prisma's own
@@ -27,6 +30,7 @@ queries. This works, but it means:
   outside Prisma's schema language entirely and has to be hand-written SQL either way.
 
 ## Why `pg` + Kysely
+
 - `pg`'s `pool.connect()` gives us a single physical `PoolClient` for the lifetime of a
   transaction; `withOrgContext` runs `BEGIN`, `SET LOCAL app.current_organisation_id = $1`,
   the callback (receiving that same client, wrapped by a Kysely instance bound to it),
@@ -35,7 +39,7 @@ queries. This works, but it means:
   behind an ORM's own connection pooling.
 - Kysely gives us generated TypeScript types for query results (from a hand-maintained
   `Database` interface, see `apps/api/src/db/types.ts`) without owning migrations or
-  connection management — it is a query *builder*, not a full ORM, so it does not fight
+  connection management — it is a query _builder_, not a full ORM, so it does not fight
   the transaction model above.
 - Migrations are plain `.sql` files applied in filename order by a ~80-line runner that
   records applied migrations in a `schema_migrations` table, wrapped in a transaction per
@@ -43,6 +47,7 @@ queries. This works, but it means:
   just auto-diff" from the task brief.
 
 ## Verified
+
 Before committing to this approach, a manual proof was run (see
 `apps/api/src/db/__tests__/set-local.integration.spec.ts`) confirming that
 `SET LOCAL` issued as the first statement after `BEGIN` on a `pg.PoolClient` is visible
@@ -51,6 +56,7 @@ after `COMMIT`/`ROLLBACK` when the same underlying connection is later reused fo
 different transaction. This is the load-bearing property the whole RLS design depends on.
 
 ## Consequences
+
 - We own a small amount of migration-runner and query-typing code that a framework would
   otherwise provide. This is an accepted, bounded cost in exchange for the transaction
   model being fully explicit and auditable.

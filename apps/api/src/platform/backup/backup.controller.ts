@@ -1,4 +1,13 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -8,7 +17,13 @@ import { RequirePermission } from '../../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../../rbac/permissions';
 import { AuditService } from '../../audit/audit.service';
 import { logStructured } from '../../logging/logger';
-import { createBackup, verifyBackupIntegrity, restoreBackup, realPgDump, realPgRestore } from './backup.service';
+import {
+  createBackup,
+  verifyBackupIntegrity,
+  restoreBackup,
+  realPgDump,
+  realPgRestore,
+} from './backup.service';
 
 /**
  * Backup/restore admin endpoints (P3 item 9-13, HTTP surface). The
@@ -79,9 +94,20 @@ export class BackupController {
       runPgDump: realPgDump(this.dumpConnectionString()),
     });
 
-    logStructured({ event: 'backup.created', level: 'info', userRef: actor?.id, context: { backupDir: result.backupDir } });
+    logStructured({
+      event: 'backup.created',
+      level: 'info',
+      userRef: actor?.id,
+      context: { backupDir: result.backupDir },
+    });
     await withOrgContext(organisationId, (db) =>
-      this.audit.record(db, { organisationId, eventType: 'config.changed', actorUserAccountId: actor?.id, entityType: 'backup', entityRef: timestamp }),
+      this.audit.record(db, {
+        organisationId,
+        eventType: 'config.changed',
+        actorUserAccountId: actor?.id,
+        entityType: 'backup',
+        entityRef: timestamp,
+      }),
     );
 
     return { backupId: timestamp, manifest: result.manifest };
@@ -93,7 +119,9 @@ export class BackupController {
   async listBackups() {
     let entries: string[];
     try {
-      entries = (await fs.readdir(this.backupsRoot(), { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+      entries = (await fs.readdir(this.backupsRoot(), { withFileTypes: true }))
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
     } catch (err: any) {
       if (err?.code === 'ENOENT') return { backups: [] };
       throw err;
@@ -134,10 +162,16 @@ export class BackupController {
    */
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Post(':id/restore')
-  async restore(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { confirmed?: boolean }) {
+  async restore(
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Body() body: { confirmed?: boolean },
+  ) {
     assertSafeBackupId(id);
     if (body.confirmed !== true) {
-      throw new BadRequestException('Restoring a backup is destructive and overwrites the current database and files. Set confirmed: true to proceed.');
+      throw new BadRequestException(
+        'Restoring a backup is destructive and overwrites the current database and files. Set confirmed: true to proceed.',
+      );
     }
     const organisationId = (req as any).currentOrganisationId;
     const actor = (req as any).currentUser;
@@ -149,9 +183,20 @@ export class BackupController {
       confirmed: true,
     });
 
-    logStructured({ event: 'backup.restored', level: 'warn', userRef: actor?.id, context: { backupId: id, filesRestored: result.filesRestored } });
+    logStructured({
+      event: 'backup.restored',
+      level: 'warn',
+      userRef: actor?.id,
+      context: { backupId: id, filesRestored: result.filesRestored },
+    });
     await withOrgContext(organisationId, (db) =>
-      this.audit.record(db, { organisationId, eventType: 'config.changed', actorUserAccountId: actor?.id, entityType: 'backup_restore', entityRef: id }),
+      this.audit.record(db, {
+        organisationId,
+        eventType: 'config.changed',
+        actorUserAccountId: actor?.id,
+        entityType: 'backup_restore',
+        entityRef: id,
+      }),
     );
 
     return { restored: true, manifest: result.manifest, filesRestored: result.filesRestored };

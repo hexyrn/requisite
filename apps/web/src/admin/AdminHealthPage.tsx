@@ -17,7 +17,9 @@ export function AdminHealthPage() {
         setHealth(h);
         setDiagnostics(d);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load system health.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load system health.'),
+      );
   }
 
   useEffect(reload, []);
@@ -33,7 +35,11 @@ export function AdminHealthPage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
       <div style={{ marginBottom: 12 }}>
         <Button onClick={refresh} disabled={loading}>
           Refresh
@@ -43,14 +49,25 @@ export function AdminHealthPage() {
       {health && (
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>
-            Overall status: <StatusBadge label={health.overallStatus} tone={toneForStatus(health.overallStatus)} />
+            Overall status:{' '}
+            <StatusBadge label={health.overallStatus} tone={toneForStatus(health.overallStatus)} />
           </h2>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>
-              Database: <StatusBadge label={health.database.status} tone={toneForStatus(health.database.status)} /> — {health.database.detail}
+              Database:{' '}
+              <StatusBadge
+                label={health.database.status}
+                tone={toneForStatus(health.database.status)}
+              />{' '}
+              — {health.database.detail}
             </li>
             <li>
-              Migrations: <StatusBadge label={health.migrations.status} tone={toneForStatus(health.migrations.status)} /> — {health.migrations.detail}
+              Migrations:{' '}
+              <StatusBadge
+                label={health.migrations.status}
+                tone={toneForStatus(health.migrations.status)}
+              />{' '}
+              — {health.migrations.detail}
             </li>
           </ul>
         </Card>
@@ -59,7 +76,15 @@ export function AdminHealthPage() {
       {diagnostics && (
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Diagnostics</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, background: '#f5f6f8', padding: 12, borderRadius: 6 }}>
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontSize: 12,
+              background: '#f5f6f8',
+              padding: 12,
+              borderRadius: 6,
+            }}
+          >
             {JSON.stringify(diagnostics, null, 2)}
           </pre>
         </Card>

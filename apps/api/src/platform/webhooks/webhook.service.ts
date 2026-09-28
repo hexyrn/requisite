@@ -23,7 +23,14 @@ export interface RegisteredWebhookEndpoint {
  */
 @Injectable()
 export class WebhookService {
-  async registerEndpoint(db: Kysely<Database>, organisationId: string, url: string, eventTypes: string[], description?: string, createdBy?: string): Promise<RegisteredWebhookEndpoint> {
+  async registerEndpoint(
+    db: Kysely<Database>,
+    organisationId: string,
+    url: string,
+    eventTypes: string[],
+    description?: string,
+    createdBy?: string,
+  ): Promise<RegisteredWebhookEndpoint> {
     if (!/^https:\/\//.test(url)) {
       // P2 item 24 - refuse to register a plaintext-HTTP destination for a signed secret delivery.
       throw new Error('Webhook endpoint URL must use https://');
@@ -45,8 +52,17 @@ export class WebhookService {
     return { id: row.id, signingKey };
   }
 
-  async disableEndpoint(db: Kysely<Database>, organisationId: string, endpointId: string): Promise<void> {
-    await db.updateTable('webhook_endpoints').set({ is_enabled: false }).where('id', '=', endpointId).where('organisation_id', '=', organisationId).execute();
+  async disableEndpoint(
+    db: Kysely<Database>,
+    organisationId: string,
+    endpointId: string,
+  ): Promise<void> {
+    await db
+      .updateTable('webhook_endpoints')
+      .set({ is_enabled: false })
+      .where('id', '=', endpointId)
+      .where('organisation_id', '=', organisationId)
+      .execute();
   }
 
   /** Computes the delivery signature exactly as a receiver is expected to re-derive it: HMAC-SHA256 over the raw JSON body, hex-encoded, prefixed `sha256=`. */

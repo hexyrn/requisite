@@ -16,7 +16,9 @@ export function ReportsPage() {
   const [templates, setTemplates] = useState<ReportTemplate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
-  const [result, setResult] = useState<{ name: string; rows: Record<string, unknown>[] } | null>(null);
+  const [result, setResult] = useState<{ name: string; rows: Record<string, unknown>[] } | null>(
+    null,
+  );
   const [resultError, setResultError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,11 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader title="Reports" />
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       {templates === null ? (
         <p>Loading…</p>
@@ -56,9 +62,21 @@ export function ReportsPage() {
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Available Reports</h2>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {templates.map((t) => (
-              <li key={t.template_key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <li
+                key={t.template_key}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '8px 0',
+                  borderBottom: '1px solid #f3f4f6',
+                }}
+              >
                 <span>{t.name}</span>
-                <Button onClick={() => runReport(t.template_key)} disabled={running === t.template_key}>
+                <Button
+                  onClick={() => runReport(t.template_key)}
+                  disabled={running === t.template_key}
+                >
                   {running === t.template_key ? 'Running…' : 'Run'}
                 </Button>
               </li>
@@ -67,7 +85,11 @@ export function ReportsPage() {
         </Card>
       )}
 
-      {resultError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{resultError}</div>}
+      {resultError && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {resultError}
+        </div>
+      )}
 
       {result && (
         <Card>
@@ -79,7 +101,14 @@ export function ReportsPage() {
               <thead>
                 <tr>
                   {columns.map((c) => (
-                    <th key={c} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '2px solid #e5e7eb' }}>
+                    <th
+                      key={c}
+                      style={{
+                        textAlign: 'left',
+                        padding: '4px 8px',
+                        borderBottom: '2px solid #e5e7eb',
+                      }}
+                    >
                       {c}
                     </th>
                   ))}

@@ -2,12 +2,13 @@
 
 ## Before / after counts
 
-| | Critical | High | Moderate | Low/Info | Total |
-|---|---|---|---|---|---|
-| **Before** | 2 | 6 | 12 | 0 | **20** |
-| **After** | 2 | 5 | 11 | 0 | **18** |
+|            | Critical | High | Moderate | Low/Info | Total  |
+| ---------- | -------- | ---- | -------- | -------- | ------ |
+| **Before** | 2        | 6    | 12       | 0        | **20** |
+| **After**  | 2        | 5    | 11       | 0        | **18** |
 
 Two vulnerabilities closed safely (no breaking changes):
+
 1. `npm audit fix` (non-force) applied one in-range compatible fix (closed one moderate finding without touching any major version).
 2. Added a root `package.json` `overrides` entry pinning the transitive `lodash` (pulled in by `@nestjs/config@3.3.0`) from `4.17.21` to `4.18.1` - both within lodash's 4.x line, no API change, closed all three lodash advisories (one high, counted here as part of the high→high delta) with zero risk, since lodash 4.x has been API-stable for years and `@nestjs/config` only uses a handful of its utility functions.
 

@@ -52,7 +52,12 @@ export interface DiagnosticsSnapshot {
   nodeVersion: string;
   platform: string;
   uptimeSeconds: number;
-  installedApps: Array<{ appId: string; version: string; requiresCoreVersion: string; compatible: boolean }>;
+  installedApps: Array<{
+    appId: string;
+    version: string;
+    requiresCoreVersion: string;
+    compatible: boolean;
+  }>;
   databaseVersion: string | null;
   storagePath: string;
   migrationCount: number;
@@ -70,7 +75,11 @@ function worstOf(...statuses: CheckStatus[]): CheckStatus {
 export class HealthDiagnosticsService {
   constructor(private readonly smtpConfig: SmtpConfigService) {}
 
-  async getSystemHealth(db: Kysely<Database>, pool: Pool, organisationId: string): Promise<SystemHealth> {
+  async getSystemHealth(
+    db: Kysely<Database>,
+    pool: Pool,
+    organisationId: string,
+  ): Promise<SystemHealth> {
     const database = await this.checkDatabase(pool);
     const migrations = await this.checkMigrations(pool);
     const storage = this.checkStorage();
@@ -80,7 +89,10 @@ export class HealthDiagnosticsService {
     const webhookDeliveryFailures = await this.checkWebhookFailures(db);
     const integrationFailures = await this.checkIntegrationFailures(db);
 
-    const application: HealthCheckResult = { status: 'ok', detail: `Hexyrn Core ${CORE_VERSION} is running.` };
+    const application: HealthCheckResult = {
+      status: 'ok',
+      detail: `Hexyrn Core ${CORE_VERSION} is running.`,
+    };
 
     const overallStatus = worstOf(
       application.status,
@@ -109,11 +121,18 @@ export class HealthDiagnosticsService {
   }
 
   async getDiagnostics(db: Kysely<Database>, pool: Pool): Promise<DiagnosticsSnapshot> {
-    const installedRows = await pool.query<{ app_id: string; version: string; requires_core_version: string }>(
-      'SELECT app_id, version, requires_core_version FROM installed_applications ORDER BY app_id',
+    const installedRows = await pool.query<{
+      app_id: string;
+      version: string;
+      requires_core_version: string;
+    }>('SELECT app_id, version, requires_core_version FROM installed_applications ORDER BY app_id');
+    const migrationCountResult = await this.safeCount(
+      pool,
+      'SELECT COUNT(*)::int AS n FROM schema_migrations',
     );
-    const migrationCountResult = await this.safeCount(pool, 'SELECT COUNT(*)::int AS n FROM schema_migrations');
-    const dbVersionResult = await pool.query<{ version: string }>('SELECT version()').catch(() => null);
+    const dbVersionResult = await pool
+      .query<{ version: string }>('SELECT version()')
+      .catch(() => null);
 
     return {
       generatedAt: new Date().toISOString(),
@@ -138,14 +157,25 @@ export class HealthDiagnosticsService {
       await pool.query('SELECT 1');
       return { status: 'ok', detail: 'Database connection is healthy.' };
     } catch (err) {
-      return { status: 'error', detail: `Database connection failed: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        status: 'error',
+        detail: `Database connection failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
 
   private async checkMigrations(pool: Pool): Promise<HealthCheckResult & { appliedCount: number }> {
-    const appliedCount = await this.safeCount(pool, 'SELECT COUNT(*)::int AS n FROM schema_migrations');
+    const appliedCount = await this.safeCount(
+      pool,
+      'SELECT COUNT(*)::int AS n FROM schema_migrations',
+    );
     if (appliedCount === 0) {
-      return { status: 'warning', detail: 'No migrations recorded - either this is a genuinely fresh, unmigrated database, or migrations were applied through a path that does not update schema_migrations.', appliedCount };
+      return {
+        status: 'warning',
+        detail:
+          'No migrations recorded - either this is a genuinely fresh, unmigrated database, or migrations were applied through a path that does not update schema_migrations.',
+        appliedCount,
+      };
     }
     return { status: 'ok', detail: `${appliedCount} migration(s) applied.`, appliedCount };
   }
@@ -154,32 +184,74 @@ export class HealthDiagnosticsService {
     const path = process.env.LOCAL_STORAGE_PATH ?? './storage';
     const result = checkDiskSpace(path, STORAGE_WARNING_THRESHOLD_BYTES);
     if (result.availableBytes === -1) {
-      return { status: 'warning', detail: result.reason ?? 'Could not determine free disk space.', availableBytes: null };
+      return {
+        status: 'warning',
+        detail: result.reason ?? 'Could not determine free disk space.',
+        availableBytes: null,
+      };
     }
     if (!result.ok) {
-      return { status: 'warning', detail: `Low disk space at "${path}": ${result.availableBytes} bytes available (recommend at least ${STORAGE_WARNING_THRESHOLD_BYTES} bytes free).`, availableBytes: result.availableBytes };
+      return {
+        status: 'warning',
+        detail: `Low disk space at "${path}": ${result.availableBytes} bytes available (recommend at least ${STORAGE_WARNING_THRESHOLD_BYTES} bytes free).`,
+        availableBytes: result.availableBytes,
+      };
     }
-    return { status: 'ok', detail: `${result.availableBytes} bytes available at "${path}".`, availableBytes: result.availableBytes };
+    return {
+      status: 'ok',
+      detail: `${result.availableBytes} bytes available at "${path}".`,
+      availableBytes: result.availableBytes,
+    };
   }
 
-  private async checkBackgroundJobs(db: Kysely<Database>): Promise<HealthCheckResult & { failedCount: number }> {
-    const rows = await db.selectFrom('scheduled_jobs').select(['job_type']).where('status', '=', 'failed').execute();
+  private async checkBackgroundJobs(
+    db: Kysely<Database>,
+  ): Promise<HealthCheckResult & { failedCount: number }> {
+    const rows = await db
+      .selectFrom('scheduled_jobs')
+      .select(['job_type'])
+      .where('status', '=', 'failed')
+      .execute();
     const failedCount = rows.length;
-    if (failedCount === 0) return { status: 'ok', detail: 'No failed background jobs.', failedCount };
-    return { status: 'warning', detail: `${failedCount} failed background job(s) - see the support bundle for details.`, failedCount };
+    if (failedCount === 0)
+      return { status: 'ok', detail: 'No failed background jobs.', failedCount };
+    return {
+      status: 'warning',
+      detail: `${failedCount} failed background job(s) - see the support bundle for details.`,
+      failedCount,
+    };
   }
 
   private async checkSmtp(pool: Pool): Promise<HealthCheckResult> {
     const config = await this.smtpConfig.getConfigForDisplay(pool);
     if (!config.configured) {
-      return { status: 'warning', detail: 'SMTP is not configured - invitation/password-reset links must be shared manually with users. This is a supported, safe fallback, not a failure.' };
+      return {
+        status: 'warning',
+        detail:
+          'SMTP is not configured - invitation/password-reset links must be shared manually with users. This is a supported, safe fallback, not a failure.',
+      };
     }
-    return { status: 'ok', detail: `SMTP configured (${config.host}:${config.port}). Use the "send test email" action to verify actual delivery - health checks do not open a live connection on every check.` };
+    return {
+      status: 'ok',
+      detail: `SMTP configured (${config.host}:${config.port}). Use the "send test email" action to verify actual delivery - health checks do not open a live connection on every check.`,
+    };
   }
 
-  private async checkInstalledApps(db: Kysely<Database>, pool: Pool, organisationId: string): Promise<SystemHealth['installedApps']> {
-    const installedRows = await pool.query<{ app_id: string; version: string; requires_core_version: string }>('SELECT app_id, version, requires_core_version FROM installed_applications ORDER BY app_id');
-    const licenseRows = await db.selectFrom('application_licenses').select(['app_id']).where('organisation_id', '=', organisationId).execute();
+  private async checkInstalledApps(
+    db: Kysely<Database>,
+    pool: Pool,
+    organisationId: string,
+  ): Promise<SystemHealth['installedApps']> {
+    const installedRows = await pool.query<{
+      app_id: string;
+      version: string;
+      requires_core_version: string;
+    }>('SELECT app_id, version, requires_core_version FROM installed_applications ORDER BY app_id');
+    const licenseRows = await db
+      .selectFrom('application_licenses')
+      .select(['app_id'])
+      .where('organisation_id', '=', organisationId)
+      .execute();
     const licensedAppIds = new Set(licenseRows.map((r) => r.app_id));
     return installedRows.rows.map((r) => ({
       appId: r.app_id,
@@ -189,18 +261,40 @@ export class HealthDiagnosticsService {
     }));
   }
 
-  private async checkWebhookFailures(db: Kysely<Database>): Promise<HealthCheckResult & { failedCount: number }> {
-    const rows = await db.selectFrom('webhook_deliveries').select(['id']).where('status', '=', 'failed').execute();
+  private async checkWebhookFailures(
+    db: Kysely<Database>,
+  ): Promise<HealthCheckResult & { failedCount: number }> {
+    const rows = await db
+      .selectFrom('webhook_deliveries')
+      .select(['id'])
+      .where('status', '=', 'failed')
+      .execute();
     const failedCount = rows.length;
-    if (failedCount === 0) return { status: 'ok', detail: 'No failed webhook deliveries.', failedCount };
-    return { status: 'warning', detail: `${failedCount} failed webhook delivery(ies).`, failedCount };
+    if (failedCount === 0)
+      return { status: 'ok', detail: 'No failed webhook deliveries.', failedCount };
+    return {
+      status: 'warning',
+      detail: `${failedCount} failed webhook delivery(ies).`,
+      failedCount,
+    };
   }
 
-  private async checkIntegrationFailures(db: Kysely<Database>): Promise<HealthCheckResult & { failedCount: number }> {
-    const rows = await db.selectFrom('integration_connections').select(['id']).where('status', '=', 'error').execute();
+  private async checkIntegrationFailures(
+    db: Kysely<Database>,
+  ): Promise<HealthCheckResult & { failedCount: number }> {
+    const rows = await db
+      .selectFrom('integration_connections')
+      .select(['id'])
+      .where('status', '=', 'error')
+      .execute();
     const failedCount = rows.length;
-    if (failedCount === 0) return { status: 'ok', detail: 'No integration connections in an error state.', failedCount };
-    return { status: 'warning', detail: `${failedCount} integration connection(s) in an error state.`, failedCount };
+    if (failedCount === 0)
+      return { status: 'ok', detail: 'No integration connections in an error state.', failedCount };
+    return {
+      status: 'warning',
+      detail: `${failedCount} integration connection(s) in an error state.`,
+      failedCount,
+    };
   }
 
   private async safeCount(pool: Pool, sql: string): Promise<number> {

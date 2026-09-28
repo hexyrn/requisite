@@ -139,7 +139,11 @@ describe('sendSmtpMail - real socket-level SMTP protocol (P3 item 9/24)', () => 
   }
 
   it('successfully sends a real message through the full EHLO -> AUTH -> MAIL -> RCPT -> DATA conversation', async () => {
-    const result = await sendSmtpMail(config(), { to: 'recipient@example.com', subject: 'Test email', text: 'Hello from Hexyrn.' });
+    const result = await sendSmtpMail(config(), {
+      to: 'recipient@example.com',
+      subject: 'Test email',
+      text: 'Hello from Hexyrn.',
+    });
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
 
@@ -152,14 +156,22 @@ describe('sendSmtpMail - real socket-level SMTP protocol (P3 item 9/24)', () => 
   });
 
   it('sends without AUTH when no credentials are configured', async () => {
-    const result = await sendSmtpMail(config({ username: null, password: null }), { to: 'recipient@example.com', subject: 'No auth', text: 'body' });
+    const result = await sendSmtpMail(config({ username: null, password: null }), {
+      to: 'recipient@example.com',
+      subject: 'No auth',
+      text: 'body',
+    });
     expect(result.success).toBe(true);
     expect(fakeServer.receivedMail!.authUser).toBeNull();
   });
 
   it('reports an actionable error when the server rejects authentication', async () => {
     fakeServer.behavior = 'reject-auth';
-    const result = await sendSmtpMail(config(), { to: 'recipient@example.com', subject: 'x', text: 'y' });
+    const result = await sendSmtpMail(config(), {
+      to: 'recipient@example.com',
+      subject: 'x',
+      text: 'y',
+    });
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/AUTH password/i);
     expect(result.error).toMatch(/535/);
@@ -167,7 +179,11 @@ describe('sendSmtpMail - real socket-level SMTP protocol (P3 item 9/24)', () => 
 
   it('reports an actionable error when the server rejects the recipient', async () => {
     fakeServer.behavior = 'reject-recipient';
-    const result = await sendSmtpMail(config(), { to: 'nobody@example.com', subject: 'x', text: 'y' });
+    const result = await sendSmtpMail(config(), {
+      to: 'nobody@example.com',
+      subject: 'x',
+      text: 'y',
+    });
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/RCPT TO/i);
     expect(result.error).toMatch(/550/);
@@ -175,7 +191,11 @@ describe('sendSmtpMail - real socket-level SMTP protocol (P3 item 9/24)', () => 
 
   it('reports an actionable error when the connection is refused (nothing listening on the port)', async () => {
     await fakeServer.stop();
-    const result = await sendSmtpMail(config({ port: port }), { to: 'recipient@example.com', subject: 'x', text: 'y' }, 3000);
+    const result = await sendSmtpMail(
+      config({ port: port }),
+      { to: 'recipient@example.com', subject: 'x', text: 'y' },
+      3000,
+    );
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/could not connect|ECONNREFUSED/i);
   }, 10000);
@@ -185,7 +205,11 @@ describe('sendSmtpMail - real socket-level SMTP protocol (P3 item 9/24)', () => 
     // hang rather than immediately refuse - proves the timeout path
     // specifically, not just ECONNREFUSED. Uses a short timeout to keep
     // the test fast.
-    const result = await sendSmtpMail(config({ host: '10.255.255.1', port: 25 }), { to: 'x@example.com', subject: 'x', text: 'y' }, 1500);
+    const result = await sendSmtpMail(
+      config({ host: '10.255.255.1', port: 25 }),
+      { to: 'x@example.com', subject: 'x', text: 'y' },
+      1500,
+    );
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   }, 10000);

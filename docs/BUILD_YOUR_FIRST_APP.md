@@ -28,12 +28,21 @@ export const REFERENCE_APP_MANIFEST: HexyrnAppManifest = {
     { key: 'reference.widget.submit', label: 'Submit widgets for approval' },
     { key: 'reference.widget.approve', label: 'Approve widgets' },
   ],
-  navigation: [{ key: 'reference-widgets', label: 'Reference Widgets', path: '/reference/widgets', permission: 'reference.widget.view' }],
-  capabilities: [{ capability: 'reference.thing.v1', provides: { serviceRef: 'ReferenceThingService' } }],
+  navigation: [
+    {
+      key: 'reference-widgets',
+      label: 'Reference Widgets',
+      path: '/reference/widgets',
+      permission: 'reference.widget.view',
+    },
+  ],
+  capabilities: [
+    { capability: 'reference.thing.v1', provides: { serviceRef: 'ReferenceThingService' } },
+  ],
   eventsPublished: [{ eventType: 'reference.widget.approved', version: 1, description: '...' }],
   numberingSequences: [{ sequenceKey: 'widget', prefix: 'WID-', padLength: 6 }],
-  defaultForms: [ /* a 'widget.create' form with a required title */ ],
-  defaultWorkflows: [ /* draft -> submitted -> approved/rejected */ ],
+  defaultForms: [/* a 'widget.create' form with a required title */],
+  defaultWorkflows: [/* draft -> submitted -> approved/rejected */],
 };
 ```
 
@@ -76,7 +85,7 @@ async createWidget(ctx: HexyrnAppContext<Kysely<Database>>, db, actorUserAccount
 
 Notice: `reference.service.ts` never imports `NumberingService`,
 `CustomFieldService`, or `WorkflowService`. It only ever sees `ctx`. The
-only import from `platform/` in this file is for the *onboarding* step
+only import from `platform/` in this file is for the _onboarding_ step
 (seeding this org's default form/workflow/numbering sequence, which by
 nature is a registration-time operation, not a runtime SDK call - see the
 comment on `onboardOrganisation` in that file).
@@ -119,7 +128,7 @@ every route in this controller 404s outright if the app isn't
 installed+enabled+licensed+compatible for the caller's organisation -
 before `@RequirePermission` even runs. Proven directly:
 `reference-app.e2e.integration.spec.ts`'s "APP INACTIVITY" test disables
-the app mid-suite and confirms even the *organisation owner* gets a 404,
+the app mid-suite and confirms even the _organisation owner_ gets a 404,
 not a 403, on a route they'd otherwise have full permission to use.
 
 ## 7. Run the lifecycle
@@ -165,7 +174,7 @@ curl -X POST http://localhost:3000/api/v1/apps/reference/widgets \
 ## What this proves
 
 Everything in `docs/APP_SDK.md`'s per-mechanism sections works, and -
-critically - works *together*, through the same boundary a real
+critically - works _together_, through the same boundary a real
 commercial app (Requisite, Assets, ...) would use: manifest declaration,
 lifecycle gating, permission checks, numbering, custom fields, forms,
 workflow, approvals, and events, all reached only through

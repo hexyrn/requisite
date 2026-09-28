@@ -19,7 +19,9 @@ export function RequisiteHome() {
     requisiteApi
       .listRequisitions()
       .then(setRequisitions)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load requisitions.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load requisitions.'),
+      );
   }, []);
 
   if (error) {
@@ -45,18 +47,32 @@ export function RequisiteHome() {
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 16,
+        }}
+      >
         <Card>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Draft requisitions</h2>
           {requisitions === null ? (
             <p>Loading…</p>
           ) : drafts.length === 0 ? (
-            <EmptyState message="Nothing requested yet." action={<Link to="/requisite/requisitions/new"><Button>Create your first requisition</Button></Link>} />
+            <EmptyState
+              message="Nothing requested yet."
+              action={
+                <Link to="/requisite/requisitions/new">
+                  <Button>Create your first requisition</Button>
+                </Link>
+              }
+            />
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {drafts.slice(0, 5).map((r) => (
                 <li key={r.id} style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <Link to={`/requisite/requisitions/${r.id}`}>{r.requisition_number}</Link> — {r.reason}
+                  <Link to={`/requisite/requisitions/${r.id}`}>{r.requisition_number}</Link> —{' '}
+                  {r.reason}
                 </li>
               ))}
             </ul>
@@ -72,7 +88,15 @@ export function RequisiteHome() {
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {awaitingApproval.slice(0, 5).map((r) => (
-                <li key={r.id} style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between' }}>
+                <li
+                  key={r.id}
+                  style={{
+                    padding: '6px 0',
+                    borderBottom: '1px solid #f3f4f6',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                  }}
+                >
                   <Link to={`/requisite/requisitions/${r.id}`}>{r.requisition_number}</Link>
                   <StatusBadge label={statusLabel(r.status)} tone={statusTone(r.status)} />
                 </li>

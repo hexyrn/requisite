@@ -25,7 +25,10 @@ export interface ReleaseVerificationResult {
  */
 @Injectable()
 export class ReleaseVerifier {
-  verifyManifest(manifest: SignedReleaseManifest, trustedKeys: TrustedKeyEntry[] = getTrustedReleasePublicKeys()): ReleaseVerificationResult {
+  verifyManifest(
+    manifest: SignedReleaseManifest,
+    trustedKeys: TrustedKeyEntry[] = getTrustedReleasePublicKeys(),
+  ): ReleaseVerificationResult {
     const trusted = trustedKeys.find((k) => k.keyId === manifest.signingKeyId);
     if (!trusted) {
       return {
@@ -37,12 +40,20 @@ export class ReleaseVerifier {
     const { signingKeyId: _signingKeyId, signature, ...unsigned } = manifest;
     let signatureValid: boolean;
     try {
-      signatureValid = edVerify(null, Buffer.from(canonicalizeManifest(unsigned)), trusted.publicKeyPem, Buffer.from(signature, 'base64'));
+      signatureValid = edVerify(
+        null,
+        Buffer.from(canonicalizeManifest(unsigned)),
+        trusted.publicKeyPem,
+        Buffer.from(signature, 'base64'),
+      );
     } catch {
       return { valid: false, reason: 'Malformed signature.' };
     }
     if (!signatureValid) {
-      return { valid: false, reason: 'Invalid signature - the release manifest does not match its signature.' };
+      return {
+        valid: false,
+        reason: 'Invalid signature - the release manifest does not match its signature.',
+      };
     }
 
     return { valid: true };
@@ -61,14 +72,23 @@ export class ReleaseVerifier {
     try {
       bytes = await fs.readFile(artifactPath);
     } catch (err) {
-      return { valid: false, reason: `Could not read artifact file: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        valid: false,
+        reason: `Could not read artifact file: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
     if (bytes.length !== manifest.artifactSizeBytes) {
-      return { valid: false, reason: `Artifact size mismatch (manifest says ${manifest.artifactSizeBytes} bytes, file is ${bytes.length} bytes) - the download may be truncated or wrong.` };
+      return {
+        valid: false,
+        reason: `Artifact size mismatch (manifest says ${manifest.artifactSizeBytes} bytes, file is ${bytes.length} bytes) - the download may be truncated or wrong.`,
+      };
     }
     const actualSha256 = createHash('sha256').update(bytes).digest('hex');
     if (actualSha256 !== manifest.artifactSha256) {
-      return { valid: false, reason: `Artifact checksum mismatch (expected ${manifest.artifactSha256}, got ${actualSha256}) - the file has been tampered with or corrupted.` };
+      return {
+        valid: false,
+        reason: `Artifact checksum mismatch (expected ${manifest.artifactSha256}, got ${actualSha256}) - the file has been tampered with or corrupted.`,
+      };
     }
 
     return { valid: true };

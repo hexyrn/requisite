@@ -220,7 +220,7 @@ types no longer crosses a major version boundary.
    encodes, translated to a `.ps1`/`.sql` script run via `psql.exe`
    against the freshly-initialized instance: creates `hexyrn` (schema
    owner, used only for migrations), `hexyrn_app` (`NOSUPERUSER
-   NOBYPASSRLS`, restricted runtime role), and `hexyrn_backup`
+NOBYPASSRLS`, restricted runtime role), and `hexyrn_backup`
    (`NOSUPERUSER BYPASSRLS`, backup/restore-only role) - genuinely the
    same three-role separation already verified end-to-end in Docker this
    phase, not a different, un-tested Windows-specific role model.
@@ -359,7 +359,7 @@ instance (their own database for some other application). The design:
   Windows Service is specifically named `HexyrnPostgreSQL` (not
   `postgresql-x64-17` or any name EDB's own installer might use), its
   data directory is specifically `%ProgramData%\Hexyrn Core\
-  postgresql-data\` (not `C:\Program Files\PostgreSQL\17\data`, EDB
+postgresql-data\` (not `C:\Program Files\PostgreSQL\17\data`, EDB
   installer's own default), and it listens on a port the installer
   itself picks and records (see "Port strategy" above) rather than
   assuming 5432 is free or belongs to it.
@@ -384,7 +384,7 @@ instance (their own database for some other application). The design:
   data.
 - **Port collision handling**: if the installer's intended port (5432 by
   default) is already bound by something else, `scripts/windows/
-  provision-postgres.ps1`'s real `postgresql.conf` hardening step (see
+provision-postgres.ps1`'s real `postgresql.conf` hardening step (see
   its `-Port` parameter) picks a different, recorded port rather than
   failing outright or - worse - silently trying to connect to whatever
   already owns 5432 as if it were Hexyrn's own database. The exact
@@ -450,7 +450,7 @@ Windows provides for exactly this case, not a placeholder:
   rotate, or leak - closing an entire class of credential-management
   problem a manually-created local/domain service account would create.
 - It gets a real, distinct SID (`NT SERVICE\HexyrnCore` and `NT
-  SERVICE\HexyrnPostgreSQL` are genuinely different identities, not the
+SERVICE\HexyrnPostgreSQL` are genuinely different identities, not the
   same account with two names) that filesystem/registry ACLs can target
   specifically - e.g. granting `NT SERVICE\HexyrnCore` write access to
   `%ProgramData%\Hexyrn Core\storage\`/`backups\`/`config\` without
@@ -465,11 +465,12 @@ Windows provides for exactly this case, not a placeholder:
 **Filesystem ACLs (real Windows-round implementation step, exact
 mechanism decided here, not yet executed since it needs a real install
 to run `icacls` against):**
+
 - `%ProgramData%\Hexyrn Core\storage\`, `backups\`, `config\`: `NT
-  SERVICE\HexyrnCore` gets Modify; `NT SERVICE\HexyrnPostgreSQL` gets no
+SERVICE\HexyrnCore` gets Modify; `NT SERVICE\HexyrnPostgreSQL` gets no
   access (it has no reason to read the application's own config/storage).
 - `%ProgramData%\Hexyrn Core\postgresql-data\`: `NT
-  SERVICE\HexyrnPostgreSQL` gets Full Control (PostgreSQL's own
+SERVICE\HexyrnPostgreSQL` gets Full Control (PostgreSQL's own
   requirement - it must own its data directory); `NT SERVICE\HexyrnCore`
   gets NO direct filesystem access to this directory at all - the
   application only ever talks to PostgreSQL over its loopback TCP
@@ -531,6 +532,7 @@ bundle's uninstall-success text now explicitly explains the
 data-preservation behavior (`installer/windows/Bundle.en-us.wxl`).
 
 **Still remaining, precisely:**
+
 1. The Burn bundle's fully custom, VISUALLY-VERIFIED interactive
    checkbox control (real, visual Windows-round iteration work - the
    underlying mechanism and an explanatory text override both already

@@ -111,10 +111,17 @@ function isMulticastOrReserved(ip: string): boolean {
 
 export function classifyIp(ip: string): { blocked: boolean; reason?: string } {
   if (isLoopback(ip)) return { blocked: true, reason: `${ip} is a loopback address.` };
-  if (isLinkLocal(ip)) return { blocked: true, reason: `${ip} is a link-local address (this range includes cloud metadata service endpoints such as 169.254.169.254).` };
-  if (isIP(ip) === 4 && isPrivateV4(ip)) return { blocked: true, reason: `${ip} is a private IPv4 address.` };
-  if (isIP(ip) === 6 && isPrivateV6(ip)) return { blocked: true, reason: `${ip} is a private IPv6 address (unique local address).` };
-  if (isMulticastOrReserved(ip)) return { blocked: true, reason: `${ip} is a multicast or reserved address.` };
+  if (isLinkLocal(ip))
+    return {
+      blocked: true,
+      reason: `${ip} is a link-local address (this range includes cloud metadata service endpoints such as 169.254.169.254).`,
+    };
+  if (isIP(ip) === 4 && isPrivateV4(ip))
+    return { blocked: true, reason: `${ip} is a private IPv4 address.` };
+  if (isIP(ip) === 6 && isPrivateV6(ip))
+    return { blocked: true, reason: `${ip} is a private IPv6 address (unique local address).` };
+  if (isMulticastOrReserved(ip))
+    return { blocked: true, reason: `${ip} is a multicast or reserved address.` };
   return { blocked: false };
 }
 
@@ -123,7 +130,10 @@ export function classifyIp(ip: string): { blocked: boolean; reason?: string } {
  * policy - this is the check webhook-sender.ts calls before EVERY request,
  * including every redirect hop, per the module doc comment above.
  */
-export async function validateOutboundUrl(url: string, policy: OutboundNetworkPolicy = DEFAULT_OUTBOUND_NETWORK_POLICY): Promise<UrlValidationResult> {
+export async function validateOutboundUrl(
+  url: string,
+  policy: OutboundNetworkPolicy = DEFAULT_OUTBOUND_NETWORK_POLICY,
+): Promise<UrlValidationResult> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -132,12 +142,18 @@ export async function validateOutboundUrl(url: string, policy: OutboundNetworkPo
   }
 
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    return { allowed: false, reason: `Scheme "${parsed.protocol}" is not allowed - only http/https outbound requests are permitted.` };
+    return {
+      allowed: false,
+      reason: `Scheme "${parsed.protocol}" is not allowed - only http/https outbound requests are permitted.`,
+    };
   }
 
   const hostname = parsed.hostname;
   if (policy.allowedHosts.includes(hostname)) {
-    return { allowed: true, reason: `Hostname "${hostname}" is explicitly allowed by this installation's outbound network policy.` };
+    return {
+      allowed: true,
+      reason: `Hostname "${hostname}" is explicitly allowed by this installation's outbound network policy.`,
+    };
   }
 
   // A literal IP in the URL - no DNS lookup needed/possible.
@@ -157,7 +173,10 @@ export async function validateOutboundUrl(url: string, policy: OutboundNetworkPo
     const result = await dnsLookupAsync(hostname);
     resolvedIp = result.address;
   } catch (err) {
-    return { allowed: false, reason: `Could not resolve hostname "${hostname}": ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      allowed: false,
+      reason: `Could not resolve hostname "${hostname}": ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 
   if (policy.allowedHosts.includes(resolvedIp)) {

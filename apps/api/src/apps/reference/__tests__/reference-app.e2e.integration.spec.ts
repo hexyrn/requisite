@@ -338,11 +338,13 @@ describeIfDb(
     it('P2 REFERENCE APP EXPANSION: registers against every P2 extension point (dataset, relationship, saved-report template, dashboard widget, search, import, event schema)', async () => {
       const { registerReferenceAppP2Extensions } = await import('../reference-p2-extensions');
       const { DatasetService } = await import('../../../platform/reporting/dataset.service');
-      const { SavedReportService } = await import('../../../platform/reporting/saved-report.service');
+      const { SavedReportService } =
+        await import('../../../platform/reporting/saved-report.service');
       const { DashboardService } = await import('../../../platform/dashboards/dashboard.service');
       const { SearchService } = await import('../../../platform/search/search.service');
       const { ImportService } = await import('../../../platform/import/import.service');
-      const { ImportHandlerRegistryService } = await import('../../../platform/import/import-row-handler');
+      const { ImportHandlerRegistryService } =
+        await import('../../../platform/import/import-row-handler');
       const { EventSchemaService } = await import('../../../platform/events/event-schema.service');
 
       await registerReferenceAppP2Extensions(
@@ -356,37 +358,116 @@ describeIfDb(
         pool,
       );
 
-      const dataset = await withOrgContext(organisationId, (db) => db.selectFrom('dataset_definitions').selectAll().where('dataset_key', '=', 'reference.widgets').executeTakeFirst(), pool);
+      const dataset = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('dataset_definitions')
+            .selectAll()
+            .where('dataset_key', '=', 'reference.widgets')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(dataset).toBeTruthy();
-      const relationship = await withOrgContext(organisationId, (db) => db.selectFrom('dataset_relationships').selectAll().where('label', '=', 'widget_notes').executeTakeFirst(), pool);
+      const relationship = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('dataset_relationships')
+            .selectAll()
+            .where('label', '=', 'widget_notes')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(relationship).toBeTruthy();
-      const template = await withOrgContext(organisationId, (db) => db.selectFrom('report_templates').selectAll().where('template_key', '=', 'reference.widgets_by_status').executeTakeFirst(), pool);
+      const template = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('report_templates')
+            .selectAll()
+            .where('template_key', '=', 'reference.widgets_by_status')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(template).toBeTruthy();
-      const widget = await withOrgContext(organisationId, (db) => db.selectFrom('widget_definitions').selectAll().where('widget_key', '=', 'reference.widget-count-kpi').executeTakeFirst(), pool);
+      const widget = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('widget_definitions')
+            .selectAll()
+            .where('widget_key', '=', 'reference.widget-count-kpi')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(widget).toBeTruthy();
-      const searchReg = await withOrgContext(organisationId, (db) => db.selectFrom('search_entity_registrations').selectAll().where('entity_type', '=', 'reference.widget').executeTakeFirst(), pool);
+      const searchReg = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('search_entity_registrations')
+            .selectAll()
+            .where('entity_type', '=', 'reference.widget')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(searchReg).toBeTruthy();
-      const importDef = await withOrgContext(organisationId, (db) => db.selectFrom('import_definitions').selectAll().where('entity_type', '=', 'reference.widget').executeTakeFirst(), pool);
+      const importDef = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('import_definitions')
+            .selectAll()
+            .where('entity_type', '=', 'reference.widget')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(importDef).toBeTruthy();
-      const schema = await withOrgContext(organisationId, (db) => db.selectFrom('event_schemas').selectAll().where('event_type', '=', 'reference.widget.approved').executeTakeFirst(), pool);
+      const schema = await withOrgContext(
+        organisationId,
+        (db) =>
+          db
+            .selectFrom('event_schemas')
+            .selectAll()
+            .where('event_type', '=', 'reference.widget.approved')
+            .executeTakeFirst(),
+        pool,
+      );
       expect(schema).toBeTruthy();
     });
 
     it('P2 ITEM 11: a service-account API key authenticates the SAME public API route a session cookie does, via the shared SessionAuthGuard path', async () => {
-      const { ServiceAccountService } = await import('../../../platform/api-access/service-account.service');
+      const { ServiceAccountService } =
+        await import('../../../platform/api-access/service-account.service');
       const serviceAccounts = app.get(ServiceAccountService);
 
-      const account = await withOrgContext(organisationId, (db) => serviceAccounts.createServiceAccount(db, organisationId, 'CI Bot', ['reference.widget.view']), pool);
-      const issued = await withOrgContext(organisationId, (db) => serviceAccounts.issueCredential(db, organisationId, account.id, pool), pool);
+      const account = await withOrgContext(
+        organisationId,
+        (db) =>
+          serviceAccounts.createServiceAccount(db, organisationId, 'CI Bot', [
+            'reference.widget.view',
+          ]),
+        pool,
+      );
+      const issued = await withOrgContext(
+        organisationId,
+        (db) => serviceAccounts.issueCredential(db, organisationId, account.id, pool),
+        pool,
+      );
 
-      const apiResponse = await request(server()).get('/api/v1/apps/reference/widgets').set('Authorization', `Bearer ${issued.plaintextKey}`);
+      const apiResponse = await request(server())
+        .get('/api/v1/apps/reference/widgets')
+        .set('Authorization', `Bearer ${issued.plaintextKey}`);
       expect(apiResponse.status).toBe(200);
       expect(Array.isArray(apiResponse.body)).toBe(true);
 
       const noAuthResponse = await request(server()).get('/api/v1/apps/reference/widgets');
       expect(noAuthResponse.status).toBe(401);
 
-      const revokedKeyResponse = await request(server()).get('/api/v1/apps/reference/widgets').set('Authorization', 'Bearer hxk_bogus.notarealkey');
+      const revokedKeyResponse = await request(server())
+        .get('/api/v1/apps/reference/widgets')
+        .set('Authorization', 'Bearer hxk_bogus.notarealkey');
       expect(revokedKeyResponse.status).toBe(401);
     });
   },

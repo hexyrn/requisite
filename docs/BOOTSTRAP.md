@@ -47,7 +47,7 @@ a **single database transaction**, so it either all happens or none of it
 does:
 
 1. Atomically consumes the token: `UPDATE bootstrap_tokens SET consumed_at
-   = now() WHERE token_hash = $1 AND consumed_at IS NULL`. This update only
+= now() WHERE token_hash = $1 AND consumed_at IS NULL`. This update only
    ever succeeds for exactly one caller, even under concurrent requests -
    there is no separate "check then use" step that a race could exploit.
 2. Creates the organisation.

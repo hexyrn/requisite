@@ -271,8 +271,16 @@ export class ApplicationRegistryService {
   }
 
   /** P3 item 10/25 - see LicenceDetail's doc comment for why licenceValid/supportExpired are independent fields. */
-  async getLicenceDetail(db: Kysely<Database>, organisationId: string, appId: string): Promise<LicenceDetail> {
-    const installedRow = await db.selectFrom('installed_applications').selectAll().where('app_id', '=', appId).executeTakeFirst();
+  async getLicenceDetail(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+  ): Promise<LicenceDetail> {
+    const installedRow = await db
+      .selectFrom('installed_applications')
+      .selectAll()
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
     const installed = !!installedRow;
 
     const enablementRow = await db
@@ -290,7 +298,9 @@ export class ApplicationRegistryService {
       .where('app_id', '=', appId)
       .executeTakeFirst();
 
-    const compatible = installed ? isCoreVersionCompatible(installedRow!.requires_core_version) : false;
+    const compatible = installed
+      ? isCoreVersionCompatible(installedRow!.requires_core_version)
+      : false;
 
     if (!licenseRow) {
       return {
@@ -311,9 +321,16 @@ export class ApplicationRegistryService {
       };
     }
 
-    const payload = licenseRow.license_payload as unknown as { licenseId: string; issuedAt: string };
-    const supportExpiresAt = licenseRow.support_expires_at ? new Date(licenseRow.support_expires_at).toISOString() : null;
-    const supportExpired = supportExpiresAt ? new Date(supportExpiresAt).getTime() < Date.now() : null;
+    const payload = licenseRow.license_payload as unknown as {
+      licenseId: string;
+      issuedAt: string;
+    };
+    const supportExpiresAt = licenseRow.support_expires_at
+      ? new Date(licenseRow.support_expires_at).toISOString()
+      : null;
+    const supportExpired = supportExpiresAt
+      ? new Date(supportExpiresAt).getTime() < Date.now()
+      : null;
 
     return {
       appId,

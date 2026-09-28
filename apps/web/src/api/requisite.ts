@@ -84,7 +84,12 @@ export interface ApprovalHistoryEntry {
   steps: Array<{
     id: string;
     status: string;
-    decisions: Array<{ decided_by: string; decision: string; comment: string | null; decided_at: string }>;
+    decisions: Array<{
+      decided_by: string;
+      decision: string;
+      comment: string | null;
+      decided_at: string;
+    }>;
   }>;
 }
 
@@ -129,35 +134,99 @@ export const requisiteApi = {
 
   listRequisitions: () => request<Requisition[]>('/requisite/requisitions'),
   getRequisition: (id: string) => request<Requisition>(`/requisite/requisitions/${id}`),
-  createRequisition: (input: { reason: string; category?: string; requiredByDate?: string; costObjectReference?: string; lines: RequisitionLineInput[] }) =>
-    request<Requisition>('/requisite/requisitions', { method: 'POST', body: JSON.stringify(input) }),
+  createRequisition: (input: {
+    reason: string;
+    category?: string;
+    requiredByDate?: string;
+    costObjectReference?: string;
+    lines: RequisitionLineInput[];
+  }) =>
+    request<Requisition>('/requisite/requisitions', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   submitRequisition: (id: string, version: number) =>
-    request<{ requisition: Requisition; approval: { requestId: string; status: string } }>(`/requisite/requisitions/${id}/submit`, { method: 'POST', body: JSON.stringify({ version }) }),
-  decideRequisition: (id: string, stepId: string, decision: 'approve' | 'reject', reason?: string) =>
-    request<{ requestStatus: string; stepStatus: string }>(`/requisite/requisitions/${id}/decisions`, { method: 'POST', body: JSON.stringify({ stepId, decision, reason }) }),
-  cancelRequisition: (id: string) => request<Requisition>(`/requisite/requisitions/${id}/cancel`, { method: 'POST' }),
-  getApprovalHistory: (id: string) => request<ApprovalHistoryEntry[]>(`/requisite/requisitions/${id}/approval-history`),
-  listAttachments: (id: string) => request<Array<{ id: string; original_filename: string; mime_type: string; size_bytes: string }>>(`/requisite/requisitions/${id}/attachments`),
-  attachFile: (id: string, file: File) => uploadFile(`/requisite/requisitions/${id}/attachments`, file),
+    request<{ requisition: Requisition; approval: { requestId: string; status: string } }>(
+      `/requisite/requisitions/${id}/submit`,
+      { method: 'POST', body: JSON.stringify({ version }) },
+    ),
+  decideRequisition: (
+    id: string,
+    stepId: string,
+    decision: 'approve' | 'reject',
+    reason?: string,
+  ) =>
+    request<{ requestStatus: string; stepStatus: string }>(
+      `/requisite/requisitions/${id}/decisions`,
+      { method: 'POST', body: JSON.stringify({ stepId, decision, reason }) },
+    ),
+  cancelRequisition: (id: string) =>
+    request<Requisition>(`/requisite/requisitions/${id}/cancel`, { method: 'POST' }),
+  getApprovalHistory: (id: string) =>
+    request<ApprovalHistoryEntry[]>(`/requisite/requisitions/${id}/approval-history`),
+  listAttachments: (id: string) =>
+    request<
+      Array<{ id: string; original_filename: string; mime_type: string; size_bytes: string }>
+    >(`/requisite/requisitions/${id}/attachments`),
+  attachFile: (id: string, file: File) =>
+    uploadFile(`/requisite/requisitions/${id}/attachments`, file),
 
-  generatePurchaseOrder: (requisitionId: string, input: { supplierId: string; lines: Array<{ description: string; quantityOrdered: string; unitPriceMinor: string }> }) =>
-    request<PurchaseOrder>(`/requisite/requisitions/${requisitionId}/purchase-orders`, { method: 'POST', body: JSON.stringify(input) }),
+  generatePurchaseOrder: (
+    requisitionId: string,
+    input: {
+      supplierId: string;
+      lines: Array<{ description: string; quantityOrdered: string; unitPriceMinor: string }>;
+    },
+  ) =>
+    request<PurchaseOrder>(`/requisite/requisitions/${requisitionId}/purchase-orders`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   listPurchaseOrders: () => request<PurchaseOrder[]>('/requisite/purchase-orders'),
   getPurchaseOrder: (id: string) => request<PurchaseOrder>(`/requisite/purchase-orders/${id}`),
-  issuePurchaseOrder: (id: string, version: number) => request<PurchaseOrder>(`/requisite/purchase-orders/${id}/issue`, { method: 'POST', body: JSON.stringify({ version }) }),
+  issuePurchaseOrder: (id: string, version: number) =>
+    request<PurchaseOrder>(`/requisite/purchase-orders/${id}/issue`, {
+      method: 'POST',
+      body: JSON.stringify({ version }),
+    }),
 
   getGoodsReceipt: (id: string) => request<GoodsReceipt>(`/requisite/goods-receipts/${id}`),
-  listGoodsReceiptsForPo: (purchaseOrderId: string) => request<GoodsReceipt[]>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`),
-  recordGoodsReceipt: (purchaseOrderId: string, input: { lines: Array<{ purchaseOrderLineId: string; quantityReceived: string }>; deliveryNoteReference?: string }) =>
-    request<GoodsReceipt>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`, { method: 'POST', body: JSON.stringify(input) }),
+  listGoodsReceiptsForPo: (purchaseOrderId: string) =>
+    request<GoodsReceipt[]>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`),
+  recordGoodsReceipt: (
+    purchaseOrderId: string,
+    input: {
+      lines: Array<{ purchaseOrderLineId: string; quantityReceived: string }>;
+      deliveryNoteReference?: string;
+    },
+  ) =>
+    request<GoodsReceipt>(`/requisite/purchase-orders/${purchaseOrderId}/goods-receipts`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 
   listRfqs: () => request<Rfq[]>('/requisite/rfqs'),
   getRfq: (id: string) => request<RfqDetail>(`/requisite/rfqs/${id}`),
   createRfq: () => request<Rfq>('/requisite/rfqs', { method: 'POST', body: JSON.stringify({}) }),
-  recordQuote: (rfqId: string, input: { supplierId: string; quoteReference?: string; expiryDate?: string; carriageMinor?: string; lines: QuoteLineInput[] }) =>
-    request<Quote>(`/requisite/rfqs/${rfqId}/quotes`, { method: 'POST', body: JSON.stringify(input) }),
+  recordQuote: (
+    rfqId: string,
+    input: {
+      supplierId: string;
+      quoteReference?: string;
+      expiryDate?: string;
+      carriageMinor?: string;
+      lines: QuoteLineInput[];
+    },
+  ) =>
+    request<Quote>(`/requisite/rfqs/${rfqId}/quotes`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   selectQuote: (rfqId: string, quoteId: string, reason?: string) =>
-    request<Quote>(`/requisite/rfqs/${rfqId}/quotes/${quoteId}/select`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    request<Quote>(`/requisite/rfqs/${rfqId}/quotes/${quoteId}/select`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
   rejectQuote: (rfqId: string, quoteId: string) =>
     request<Quote>(`/requisite/rfqs/${rfqId}/quotes/${quoteId}/reject`, { method: 'POST' }),
 };

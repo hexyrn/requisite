@@ -48,7 +48,7 @@ tooling gaps:**
 1. **`pg_dump` genuinely requires `BYPASSRLS`.** `pg_dump` has no
    per-request organisation context to set (a full-database backup must
    read every organisation's rows in one pass), and `FORCE ROW LEVEL
-   SECURITY` (applied to every organisation-owned table per item 18)
+SECURITY` (applied to every organisation-owned table per item 18)
    applies even to the table OWNER - so any non-bypassing role fails
    outright with "query would be affected by row-level security policy."
    This is correct, documented PostgreSQL behaviour. A workaround
@@ -72,10 +72,11 @@ tooling gaps:**
    `TRUNCATE ... CASCADE` (a grantable, DML-adjacent privilege - added to
    `01-app-role.sh`'s grants - not ownership) before invoking
    `pg_restore --data-only --no-owner` with neither flag. `TRUNCATE
-   ... CASCADE` resolves FK dependency order itself, so the ownership
+... CASCADE` resolves FK dependency order itself, so the ownership
    requirement never arises.
 
 **Fixed and confirmed working, precisely:**
+
 - `docker/postgres-init/01-app-role.sh`: `hexyrn_backup` role creation
   plus `FOR ROLE hexyrn`-scoped grants now include `TRUNCATE` alongside
   `SELECT, INSERT, UPDATE, DELETE`.
@@ -103,8 +104,9 @@ acceptance test):** exercising failure-path behaviour (wrong
 credentials, disk full, process killed mid-run) surfaces as an
 actionable error rather than a silently "successful" partial file - not
 yet exercised even with fakes; and running this same role-provisioning
-+ acceptance flow inside the actual Docker Compose stack once a Docker
-daemon is available (see "Docker deployment" below).
+
+- acceptance flow inside the actual Docker Compose stack once a Docker
+  daemon is available (see "Docker deployment" below).
 
 ---
 
@@ -152,6 +154,7 @@ review** (full detail in each fix's own commit and code comment):
 
 **Confirmed working by direct inspection, not just "the process didn't
 crash":**
+
 - `docker run` of the bare api image with `NODE_ENV=production` and no
   secrets configured correctly REFUSED to start and listed exactly the
   missing required variables - proving `production-config-check.ts`'s
@@ -183,6 +186,7 @@ AT the container-provisioned database specifically (it has been run
 extensively against this sandbox's native Postgres instance, which uses
 the same role-creation logic, but not literally inside the container).
 Volume persistence across a container restart is now genuinely verified
+
 - see "PostgreSQL 17 alignment" below.
 
 ---
@@ -218,8 +222,8 @@ afterward:
   Requisite route (`/api/v1/requisite/...`) mapped - both applications
   genuinely initialized against PG17, not just Core.
 - **HTTP/TLS works:** `curl -sk https://localhost/api/v1/health` → `200`
-  + `{"status":"ok"}`, `curl -sk https://localhost/` → `200` (the real
-  built SPA), both through Caddy's real reverse proxy/TLS termination.
+  - `{"status":"ok"}`, `curl -sk https://localhost/` → `200` (the real
+    built SPA), both through Caddy's real reverse proxy/TLS termination.
 - **Persistence works:** `docker restart` of the live PostgreSQL 17
   container, followed by re-querying `installations`/`schema_migrations`
   row counts - both unchanged after the restart, proving the named
@@ -228,11 +232,11 @@ afterward:
   earlier this phase - closes that gap too, not just the version bump).
 - **RLS/isolation assumptions remain valid:** `organisations` confirmed
   `relrowsecurity=t, relforcerowsecurity=t` under PG17; a live `SELECT
-  count(*) FROM organisations` connected AS `hexyrn_app` with NO
+count(*) FROM organisations` connected AS `hexyrn_app` with NO
   organisation context set returned `0` rows (not an error, not all
   rows) - RLS genuinely still enforced correctly under PG17.
 - **Backup/restore tooling remains compatible:** a real `pg_dump
-  --format=custom --data-only` (PostgreSQL 17.11 binary, run from
+--format=custom --data-only` (PostgreSQL 17.11 binary, run from
   INSIDE the live container, connecting as `hexyrn_backup`) produced a
   33KB dump with the same expected circular-FK warnings on
   `organisational_units`/`locations` as under PG16 (informational, not
@@ -277,6 +281,7 @@ running from this verification either.
 ## Windows packaging — **VERIFIED: GENUINELY COMPILES WITH BOTH REAL EXTERNAL ARTIFACTS**
 
 **Status: IMPLEMENTED AND COMPILED, using the REAL, independently-verified PostgreSQL AND Node.js distributions - no more compile-test stand-ins.** Both external-artifact boundaries are now closed:
+
 - PostgreSQL 17.11-4 (EDB Windows binaries), SHA-256 `b9424ee7bc60b52450ff910a3630225df32e633f3cb29c1d126d9299d59aea28`
 - Node.js 20.20.2 (official Windows x64 binaries), SHA-256 `dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77`
 
@@ -294,6 +299,7 @@ Both independently verified by the coordinator before being handed over, and bot
 **Still NOT done, stated precisely:** the Burn bundle's fully custom, VISUALLY-VERIFIED checkbox control for uninstall data retention (the `.wxl` string override above is real progress, not the same thing - a checkbox needs on-screen iteration this sandbox cannot provide); code-signing (no certificate available - a real, tracked operational gap that gates DISTRIBUTION but not internal clean-VM functional acceptance, per explicit instruction); actual install/uninstall/upgrade lifecycle testing (deliberately never attempted on this development machine, to protect its own working PostgreSQL/Node/source-tree environment - reserved for a clean, snapshotted VirtualBox VM).
 
 **Needed to close, precisely:**
+
 1. Author the Burn bundle's fully custom, visually-verified data-retention checkbox UI (real, visual Windows-round iteration work) - optional polish, since the functional mechanism and the explanatory text are both already real.
 2. Obtain a code-signing certificate and sign both artifacts (`signtool sign`/`verify` - commands in `docs/WINDOWS_ACCEPTANCE_PREP.md`) - gates distribution, not internal functional acceptance.
 3. Transfer the built (now genuinely artifact-complete) bundle to a clean, snapshotted VirtualBox VM and run the full clean-machine acceptance test - install, first-run, the full Requisite workflow, real backup/restore via the bundled `pg_dump.exe`/`pg_restore.exe`, both uninstall paths (keep data / `/HEXYRNPURGEDATA=1`), and upgrade-in-place.
@@ -344,17 +350,17 @@ written" gap. Kept as a heading here only so anyone searching for "item
 
 ## Summary table
 
-| Area | Implemented in this repo | Verifiable in this sandbox | Blocking environment need |
-|---|---|---|---|
-| Backup/restore mechanism + HTTP admin endpoints | Yes (full) | **Yes - real pg_dump/pg_restore VERIFIED** (`scripts/real-backup-restore-acceptance.ts`, 11/11 checks pass against real PostgreSQL 17.11 binaries + a real superuser-provisioned `hexyrn_backup` BYPASSRLS role) | None (closed) |
-| Update system + HTTP admin endpoints | Yes (full) | Yes (real migrations + real health check proven; the pg_dump-dependent auto-backup preflight step now benefits from real pg_dump being verified above, though not re-exercised specifically inside the update flow) | None (closed for the pg_dump dependency itself) |
-| Support bundle + HTTP admin endpoints | Yes (full) | Yes (fully) | None |
-| Docker DB role split | Yes (full) | **Yes - VERIFIED inside a real container** (`01-app-role.sh` run for real via `docker compose up`, both roles confirmed via psql with correct privileges) | None (closed) |
-| Docker production compose (app + proxy) | Yes (full) | **Yes - VERIFIED** (`docker-compose.prod.yml`, real `docker build` + `docker compose up`, real migrations applied, healthy API, SPA + TLS-proxied API served through Caddy) | None (closed) |
-| Windows installer | **Compiled with BOTH real external artifacts**: `Product.msi` (88,669,161 bytes) + `HexyrnCore-1.0.0.0-rc1.exe` Burn bundle (85,528,779 bytes), 22,154 files/2,348 Components/2,511 Directories confirmed via real MSI database inspection, both services registered with correct Arguments/Account, real PostgreSQL 17.11-4 + real Node.js 20.20.2 (both coordinator-verified, checksum-matched) | **Yes - genuinely compiled and inspected on the real Windows 11 machine** using both real, checksum-verified external artifacts (no stand-ins remaining) | Code-signing certificate + fully custom (visually-verified) Burn uninstall checkbox + VirtualBox clean-VM install/uninstall/upgrade test (exact commands: `docs/WINDOWS_ACCEPTANCE_PREP.md`) |
-| Windows CI job definition | Yes (job defined) | No (never executed) | GitHub Actions runner access |
-| Clean-machine harness (automatable portion) | Yes (full, passing, **including real pg_dump/pg_restore when configured** - both modes confirmed passing this round) | Yes | None - this part is genuinely proven |
-| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset, now with real pg_dump/pg_restore built in; real Docker deployment separately verified) | No | Isolated/clean Windows environment + a built, signed release artifact |
+| Area                                                               | Implemented in this repo                                                                                                                                                                                                                                                                                                                                                                          | Verifiable in this sandbox                                                                                                                                                                                          | Blocking environment need                                                                                                                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backup/restore mechanism + HTTP admin endpoints                    | Yes (full)                                                                                                                                                                                                                                                                                                                                                                                        | **Yes - real pg_dump/pg_restore VERIFIED** (`scripts/real-backup-restore-acceptance.ts`, 11/11 checks pass against real PostgreSQL 17.11 binaries + a real superuser-provisioned `hexyrn_backup` BYPASSRLS role)    | None (closed)                                                                                                                                                                                |
+| Update system + HTTP admin endpoints                               | Yes (full)                                                                                                                                                                                                                                                                                                                                                                                        | Yes (real migrations + real health check proven; the pg_dump-dependent auto-backup preflight step now benefits from real pg_dump being verified above, though not re-exercised specifically inside the update flow) | None (closed for the pg_dump dependency itself)                                                                                                                                              |
+| Support bundle + HTTP admin endpoints                              | Yes (full)                                                                                                                                                                                                                                                                                                                                                                                        | Yes (fully)                                                                                                                                                                                                         | None                                                                                                                                                                                         |
+| Docker DB role split                                               | Yes (full)                                                                                                                                                                                                                                                                                                                                                                                        | **Yes - VERIFIED inside a real container** (`01-app-role.sh` run for real via `docker compose up`, both roles confirmed via psql with correct privileges)                                                           | None (closed)                                                                                                                                                                                |
+| Docker production compose (app + proxy)                            | Yes (full)                                                                                                                                                                                                                                                                                                                                                                                        | **Yes - VERIFIED** (`docker-compose.prod.yml`, real `docker build` + `docker compose up`, real migrations applied, healthy API, SPA + TLS-proxied API served through Caddy)                                         | None (closed)                                                                                                                                                                                |
+| Windows installer                                                  | **Compiled with BOTH real external artifacts**: `Product.msi` (88,669,161 bytes) + `HexyrnCore-1.0.0.0-rc1.exe` Burn bundle (85,528,779 bytes), 22,154 files/2,348 Components/2,511 Directories confirmed via real MSI database inspection, both services registered with correct Arguments/Account, real PostgreSQL 17.11-4 + real Node.js 20.20.2 (both coordinator-verified, checksum-matched) | **Yes - genuinely compiled and inspected on the real Windows 11 machine** using both real, checksum-verified external artifacts (no stand-ins remaining)                                                            | Code-signing certificate + fully custom (visually-verified) Burn uninstall checkbox + VirtualBox clean-VM install/uninstall/upgrade test (exact commands: `docs/WINDOWS_ACCEPTANCE_PREP.md`) |
+| Windows CI job definition                                          | Yes (job defined)                                                                                                                                                                                                                                                                                                                                                                                 | No (never executed)                                                                                                                                                                                                 | GitHub Actions runner access                                                                                                                                                                 |
+| Clean-machine harness (automatable portion)                        | Yes (full, passing, **including real pg_dump/pg_restore when configured** - both modes confirmed passing this round)                                                                                                                                                                                                                                                                              | Yes                                                                                                                                                                                                                 | None - this part is genuinely proven                                                                                                                                                         |
+| Clean-machine 24-step test (full, including binary/OS-level steps) | Partially (harness above covers the automatable subset, now with real pg_dump/pg_restore built in; real Docker deployment separately verified)                                                                                                                                                                                                                                                    | No                                                                                                                                                                                                                  | Isolated/clean Windows environment + a built, signed release artifact                                                                                                                        |
 
 This file will be updated as further P3 work lands or as any of these
 verification gaps are closed in a genuine target environment.

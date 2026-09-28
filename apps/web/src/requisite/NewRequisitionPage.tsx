@@ -90,12 +90,18 @@ export function NewRequisitionPage() {
         // the attachment upload fails - never lose the requisition data
         // because of a file problem.
         await requisiteApi.attachFile(created.id, pendingFile).catch((err) => {
-          setFileError(err instanceof Error ? err.message : 'The requisition was saved, but the attachment could not be uploaded.');
+          setFileError(
+            err instanceof Error
+              ? err.message
+              : 'The requisition was saved, but the attachment could not be uploaded.',
+          );
         });
       }
       navigate(`/requisite/requisitions/${created.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save this requisition. Please try again.');
+      setError(
+        err instanceof Error ? err.message : 'Could not save this requisition. Please try again.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -103,18 +109,43 @@ export function NewRequisitionPage() {
 
   return (
     <div>
-      <PageHeader title="New Requisition" subtitle="Tell us what you need and we'll route it for approval." />
+      <PageHeader
+        title="New Requisition"
+        subtitle="Tell us what you need and we'll route it for approval."
+      />
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>Purpose</h2>
-        <Input label="What do you need, and why?" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Replacement steel brackets for the Coventry production line" />
+        <Input
+          label="What do you need, and why?"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Replacement steel brackets for the Coventry production line"
+        />
 
         <details style={{ marginTop: 8, marginBottom: 16 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#374151' }}>More details (optional)</summary>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+            More details (optional)
+          </summary>
           <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Input label="Category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Materials" />
-            <Input label="Required by" type="date" value={requiredByDate} onChange={(e) => setRequiredByDate(e.target.value)} />
-            <Input label="Project / cost reference" value={costObjectReference} onChange={(e) => setCostObjectReference(e.target.value)} placeholder="e.g. JOB-4471" />
+            <Input
+              label="Category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Materials"
+            />
+            <Input
+              label="Required by"
+              type="date"
+              value={requiredByDate}
+              onChange={(e) => setRequiredByDate(e.target.value)}
+            />
+            <Input
+              label="Project / cost reference"
+              value={costObjectReference}
+              onChange={(e) => setCostObjectReference(e.target.value)}
+              placeholder="e.g. JOB-4471"
+            />
           </div>
         </details>
       </Card>
@@ -122,12 +153,49 @@ export function NewRequisitionPage() {
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>What are you purchasing?</h2>
         {lines.map((line, idx) => (
-          <div key={line.key} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
-            <Input label={idx === 0 ? 'Description' : undefined} aria-label="Line description" value={line.description} onChange={(e) => updateLine(line.key, { description: e.target.value })} />
-            <Input label={idx === 0 ? 'Quantity' : undefined} aria-label="Quantity" type="number" min="0" value={line.quantity} onChange={(e) => updateLine(line.key, { quantity: e.target.value })} />
-            <Input label={idx === 0 ? 'Unit' : undefined} aria-label="Unit" value={line.unit ?? ''} onChange={(e) => updateLine(line.key, { unit: e.target.value })} />
-            <Input label={idx === 0 ? 'Est. unit price (pence)' : undefined} aria-label="Estimated unit price in pence" type="number" min="0" value={line.estimatedUnitPriceMinor} onChange={(e) => updateLine(line.key, { estimatedUnitPriceMinor: e.target.value })} />
-            <Button type="button" onClick={() => removeLine(line.key)} aria-label={`Remove line ${idx + 1}`}>
+          <div
+            key={line.key}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: 8,
+              alignItems: 'flex-end',
+              marginBottom: 8,
+            }}
+          >
+            <Input
+              label={idx === 0 ? 'Description' : undefined}
+              aria-label="Line description"
+              value={line.description}
+              onChange={(e) => updateLine(line.key, { description: e.target.value })}
+            />
+            <Input
+              label={idx === 0 ? 'Quantity' : undefined}
+              aria-label="Quantity"
+              type="number"
+              min="0"
+              value={line.quantity}
+              onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+            />
+            <Input
+              label={idx === 0 ? 'Unit' : undefined}
+              aria-label="Unit"
+              value={line.unit ?? ''}
+              onChange={(e) => updateLine(line.key, { unit: e.target.value })}
+            />
+            <Input
+              label={idx === 0 ? 'Est. unit price (pence)' : undefined}
+              aria-label="Estimated unit price in pence"
+              type="number"
+              min="0"
+              value={line.estimatedUnitPriceMinor}
+              onChange={(e) => updateLine(line.key, { estimatedUnitPriceMinor: e.target.value })}
+            />
+            <Button
+              type="button"
+              onClick={() => removeLine(line.key)}
+              aria-label={`Remove line ${idx + 1}`}
+            >
               Remove
             </Button>
           </div>
@@ -136,30 +204,62 @@ export function NewRequisitionPage() {
           + Add line
         </Button>
 
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb', textAlign: 'right', fontSize: 16 }}>
-          Estimated total: <strong><Money minorUnits={estimatedTotalMinor} /></strong>
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop: '1px solid #e5e7eb',
+            textAlign: 'right',
+            fontSize: 16,
+          }}
+        >
+          Estimated total:{' '}
+          <strong>
+            <Money minorUnits={estimatedTotalMinor} />
+          </strong>
         </div>
       </Card>
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>Supporting documents (optional)</h2>
-        <label htmlFor="requisition-attachment" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+        <label
+          htmlFor="requisition-attachment"
+          style={{ fontSize: 13, display: 'block', marginBottom: 4 }}
+        >
           Attach a quote or specification
         </label>
-        <input id="requisition-attachment" type="file" onChange={(e) => onFileSelected(e.target.files?.[0])} />
+        <input
+          id="requisition-attachment"
+          type="file"
+          onChange={(e) => onFileSelected(e.target.files?.[0])}
+        />
         {pendingFile && (
-          <div style={{ marginTop: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            style={{ marginTop: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+          >
             <span>{pendingFile.name}</span>
             <Button type="button" variant="secondary" onClick={() => onFileSelected(undefined)}>
               Remove
             </Button>
           </div>
         )}
-        {fileError && <div role="alert" style={{ color: '#991b1b', marginTop: 8, fontSize: 13 }}>{fileError}</div>}
+        {fileError && (
+          <div role="alert" style={{ color: '#991b1b', marginTop: 8, fontSize: 13 }}>
+            {fileError}
+          </div>
+        )}
       </Card>
 
-      {validationError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{validationError}</div>}
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {validationError && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {validationError}
+        </div>
+      )}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       <Button onClick={onSaveDraft} disabled={submitting}>
         {submitting ? 'Saving…' : 'Save Draft'}

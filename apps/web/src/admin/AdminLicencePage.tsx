@@ -19,7 +19,9 @@ export function AdminLicencePage() {
     licenceApi
       .getLicence(REQUISITE_APP_ID)
       .then(setDetail)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load licence detail.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load licence detail.'),
+      );
   }
 
   useEffect(reload, []);
@@ -36,7 +38,11 @@ export function AdminLicencePage() {
     setError(null);
     setMessage(null);
     try {
-      const result = await licenceApi.importLicence(REQUISITE_APP_ID, Number(majorVersion), licence);
+      const result = await licenceApi.importLicence(
+        REQUISITE_APP_ID,
+        Number(majorVersion),
+        licence,
+      );
       setDetail(result);
       setMessage('Licence imported.');
       setLicenceJson('');
@@ -49,21 +55,38 @@ export function AdminLicencePage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
-      {message && <div role="status" style={{ color: '#166534', marginBottom: 12 }}>{message}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+      {message && (
+        <div role="status" style={{ color: '#166534', marginBottom: 12 }}>
+          {message}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Hexyrn Requisite licence</h2>
         {detail ? (
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>
-              Licence valid: <StatusBadge label={detail.licenceValid ? 'Yes' : 'No'} tone={toneForBool(detail.licenceValid)} />
+              Licence valid:{' '}
+              <StatusBadge
+                label={detail.licenceValid ? 'Yes' : 'No'}
+                tone={toneForBool(detail.licenceValid)}
+              />
             </li>
             <li>
-              Support expired: <StatusBadge label={detail.supportExpired ? 'Yes' : 'No'} tone={toneForBool(!detail.supportExpired)} />
+              Support expired:{' '}
+              <StatusBadge
+                label={detail.supportExpired ? 'Yes' : 'No'}
+                tone={toneForBool(!detail.supportExpired)}
+              />
             </li>
             <li>
-              Active: <StatusBadge label={detail.active ? 'Yes' : 'No'} tone={toneForBool(detail.active)} />
+              Active:{' '}
+              <StatusBadge label={detail.active ? 'Yes' : 'No'} tone={toneForBool(detail.active)} />
             </li>
           </ul>
         ) : (
@@ -77,7 +100,11 @@ export function AdminLicencePage() {
           Verified offline via cryptographic signature - no internet activation required.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 640 }}>
-          <Input label="Major version" value={majorVersion} onChange={(e) => setMajorVersion(e.target.value)} />
+          <Input
+            label="Major version"
+            value={majorVersion}
+            onChange={(e) => setMajorVersion(e.target.value)}
+          />
           <label style={{ fontSize: 13, fontWeight: 600 }}>
             Licence file contents (JSON)
             <textarea

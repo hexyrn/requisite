@@ -255,7 +255,9 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
     // still reject a missing CSRF header exactly as before.
     it('a non-public authenticated mutating route still requires CSRF even after the public-route fix', async () => {
       const agent = request.agent(server());
-      await agent.post('/api/v1/auth/login').send({ email: 'second@e2e.test', password: 'second-users-password-1' });
+      await agent
+        .post('/api/v1/auth/login')
+        .send({ email: 'second@e2e.test', password: 'second-users-password-1' });
       const res = await agent.post('/api/v1/auth/logout'); // logout is NOT @PublicRoute() - no header sent
       expect(res.status).toBe(401);
       expect(res.body.message).toMatch(/CSRF/i);
@@ -733,7 +735,7 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       }
     });
 
-    it('rotates a real enrolled user\'s stored secret to a new master key without breaking their MFA challenge', async () => {
+    it("rotates a real enrolled user's stored secret to a new master key without breaking their MFA challenge", async () => {
       process.env.TOTP_MASTER_KEY_CURRENT = KEY_A;
       delete process.env.TOTP_MASTER_KEY_PREVIOUS;
 
@@ -772,7 +774,11 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       process.env.TOTP_MASTER_KEY_PREVIOUS = KEY_A;
       process.env.TOTP_MASTER_KEY_CURRENT = KEY_B;
 
-      const result = await withOrgContext(organisationId, (db) => totpService.rotateAllMasterKeys(db), pool);
+      const result = await withOrgContext(
+        organisationId,
+        (db) => totpService.rotateAllMasterKeys(db),
+        pool,
+      );
       expect(result.rotated).toBeGreaterThanOrEqual(1);
       // Other users in this same test org (e.g. the MFA-enrolment test's
       // user, wrapped under the real .env TOTP_MASTER_KEY, not KEY_A/KEY_B)
@@ -793,13 +799,17 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       expect(stillValid).toBe(true);
 
       // A second rotation pass is idempotent - nothing left to rotate.
-      const secondPass = await withOrgContext(organisationId, (db) => totpService.rotateAllMasterKeys(db), pool);
+      const secondPass = await withOrgContext(
+        organisationId,
+        (db) => totpService.rotateAllMasterKeys(db),
+        pool,
+      );
       expect(secondPass.rotated).toBe(0);
     });
   });
 
   describe('Administrator-assisted MFA reset (Architecture §6 / P3 item 33)', () => {
-    it('an admin holding core.users.mfa_reset can reset another user\'s MFA - target re-enrolment required, sessions revoked, audited', async () => {
+    it("an admin holding core.users.mfa_reset can reset another user's MFA - target re-enrolment required, sessions revoked, audited", async () => {
       // A fresh target user, enrolled in MFA end-to-end via the real HTTP flow.
       await withOrgContext(
         organisationId,
@@ -873,7 +883,12 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
       // USERS_MFA_RESET), proving the guard is a distinct, deliberate check.
       const ownerRow = await withOrgContext(
         organisationId,
-        (db) => db.selectFrom('user_accounts').select(['id']).where('email', '=', ownerEmail).executeTakeFirstOrThrow(),
+        (db) =>
+          db
+            .selectFrom('user_accounts')
+            .select(['id'])
+            .where('email', '=', ownerEmail)
+            .executeTakeFirstOrThrow(),
         pool,
       );
       const adminOwnReset = await adminAgent
@@ -896,7 +911,12 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
 
       const remainingCodes = await withOrgContext(
         organisationId,
-        (db) => db.selectFrom('mfa_recovery_codes').selectAll().where('user_account_id', '=', target.id).execute(),
+        (db) =>
+          db
+            .selectFrom('mfa_recovery_codes')
+            .selectAll()
+            .where('user_account_id', '=', target.id)
+            .execute(),
         pool,
       );
       expect(remainingCodes).toHaveLength(0);

@@ -16,20 +16,20 @@ working even with expired support (see `docs/OPERATOR_GUIDE.md` §8).
 Grant these to roles via Core's Roles admin screen (`requisite.manifest.ts`
 is the source of truth for exact names):
 
-| Permission | Grants |
-|---|---|
-| `requisite.suppliers.view` / `.manage` | View / create-edit suppliers |
-| `requisite.requisitions.view` | View requisitions |
-| `requisite.requisitions.create` | Create/edit draft requisitions |
-| `requisite.requisitions.submit` | Submit a requisition for approval |
-| `requisite.requisitions.approve` | Act as an approver in the approval chain |
-| `requisite.requisitions.cancel` | Cancel a requisition |
-| `requisite.purchase-orders.view` | View purchase orders |
-| `requisite.purchase-orders.create` | Generate a PO from an approved requisition |
-| `requisite.purchase-orders.issue` | Issue a generated PO to the supplier |
-| `requisite.goods-receipts.view` / `.create` | View / record goods receipts |
-| `requisite.rfqs.manage` | Create RFQs, record and select quotes |
-| `requisite.reports.view` | Run Requisite's registered reports |
+| Permission                                  | Grants                                     |
+| ------------------------------------------- | ------------------------------------------ |
+| `requisite.suppliers.view` / `.manage`      | View / create-edit suppliers               |
+| `requisite.requisitions.view`               | View requisitions                          |
+| `requisite.requisitions.create`             | Create/edit draft requisitions             |
+| `requisite.requisitions.submit`             | Submit a requisition for approval          |
+| `requisite.requisitions.approve`            | Act as an approver in the approval chain   |
+| `requisite.requisitions.cancel`             | Cancel a requisition                       |
+| `requisite.purchase-orders.view`            | View purchase orders                       |
+| `requisite.purchase-orders.create`          | Generate a PO from an approved requisition |
+| `requisite.purchase-orders.issue`           | Issue a generated PO to the supplier       |
+| `requisite.goods-receipts.view` / `.create` | View / record goods receipts               |
+| `requisite.rfqs.manage`                     | Create RFQs, record and select quotes      |
+| `requisite.reports.view`                    | Run Requisite's registered reports         |
 
 A typical role set: **Requester** (`requisitions.view/create/submit`),
 **Approver** (adds `requisitions.approve`), **Purchasing** (adds

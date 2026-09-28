@@ -1,15 +1,18 @@
 # ADR 0002: TOTP secret encryption - single master key now, envelope encryption deferred
 
 ## Status
+
 **Superseded (P3 item 7, 2026-09-22) by real envelope encryption + rotation -
 see `docs/decisions/0008-totp-envelope-encryption.md`.** This document is
 retained unmodified below for historical record of the P0 state and
 rationale; it is no longer the current implementation.
 
 ## Status (original, P0)
+
 Accepted (P0), with an explicit, tracked follow-up (not silent debt).
 
 ## What Architecture v1.0 §6 specifies
+
 > TOTP secret encryption/key management: TOTP secrets encrypted at rest
 > using envelope encryption - a per-installation master key (from
 > environment/secrets file, never committed, documented as the customer's
@@ -24,6 +27,7 @@ key means re-encrypting only the (small) data keys, not every TOTP secret -
 so rotation is cheap and doesn't force every user to re-enrol MFA.
 
 ## What P0 actually implements
+
 `apps/api/src/security/totp-encryption.ts` implements **direct
 single-master-key encryption**, not envelope encryption:
 
@@ -37,6 +41,7 @@ single-master-key encryption**, not envelope encryption:
 - There is **no per-secret data key** and **no wrapping layer**.
 
 ## Why this deviates from §6, stated plainly
+
 Implementing genuine envelope encryption correctly - generating a random
 data key per secret, encrypting the secret with it, encrypting the data key
 with the master key, storing both the wrapped data key and the ciphertext,
@@ -72,7 +77,7 @@ simply doesn't implement all of it yet.
    permanently undecryptable (AES-GCM will fail the auth tag check, see
    `decryptTotpSecret`, which throws rather than silently returning garbage
    - fail-closed, not fail-open). Every enrolled user would need to
-   re-enrol MFA. There is no supported rotation procedure in P0.
+     re-enrol MFA. There is no supported rotation procedure in P0.
 2. **Key-loss behaviour**: if `TOTP_MASTER_KEY` is lost entirely, every
    enrolled user's MFA is permanently unusable via the normal challenge
    path - recovery is only possible via the admin-assisted MFA reset path
@@ -86,7 +91,9 @@ simply doesn't implement all of it yet.
    mitigation available today.
 
 ## Future migration path to real envelope encryption
+
 Not built now, but not architecturally blocked either:
+
 1. Add `totp_secret_data_key_wrapped` alongside the existing
    `totp_secret_encrypted` column.
 2. On next successful TOTP verification (or a one-off backfill job) for

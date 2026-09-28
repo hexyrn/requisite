@@ -92,15 +92,24 @@ describeIfDb('Licence administration - real HTTP layer (P3 item 10/25)', () => {
       (db: Kysely<Database>) =>
         (db as any)
           .insertInto('app_enablements')
-          .values({ organisation_id: organisationId, app_id: APP_ID, enabled: true, enabled_at: new Date() })
-          .onConflict((oc: any) => oc.columns(['organisation_id', 'app_id']).doUpdateSet({ enabled: true }))
+          .values({
+            organisation_id: organisationId,
+            app_id: APP_ID,
+            enabled: true,
+            enabled_at: new Date(),
+          })
+          .onConflict((oc: any) =>
+            oc.columns(['organisation_id', 'app_id']).doUpdateSet({ enabled: true }),
+          )
           .execute(),
       pool,
     );
     void registry;
 
     agent = request.agent(server());
-    const login = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
     csrfToken = login.body.csrfToken;
   }, 60000);
 

@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { HexyrnAppContext } from '@hexyrn/app-sdk';
 import { Database } from '../../db/types';
@@ -46,8 +52,12 @@ export interface CreateRequisitionInput {
 export class RequisitionService {
   constructor(private readonly onboarding: RequisiteOnboardingService) {}
 
-  private computeTotals(lines: RequisitionLineInput[]): { lines: { line: RequisitionLineInput; totalMinor: bigint }[]; estimatedTotalMinor: bigint } {
-    if (lines.length === 0) throw new BadRequestException('A requisition must have at least one line.');
+  private computeTotals(lines: RequisitionLineInput[]): {
+    lines: { line: RequisitionLineInput; totalMinor: bigint }[];
+    estimatedTotalMinor: bigint;
+  } {
+    if (lines.length === 0)
+      throw new BadRequestException('A requisition must have at least one line.');
     const computed = lines.map((line) => {
       const unitPrice = BigInt(line.estimatedUnitPriceMinor || '0');
       return { line, totalMinor: multiplyMinor(unitPrice, line.quantity) };
@@ -55,9 +65,15 @@ export class RequisitionService {
     return { lines: computed, estimatedTotalMinor: sumMinor(computed.map((c) => c.totalMinor)) };
   }
 
-  async createRequisition(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, input: CreateRequisitionInput) {
+  async createRequisition(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    input: CreateRequisitionInput,
+  ) {
     await this.onboarding.onboardOrganisation(db, ctx.organisationId); // idempotent
-    if (!input.reason?.trim()) throw new BadRequestException('A reason / business justification is required.');
+    if (!input.reason?.trim())
+      throw new BadRequestException('A reason / business justification is required.');
 
     const { lines, estimatedTotalMinor } = this.computeTotals(input.lines);
     const requisitionNumber = await ctx.numbering.next(db, 'requisition');
@@ -105,8 +121,19 @@ export class RequisitionService {
         .execute();
     }
 
-    await ctx.workflow.start(db, 'requisition-lifecycle', ENTITY_TYPE, requisition.id, actorUserAccountId);
-    await ctx.events.publish(db, 'requisite.requisition.created.v1', { requisitionId: requisition.id, requisitionNumber: requisition.requisition_number }, 1);
+    await ctx.workflow.start(
+      db,
+      'requisition-lifecycle',
+      ENTITY_TYPE,
+      requisition.id,
+      actorUserAccountId,
+    );
+    await ctx.events.publish(
+      db,
+      'requisite.requisition.created.v1',
+      { requisitionId: requisition.id, requisitionNumber: requisition.requisition_number },
+      1,
+    );
 
     return this.getRequisition(db, ctx.organisationId, requisition.id);
   }
@@ -119,29 +146,53 @@ export class RequisitionService {
    * transition) makes this fail with a real ConflictException, not a
    * silently-lost edit.
    */
-  async editRequisition(db: Kysely<Database>, organisationId: string, requisitionId: string, expectedVersion: number, updates: { reason?: string; notes?: string; requiredByDate?: string }) {
+  async editRequisition(
+    db: Kysely<Database>,
+    organisationId: string,
+    requisitionId: string,
+    expectedVersion: number,
+    updates: { reason?: string; notes?: string; requiredByDate?: string },
+  ) {
     const requisition = await this.getRequisitionRaw(db, organisationId, requisitionId);
     if (requisition.status !== 'draft') {
-      throw new ForbiddenException(`Cannot edit a requisition in status "${requisition.status}" - only draft requisitions may be edited.`);
+      throw new ForbiddenException(
+        `Cannot edit a requisition in status "${requisition.status}" - only draft requisitions may be edited.`,
+      );
     }
     const result = await db
       .updateTable('requisite_requisitions')
-      .set({ reason: updates.reason ?? requisition.reason, notes: updates.notes ?? requisition.notes, required_by_date: updates.requiredByDate ?? requisition.required_by_date, version: expectedVersion + 1, updated_at: new Date() as any })
+      .set({
+        reason: updates.reason ?? requisition.reason,
+        notes: updates.notes ?? requisition.notes,
+        required_by_date: updates.requiredByDate ?? requisition.required_by_date,
+        version: expectedVersion + 1,
+        updated_at: new Date() as any,
+      })
       .where('id', '=', requisitionId)
       .where('organisation_id', '=', organisationId)
       .where('version', '=', expectedVersion)
       .returningAll()
       .executeTakeFirst();
     if (!result) {
-      throw new ConflictException('This requisition was modified by another request - reload and try again.');
+      throw new ConflictException(
+        'This requisition was modified by another request - reload and try again.',
+      );
     }
     return result;
   }
 
-  async submitRequisition(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string, expectedVersion: number) {
+  async submitRequisition(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId: string,
+    expectedVersion: number,
+  ) {
     const requisition = await this.getRequisitionRaw(db, ctx.organisationId, requisitionId);
     if (requisition.status !== 'draft') {
-      throw new ForbiddenException(`Cannot submit a requisition in status "${requisition.status}".`);
+      throw new ForbiddenException(
+        `Cannot submit a requisition in status "${requisition.status}".`,
+      );
     }
     const bumped = await db
       .updateTable('requisite_requisitions')
@@ -152,20 +203,36 @@ export class RequisitionService {
       .returningAll()
       .executeTakeFirst();
     if (!bumped) {
-      throw new ConflictException('This requisition was modified by another request - reload and try again.');
+      throw new ConflictException(
+        'This requisition was modified by another request - reload and try again.',
+      );
     }
 
     await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'submitted', actorUserAccountId);
-    await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'awaiting_approval', actorUserAccountId);
+    await ctx.workflow.transition(
+      db,
+      ENTITY_TYPE,
+      requisitionId,
+      'awaiting_approval',
+      actorUserAccountId,
+    );
     // The requisition's own `status` column is kept in sync with the Core
     // workflow instance's state at each transition point - it exists so
     // reporting/dashboards/list views can filter by status directly against
     // this table (a semantic reporting dataset per item 24) without joining
     // out to workflow_instances, while Core Workflow remains the sole
     // authority actually enforcing which transitions are valid/permitted.
-    await db.updateTable('requisite_requisitions').set({ status: 'awaiting_approval' }).where('id', '=', requisitionId).execute();
+    await db
+      .updateTable('requisite_requisitions')
+      .set({ status: 'awaiting_approval' })
+      .where('id', '=', requisitionId)
+      .execute();
 
-    const lines = await db.selectFrom('requisite_requisition_lines').selectAll().where('requisition_id', '=', requisitionId).execute();
+    const lines = await db
+      .selectFrom('requisite_requisition_lines')
+      .selectAll()
+      .where('requisition_id', '=', requisitionId)
+      .execute();
     const approval = await ctx.approvals.requestApproval(
       db,
       'requisition-approval',
@@ -185,26 +252,55 @@ export class RequisitionService {
       actorUserAccountId,
     );
 
-    await ctx.events.publish(db, 'requisite.requisition.submitted.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
+    await ctx.events.publish(
+      db,
+      'requisite.requisition.submitted.v1',
+      { requisitionId, requisitionNumber: requisition.requisition_number },
+      1,
+    );
 
     // Item 17 - notify everyone currently able to approve (found via the
     // same role_permissions join RoleRepository itself uses, never a
     // second authorisation decision - only "who to notify").
-    const approvers = await findUsersWithPermission(db, ctx.organisationId, 'requisite.requisitions.approve');
+    const approvers = await findUsersWithPermission(
+      db,
+      ctx.organisationId,
+      'requisite.requisitions.approve',
+    );
     for (const approverId of approvers) {
       if (approverId === actorUserAccountId) continue; // never notify a requester about their own submission as "approval required"
-      await ctx.notifications.send(db, approverId, 'requisite.approval_required', `Approval required: ${requisition.requisition_number}`, `${requisition.reason} - estimated value ${requisition.estimated_value_minor} ${requisition.currency} minor units.`, { type: 'requisite_requisition', id: requisitionId });
+      await ctx.notifications.send(
+        db,
+        approverId,
+        'requisite.approval_required',
+        `Approval required: ${requisition.requisition_number}`,
+        `${requisition.reason} - estimated value ${requisition.estimated_value_minor} ${requisition.currency} minor units.`,
+        { type: 'requisite_requisition', id: requisitionId },
+      );
     }
 
-    return { requisition: await this.getRequisition(db, ctx.organisationId, requisitionId), approval };
+    return {
+      requisition: await this.getRequisition(db, ctx.organisationId, requisitionId),
+      approval,
+    };
   }
 
-  async decide(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string, stepId: string, decision: 'approve' | 'reject', reason?: string) {
+  async decide(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId: string,
+    stepId: string,
+    decision: 'approve' | 'reject',
+    reason?: string,
+  ) {
     const requisition = await this.getRequisitionRaw(db, ctx.organisationId, requisitionId);
     if (requisition.status === 'cancelled') {
       // Item 39: approval decision after cancellation must not silently
       // "approve a cancelled requisition."
-      throw new ForbiddenException('This requisition has been cancelled and can no longer be decided on.');
+      throw new ForbiddenException(
+        'This requisition has been cancelled and can no longer be decided on.',
+      );
     }
     // Item 7/41 security review finding: Core's ApprovalService itself has
     // no concept of "requester" - it only checks that the decider holds
@@ -225,51 +321,128 @@ export class RequisitionService {
 
     if (result.requestStatus === 'approved') {
       await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'approved', actorUserAccountId);
-      await db.updateTable('requisite_requisitions').set({ status: 'approved' }).where('id', '=', requisitionId).execute();
-      await ctx.events.publish(db, 'requisite.requisition.approved.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
-      await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.requisition_approved', `Approved: ${requisition.requisition_number}`, `Your requisition "${requisition.reason}" has been approved.`, { type: 'requisite_requisition', id: requisitionId });
+      await db
+        .updateTable('requisite_requisitions')
+        .set({ status: 'approved' })
+        .where('id', '=', requisitionId)
+        .execute();
+      await ctx.events.publish(
+        db,
+        'requisite.requisition.approved.v1',
+        { requisitionId, requisitionNumber: requisition.requisition_number },
+        1,
+      );
+      await ctx.notifications.send(
+        db,
+        requisition.requester_user_account_id,
+        'requisite.requisition_approved',
+        `Approved: ${requisition.requisition_number}`,
+        `Your requisition "${requisition.reason}" has been approved.`,
+        { type: 'requisite_requisition', id: requisitionId },
+      );
     } else if (result.requestStatus === 'rejected') {
       await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'rejected', actorUserAccountId);
-      await db.updateTable('requisite_requisitions').set({ status: 'rejected' }).where('id', '=', requisitionId).execute();
-      await ctx.events.publish(db, 'requisite.requisition.rejected.v1', { requisitionId, requisitionNumber: requisition.requisition_number }, 1);
-      await ctx.notifications.send(db, requisition.requester_user_account_id, 'requisite.requisition_rejected', `Rejected: ${requisition.requisition_number}`, `Your requisition "${requisition.reason}" was rejected.${reason ? ` Reason: ${reason}` : ''}`, { type: 'requisite_requisition', id: requisitionId });
+      await db
+        .updateTable('requisite_requisitions')
+        .set({ status: 'rejected' })
+        .where('id', '=', requisitionId)
+        .execute();
+      await ctx.events.publish(
+        db,
+        'requisite.requisition.rejected.v1',
+        { requisitionId, requisitionNumber: requisition.requisition_number },
+        1,
+      );
+      await ctx.notifications.send(
+        db,
+        requisition.requester_user_account_id,
+        'requisite.requisition_rejected',
+        `Rejected: ${requisition.requisition_number}`,
+        `Your requisition "${requisition.reason}" was rejected.${reason ? ` Reason: ${reason}` : ''}`,
+        { type: 'requisite_requisition', id: requisitionId },
+      );
     }
     return result;
   }
 
-  async cancelRequisition(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string) {
+  async cancelRequisition(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId: string,
+  ) {
     const requisition = await this.getRequisitionRaw(db, ctx.organisationId, requisitionId);
     if (!['draft', 'submitted', 'awaiting_approval'].includes(requisition.status)) {
-      throw new ForbiddenException(`Cannot cancel a requisition in status "${requisition.status}".`);
+      throw new ForbiddenException(
+        `Cannot cancel a requisition in status "${requisition.status}".`,
+      );
     }
     await ctx.workflow.transition(db, ENTITY_TYPE, requisitionId, 'cancelled', actorUserAccountId);
-    return db.updateTable('requisite_requisitions').set({ status: 'cancelled', cancelled_at: new Date() as any }).where('id', '=', requisitionId).where('organisation_id', '=', ctx.organisationId).returningAll().executeTakeFirstOrThrow();
+    return db
+      .updateTable('requisite_requisitions')
+      .set({ status: 'cancelled', cancelled_at: new Date() as any })
+      .where('id', '=', requisitionId)
+      .where('organisation_id', '=', ctx.organisationId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 
   async getRequisitionRaw(db: Kysely<Database>, organisationId: string, requisitionId: string) {
-    const requisition = await db.selectFrom('requisite_requisitions').selectAll().where('id', '=', requisitionId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const requisition = await db
+      .selectFrom('requisite_requisitions')
+      .selectAll()
+      .where('id', '=', requisitionId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!requisition) throw new NotFoundException('Requisition not found.');
     return requisition;
   }
 
   async getRequisition(db: Kysely<Database>, organisationId: string, requisitionId: string) {
     const requisition = await this.getRequisitionRaw(db, organisationId, requisitionId);
-    const lines = await db.selectFrom('requisite_requisition_lines').selectAll().where('requisition_id', '=', requisitionId).orderBy('line_number', 'asc').execute();
+    const lines = await db
+      .selectFrom('requisite_requisition_lines')
+      .selectAll()
+      .where('requisition_id', '=', requisitionId)
+      .orderBy('line_number', 'asc')
+      .execute();
     return { ...requisition, lines };
   }
 
   async listRequisitions(db: Kysely<Database>, organisationId: string) {
-    return db.selectFrom('requisite_requisitions').selectAll().where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').execute();
+    return db
+      .selectFrom('requisite_requisitions')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .orderBy('created_at', 'desc')
+      .execute();
   }
 
   /** Item 16 - quotes/specifications/purchase-justification attachments, via Core Files (never a separate file store). */
-  async attachFile(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId: string, buffer: Buffer, filename: string, mimeType: string) {
+  async attachFile(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId: string,
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+  ) {
     await this.getRequisitionRaw(db, ctx.organisationId, requisitionId); // 404s if not found/wrong org before touching Files
-    return ctx.files.store(db, buffer, filename, mimeType, actorUserAccountId, { type: ENTITY_TYPE, id: requisitionId });
+    return ctx.files.store(db, buffer, filename, mimeType, actorUserAccountId, {
+      type: ENTITY_TYPE,
+      id: requisitionId,
+    });
   }
 
   async listAttachments(db: Kysely<Database>, organisationId: string, requisitionId: string) {
-    return db.selectFrom('files').select(['id', 'original_filename', 'mime_type', 'size_bytes', 'created_at']).where('organisation_id', '=', organisationId).where('entity_type', '=', ENTITY_TYPE).where('entity_id', '=', requisitionId).execute();
+    return db
+      .selectFrom('files')
+      .select(['id', 'original_filename', 'mime_type', 'size_bytes', 'created_at'])
+      .where('organisation_id', '=', organisationId)
+      .where('entity_type', '=', ENTITY_TYPE)
+      .where('entity_id', '=', requisitionId)
+      .execute();
   }
 
   /**
@@ -280,13 +453,29 @@ export class RequisitionService {
    * approval_requests/steps/decisions for this requisition.
    */
   async getApprovalHistory(db: Kysely<Database>, organisationId: string, requisitionId: string) {
-    const requests = await db.selectFrom('approval_requests').selectAll().where('organisation_id', '=', organisationId).where('entity_type', '=', ENTITY_TYPE).where('entity_id', '=', requisitionId).execute();
+    const requests = await db
+      .selectFrom('approval_requests')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .where('entity_type', '=', ENTITY_TYPE)
+      .where('entity_id', '=', requisitionId)
+      .execute();
     const history = [];
     for (const request of requests) {
-      const steps = await db.selectFrom('approval_steps').selectAll().where('request_id', '=', request.id).orderBy('step_index', 'asc').execute();
+      const steps = await db
+        .selectFrom('approval_steps')
+        .selectAll()
+        .where('request_id', '=', request.id)
+        .orderBy('step_index', 'asc')
+        .execute();
       const stepsWithDecisions = [];
       for (const step of steps) {
-        const decisions = await db.selectFrom('approval_decisions').selectAll().where('step_id', '=', step.id).orderBy('decided_at', 'asc').execute();
+        const decisions = await db
+          .selectFrom('approval_decisions')
+          .selectAll()
+          .where('step_id', '=', step.id)
+          .orderBy('decided_at', 'asc')
+          .execute();
         stepsWithDecisions.push({ ...step, decisions });
       }
       history.push({ ...request, steps: stepsWithDecisions });

@@ -12,7 +12,10 @@ import { attachPoolErrorHandler, setPool } from '../../../db/pool';
 import { InstallationService } from '../../../bootstrap/installation.service';
 import { BootstrapService } from '../../../bootstrap/bootstrap.service';
 import { signReleaseManifest, buildReleaseManifest } from '../../release-signing/release-signer';
-import { TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../../release-signing/release-keys';
+import {
+  TEST_RELEASE_KEY_ID_1,
+  TEST_RELEASE_PRIVATE_KEY_1_PEM,
+} from '../../release-signing/release-keys';
 import { CORE_VERSION } from '../../core-version';
 
 /**
@@ -54,10 +57,17 @@ describeIfDb('Update admin HTTP endpoints (P3 items 14/15)', () => {
     // of trying to re-run CREATE TABLE statements against tables that
     // already exist. This is itself a realistic, valid update scenario -
     // an update package whose migrationNotes says "no schema changes."
-    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    const migrationFiles = (await fs.readdir(join(__dirname, '..', '..', '..', 'db', 'migrations'))).filter((f) => f.endsWith('.sql'));
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+    );
+    const migrationFiles = (
+      await fs.readdir(join(__dirname, '..', '..', '..', 'db', 'migrations'))
+    ).filter((f) => f.endsWith('.sql'));
     for (const file of migrationFiles) {
-      await pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+      await pool.query(
+        'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING',
+        [file],
+      );
     }
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -84,7 +94,9 @@ describeIfDb('Update admin HTTP endpoints (P3 items 14/15)', () => {
     });
 
     agent = request.agent(server());
-    const login = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
     csrfToken = login.body.csrfToken;
   }, 60000);
 
@@ -109,7 +121,11 @@ describeIfDb('Update admin HTTP endpoints (P3 items 14/15)', () => {
       artifactType: 'offline-update-package',
       migrationNotes: null,
     });
-    const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+    const signed = signReleaseManifest(
+      manifest,
+      TEST_RELEASE_KEY_ID_1,
+      TEST_RELEASE_PRIVATE_KEY_1_PEM,
+    );
     return { path, signed };
   }
 

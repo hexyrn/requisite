@@ -5,7 +5,13 @@ import { RfqDetailPage } from '../RfqDetailPage';
 import { requisiteApi } from '../../api/requisite';
 
 vi.mock('../../api/requisite', () => ({
-  requisiteApi: { getRfq: vi.fn(), listSuppliers: vi.fn(), recordQuote: vi.fn(), selectQuote: vi.fn(), rejectQuote: vi.fn() },
+  requisiteApi: {
+    getRfq: vi.fn(),
+    listSuppliers: vi.fn(),
+    recordQuote: vi.fn(),
+    selectQuote: vi.fn(),
+    rejectQuote: vi.fn(),
+  },
 }));
 
 const RFQ_WITH_TWO_QUOTES = {
@@ -15,8 +21,36 @@ const RFQ_WITH_TWO_QUOTES = {
   requisition_id: null,
   created_at: '2026-01-01T00:00:00Z',
   quotes: [
-    { id: 'q-cheap', rfq_id: 'rfq-1', supplier_id: 's1', supplier_name: 'Cheap Co', quote_reference: null, quote_date: null, expiry_date: null, currency: 'GBP', carriage_minor: '0', total_minor: '5000', status: 'received', selection_reason: null, notes: null },
-    { id: 'q-expensive', rfq_id: 'rfq-1', supplier_id: 's2', supplier_name: 'Premium Co', quote_reference: null, quote_date: null, expiry_date: null, currency: 'GBP', carriage_minor: '0', total_minor: '10000', status: 'received', selection_reason: null, notes: null },
+    {
+      id: 'q-cheap',
+      rfq_id: 'rfq-1',
+      supplier_id: 's1',
+      supplier_name: 'Cheap Co',
+      quote_reference: null,
+      quote_date: null,
+      expiry_date: null,
+      currency: 'GBP',
+      carriage_minor: '0',
+      total_minor: '5000',
+      status: 'received',
+      selection_reason: null,
+      notes: null,
+    },
+    {
+      id: 'q-expensive',
+      rfq_id: 'rfq-1',
+      supplier_id: 's2',
+      supplier_name: 'Premium Co',
+      quote_reference: null,
+      quote_date: null,
+      expiry_date: null,
+      currency: 'GBP',
+      carriage_minor: '0',
+      total_minor: '10000',
+      status: 'received',
+      selection_reason: null,
+      notes: null,
+    },
   ],
 };
 
@@ -32,8 +66,15 @@ function renderPage() {
 
 describe('RfqDetailPage (item 9 - comparison never auto-selects)', () => {
   beforeEach(() => {
-    vi.mocked(requisiteApi.getRfq).mockReset().mockResolvedValue(RFQ_WITH_TWO_QUOTES as any);
-    vi.mocked(requisiteApi.listSuppliers).mockReset().mockResolvedValue([{ id: 's1', name: 'Cheap Co' }, { id: 's2', name: 'Premium Co' }] as any);
+    vi.mocked(requisiteApi.getRfq)
+      .mockReset()
+      .mockResolvedValue(RFQ_WITH_TWO_QUOTES as any);
+    vi.mocked(requisiteApi.listSuppliers)
+      .mockReset()
+      .mockResolvedValue([
+        { id: 's1', name: 'Cheap Co' },
+        { id: 's2', name: 'Premium Co' },
+      ] as any);
     vi.mocked(requisiteApi.selectQuote).mockReset();
   });
 
@@ -52,6 +93,8 @@ describe('RfqDetailPage (item 9 - comparison never auto-selects)', () => {
     renderPage();
     await screen.findByLabelText('Select quote from Cheap Co');
     fireEvent.click(screen.getByLabelText('Select quote from Cheap Co'));
-    await waitFor(() => expect(requisiteApi.selectQuote).toHaveBeenCalledWith('rfq-1', 'q-cheap', undefined));
+    await waitFor(() =>
+      expect(requisiteApi.selectQuote).toHaveBeenCalledWith('rfq-1', 'q-cheap', undefined),
+    );
   });
 });

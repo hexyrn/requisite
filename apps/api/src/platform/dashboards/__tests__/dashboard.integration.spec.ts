@@ -25,7 +25,12 @@ describeIfDb('DashboardService - widgets over the permission-aware query path (P
   async function makeUser(organisationId: string, email: string): Promise<string> {
     const row = await withOrgContext(
       organisationId,
-      (db) => db.insertInto('user_accounts').values({ organisation_id: organisationId, email, password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(),
+      (db) =>
+        db
+          .insertInto('user_accounts')
+          .values({ organisation_id: organisationId, email, password_hash: 'x', is_active: true })
+          .returningAll()
+          .executeTakeFirstOrThrow(),
       pool,
     );
     return row.id;
@@ -38,10 +43,34 @@ describeIfDb('DashboardService - widgets over the permission-aware query path (P
     orgB = await createTestOrg(pool, 'Dashboard Org B');
 
     await datasets.registerDataset(
-      { datasetKey: 'reference.widgets', appId: 'com.hexyrn.reference', displayName: 'Widgets', requiredPermission: 'reference.widget.view', sourceRef: 'reference_widgets', fields: [{ key: 'id', label: 'ID', fieldType: 'string', isMeasure: true, allowedAggregations: ['count'] }] },
+      {
+        datasetKey: 'reference.widgets',
+        appId: 'com.hexyrn.reference',
+        displayName: 'Widgets',
+        requiredPermission: 'reference.widget.view',
+        sourceRef: 'reference_widgets',
+        fields: [
+          {
+            key: 'id',
+            label: 'ID',
+            fieldType: 'string',
+            isMeasure: true,
+            allowedAggregations: ['count'],
+          },
+        ],
+      },
       pool,
     );
-    await dashboards.registerWidget({ widgetKey: 'reference.widget-count', appId: 'com.hexyrn.reference', displayName: 'Widget Count', widgetType: 'kpi', datasetKey: 'reference.widgets' }, pool);
+    await dashboards.registerWidget(
+      {
+        widgetKey: 'reference.widget-count',
+        appId: 'com.hexyrn.reference',
+        displayName: 'Widget Count',
+        widgetType: 'kpi',
+        datasetKey: 'reference.widgets',
+      },
+      pool,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -49,14 +78,32 @@ describeIfDb('DashboardService - widgets over the permission-aware query path (P
   });
 
   it('creates a dashboard, adds a widget, and resolves its data through the query engine', async () => {
-    await withOrgContext(orgA, (db) => db.insertInto('reference_widgets').values({ organisation_id: orgA, widget_number: 'W-1', title: 'A' }).execute(), pool);
+    await withOrgContext(
+      orgA,
+      (db) =>
+        db
+          .insertInto('reference_widgets')
+          .values({ organisation_id: orgA, widget_number: 'W-1', title: 'A' })
+          .execute(),
+      pool,
+    );
     const owner = await makeUser(orgA, `owner1-${randomUUID()}@example.com`);
     const result = await withOrgContext(
       orgA,
       async (db) => {
         const dashboard = await dashboards.createDashboard(db, orgA, owner, 'My Dashboard');
-        const widget = await dashboards.addWidget(db, orgA, dashboard.id, 'reference.widget-count', { aggregations: [{ field: 'id', fn: 'count', alias: 'total' }] });
-        return dashboards.resolveWidgetData(db, subject(['reference.widget.view'], orgA), widget.id);
+        const widget = await dashboards.addWidget(
+          db,
+          orgA,
+          dashboard.id,
+          'reference.widget-count',
+          { aggregations: [{ field: 'id', fn: 'count', alias: 'total' }] },
+        );
+        return dashboards.resolveWidgetData(
+          db,
+          subject(['reference.widget.view'], orgA),
+          widget.id,
+        );
       },
       pool,
     );
@@ -70,7 +117,13 @@ describeIfDb('DashboardService - widgets over the permission-aware query path (P
         orgA,
         async (db) => {
           const dashboard = await dashboards.createDashboard(db, orgA, owner, 'D2');
-          const widget = await dashboards.addWidget(db, orgA, dashboard.id, 'reference.widget-count', {});
+          const widget = await dashboards.addWidget(
+            db,
+            orgA,
+            dashboard.id,
+            'reference.widget-count',
+            {},
+          );
           return dashboards.resolveWidgetData(db, subject([], orgA), widget.id);
         },
         pool,
@@ -84,19 +137,38 @@ describeIfDb('DashboardService - widgets over the permission-aware query path (P
       orgA,
       async (db) => {
         const dashboard = await dashboards.createDashboard(db, orgA, owner, 'D3');
-        const widget = await dashboards.addWidget(db, orgA, dashboard.id, 'reference.widget-count', {});
+        const widget = await dashboards.addWidget(
+          db,
+          orgA,
+          dashboard.id,
+          'reference.widget-count',
+          {},
+        );
         return widget.id;
       },
       pool,
     );
-    await expect(withOrgContext(orgB, (db) => dashboards.resolveWidgetData(db, subject(['reference.widget.view'], orgB), widgetId), pool)).rejects.toThrow(/not found/i);
+    await expect(
+      withOrgContext(
+        orgB,
+        (db) =>
+          dashboards.resolveWidgetData(db, subject(['reference.widget.view'], orgB), widgetId),
+        pool,
+      ),
+    ).rejects.toThrow(/not found/i);
   });
 
   it('a dashboard belonging to another user cannot be fetched (dashboard ownership)', async () => {
     const owner1 = await makeUser(orgA, `owner4a-${randomUUID()}@example.com`);
     const owner2 = await makeUser(orgA, `owner4b-${randomUUID()}@example.com`);
-    const dashboardId = await withOrgContext(orgA, (db) => dashboards.createDashboard(db, orgA, owner1, 'Private'), pool).then((d) => d.id);
-    await expect(withOrgContext(orgA, (db) => dashboards.getDashboard(db, orgA, dashboardId, owner2), pool)).rejects.toThrow(/belongs to another user/i);
+    const dashboardId = await withOrgContext(
+      orgA,
+      (db) => dashboards.createDashboard(db, orgA, owner1, 'Private'),
+      pool,
+    ).then((d) => d.id);
+    await expect(
+      withOrgContext(orgA, (db) => dashboards.getDashboard(db, orgA, dashboardId, owner2), pool),
+    ).rejects.toThrow(/belongs to another user/i);
   });
 
   it('adding a widget with an unregistered widgetKey fails', async () => {

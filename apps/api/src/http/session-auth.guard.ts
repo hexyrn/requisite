@@ -49,7 +49,9 @@ export class SessionAuthGuard implements CanActivate {
     // (including @PublicRoute()) for any request that doesn't present one.
     const authHeader: string | undefined = request.headers?.['authorization'];
     if (authHeader?.startsWith('Bearer hxk_')) {
-      const auth = await this.serviceAccounts.authenticate(authHeader.slice('Bearer '.length).trim());
+      const auth = await this.serviceAccounts.authenticate(
+        authHeader.slice('Bearer '.length).trim(),
+      );
       if (!auth) throw new UnauthorizedException('Invalid or revoked API credential.');
       request.permissionSubject = this.serviceAccounts.toPermissionSubject(auth);
       request.currentOrganisationId = auth.organisationId;

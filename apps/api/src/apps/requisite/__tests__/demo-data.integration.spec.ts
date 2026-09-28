@@ -53,22 +53,74 @@ describeIfDb('Requisite demo data seed (item 43) - fictional company, never auto
       new ScheduledJobService(),
       new TerminologyService(),
     );
-    const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
+    const onboarding = new RequisiteOnboardingService(
+      new NumberingService(),
+      new FormService(),
+      new WorkflowService(),
+      new ApprovalService(),
+      new CustomFieldService(),
+    );
     const suppliers = new SupplierService(onboarding);
     const requisitions = new RequisitionService(onboarding);
     const purchaseOrders = new PurchaseOrderService(onboarding);
     const goodsReceipts = new GoodsReceiptService();
 
-    const requester = await withOrgContext(orgA, (db) => db.insertInto('user_accounts').values({ organisation_id: orgA, email: `demo-requester-${randomUUID()}@example.com`, password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(), pool);
-    const approver = await withOrgContext(orgA, (db) => db.insertInto('user_accounts').values({ organisation_id: orgA, email: `demo-approver-${randomUUID()}@example.com`, password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(), pool);
+    const requester = await withOrgContext(
+      orgA,
+      (db) =>
+        db
+          .insertInto('user_accounts')
+          .values({
+            organisation_id: orgA,
+            email: `demo-requester-${randomUUID()}@example.com`,
+            password_hash: 'x',
+            is_active: true,
+          })
+          .returningAll()
+          .executeTakeFirstOrThrow(),
+      pool,
+    );
+    const approver = await withOrgContext(
+      orgA,
+      (db) =>
+        db
+          .insertInto('user_accounts')
+          .values({
+            organisation_id: orgA,
+            email: `demo-approver-${randomUUID()}@example.com`,
+            password_hash: 'x',
+            is_active: true,
+          })
+          .returningAll()
+          .executeTakeFirstOrThrow(),
+      pool,
+    );
 
-    await seedRequisiteDemoData(orgA, requester.id, approver.id, contextFactory, suppliers, requisitions, purchaseOrders, goodsReceipts, pool);
+    await seedRequisiteDemoData(
+      orgA,
+      requester.id,
+      approver.id,
+      contextFactory,
+      suppliers,
+      requisitions,
+      purchaseOrders,
+      goodsReceipts,
+      pool,
+    );
 
-    const allSuppliers = await withOrgContext(orgA, (db) => suppliers.listSuppliers(db, orgA), pool);
+    const allSuppliers = await withOrgContext(
+      orgA,
+      (db) => suppliers.listSuppliers(db, orgA),
+      pool,
+    );
     expect(allSuppliers.length).toBeGreaterThanOrEqual(2);
     expect(allSuppliers.some((s) => s.name.includes('Midlands Steel'))).toBe(true);
 
-    const allReqs = await withOrgContext(orgA, (db) => requisitions.listRequisitions(db, orgA), pool);
+    const allReqs = await withOrgContext(
+      orgA,
+      (db) => requisitions.listRequisitions(db, orgA),
+      pool,
+    );
     expect(allReqs).toHaveLength(3); // completed, partial, draft
 
     const draftReq = allReqs.find((r) => r.status === 'draft');
@@ -81,10 +133,18 @@ describeIfDb('Requisite demo data seed (item 43) - fictional company, never auto
     expect(partiallyReceivedReq).toBeTruthy();
 
     // Verify the partial delivery is genuinely partial, not silently completed.
-    const partialPos = await withOrgContext(orgA, (db) => purchaseOrders.listPurchaseOrders(db, orgA), pool);
+    const partialPos = await withOrgContext(
+      orgA,
+      (db) => purchaseOrders.listPurchaseOrders(db, orgA),
+      pool,
+    );
     const partialPo = partialPos.find((p) => p.status === 'partially_received');
     expect(partialPo).toBeTruthy();
-    const outstanding = await withOrgContext(orgA, (db) => goodsReceipts.getOutstandingLines(db, orgA, partialPo!.id), pool);
+    const outstanding = await withOrgContext(
+      orgA,
+      (db) => goodsReceipts.getOutstandingLines(db, orgA, partialPo!.id),
+      pool,
+    );
     expect(outstanding[0].quantityOutstanding).toBe('40'); // 100 ordered, 60 received
   });
 });

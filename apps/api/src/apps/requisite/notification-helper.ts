@@ -9,7 +9,11 @@ import { Database } from '../../db/types';
  * never for an authorisation decision itself - every actual permission
  * CHECK still goes through the one PermissionEvaluator seam.
  */
-export async function findUsersWithPermission(db: Kysely<Database>, organisationId: string, permissionKey: string): Promise<string[]> {
+export async function findUsersWithPermission(
+  db: Kysely<Database>,
+  organisationId: string,
+  permissionKey: string,
+): Promise<string[]> {
   const rows = await db
     .selectFrom('user_roles')
     .innerJoin('role_permissions', 'role_permissions.role_id', 'user_roles.role_id')

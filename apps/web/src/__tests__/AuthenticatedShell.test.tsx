@@ -45,7 +45,9 @@ describe('AuthenticatedShell - session gate', () => {
 
     await api.logout();
     const logoutCall = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/auth/logout'))!;
-    expect((logoutCall[1] as RequestInit).headers).toMatchObject({ 'X-Hexyrn-CSRF': 'restored-token' });
+    expect((logoutCall[1] as RequestInit).headers).toMatchObject({
+      'X-Hexyrn-CSRF': 'restored-token',
+    });
     vi.unstubAllGlobals();
   });
 
@@ -59,7 +61,9 @@ describe('AuthenticatedShell - session gate', () => {
 
 describe('api client - request headers', () => {
   it('does not send a JSON Content-Type on body-less requests (Fastify rejects that with 400), but does when there is a body', async () => {
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }));
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }),
+    );
     vi.stubGlobal('fetch', fetchMock);
     await api.logout();
     await api.login('a@b.co', 'pw');

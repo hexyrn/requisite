@@ -13,7 +13,25 @@ import { PoDocumentService } from './po-document.service';
 @Module({
   imports: [PlatformModule],
   controllers: [RequisiteController],
-  providers: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService, DeliveryMonitoringService, PoDocumentService],
-  exports: [RequisiteOnboardingService, SupplierService, RequisitionService, PurchaseOrderService, GoodsReceiptService, RfqService, DeliveryMonitoringService, PoDocumentService],
+  providers: [
+    RequisiteOnboardingService,
+    SupplierService,
+    RequisitionService,
+    PurchaseOrderService,
+    GoodsReceiptService,
+    RfqService,
+    DeliveryMonitoringService,
+    PoDocumentService,
+  ],
+  exports: [
+    RequisiteOnboardingService,
+    SupplierService,
+    RequisitionService,
+    PurchaseOrderService,
+    GoodsReceiptService,
+    RfqService,
+    DeliveryMonitoringService,
+    PoDocumentService,
+  ],
 })
 export class RequisiteAppModule {}

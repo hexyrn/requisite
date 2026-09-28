@@ -1,7 +1,7 @@
 # P0 Deviations from Architecture v1.0
 
 This file records genuine contradictions or problems encountered while
-implementing P0. Per the task brief, it is empty of *architectural*
+implementing P0. Per the task brief, it is empty of _architectural_
 deviations - nothing here required changing Architecture v1.0 itself.
 
 The one significant note is an **environmental limitation** (since
@@ -48,6 +48,7 @@ could not be run in that session, so the integration/security test suites
 that require a real Postgres could not be executed there.
 
 **What was done instead of silently skipping this (at the time):**
+
 - All such tests were fully written as real integration tests against
   Kysely/`pg`/Nest - not mocked - ready to run unmodified against any real
   Postgres.

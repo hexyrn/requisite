@@ -86,7 +86,11 @@ describeIfDb('P3 item 18: production DB role / RLS enforcement security review',
   });
 
   it('every organisation-owned table (has an organisation_id column) has RLS both enabled and FORCED', async () => {
-    const res = await pool.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(`
+    const res = await pool.query<{
+      relname: string;
+      relrowsecurity: boolean;
+      relforcerowsecurity: boolean;
+    }>(`
       SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -115,7 +119,9 @@ describeIfDb('P3 item 18: production DB role / RLS enforcement security review',
       JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity = false
     `);
-    const unexpected = res.rows.map((r) => r.relname).filter((name) => !KNOWN_NON_RLS_TABLES.has(name));
+    const unexpected = res.rows
+      .map((r) => r.relname)
+      .filter((name) => !KNOWN_NON_RLS_TABLES.has(name));
     expect(unexpected).toEqual([]);
   });
 });

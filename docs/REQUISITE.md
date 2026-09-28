@@ -110,8 +110,7 @@ Webhook Framework's existing `dispatch_queue(kind='webhook')` routing.
 
 ## Licensing
 
-Requisite is paid; Core remains free. Real Ed25519 verification (ADR
-0006) - a valid, cryptographically signed licence for the correct
+Requisite is paid; Core remains free. Real Ed25519 verification (ADR 0006) - a valid, cryptographically signed licence for the correct
 organisation/appId/majorVersion activates the app; everything else
 (missing, invalid signature, wrong org, wrong product, wrong major
 version, forged keypair) keeps it inactive. Support expiry does not

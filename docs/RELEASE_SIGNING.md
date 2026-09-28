@@ -45,7 +45,7 @@ key. `ReleaseVerifier.verifyManifest()` looks up the manifest's declared
   (tested explicitly - a real, freshly generated Ed25519 keypair not in
   the trust set is correctly rejected).
 - A manifest that claims a trusted `keyId` but was actually signed with a
-  *different* key is rejected (key-id spoofing) - the signature check is
+  _different_ key is rejected (key-id spoofing) - the signature check is
   against that specific key's public key, not "any key in the set."
 
 To add a new signing key (e.g. annual rotation, or after a suspected

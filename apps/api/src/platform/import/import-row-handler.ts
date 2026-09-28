@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { Database } from '../../db/types';
 
-export type ImportRowHandler = (db: Kysely<Database>, organisationId: string, row: Record<string, unknown>) => Promise<void>;
+export type ImportRowHandler = (
+  db: Kysely<Database>,
+  organisationId: string,
+  row: Record<string, unknown>,
+) => Promise<void>;
 
 /** In-process entity_type -> handler map, same pattern as EventHandlerRegistryService/JobHandlerRegistryService - Core never knows how to write an app's own table directly. */
 @Injectable()

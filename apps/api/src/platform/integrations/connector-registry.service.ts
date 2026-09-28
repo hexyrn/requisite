@@ -24,12 +24,32 @@ export interface ConnectorConfigField {
  */
 @Injectable()
 export class ConnectorRegistryService {
-  async registerConnector(connectorId: string, displayName: string, supportedEntities: string[], supportedDirections: IntegrationDirection[], configSchema: ConnectorConfigField[], pool: Pool = getPool()): Promise<void> {
+  async registerConnector(
+    connectorId: string,
+    displayName: string,
+    supportedEntities: string[],
+    supportedDirections: IntegrationDirection[],
+    configSchema: ConnectorConfigField[],
+    pool: Pool = getPool(),
+  ): Promise<void> {
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     await db
       .insertInto('connector_registrations')
-      .values({ connector_id: connectorId, display_name: displayName, supported_entities: supportedEntities, supported_directions: supportedDirections, config_schema: toJsonbParam(configSchema) as any })
-      .onConflict((oc) => oc.column('connector_id').doUpdateSet({ display_name: displayName, supported_entities: supportedEntities, supported_directions: supportedDirections, config_schema: toJsonbParam(configSchema) as any }))
+      .values({
+        connector_id: connectorId,
+        display_name: displayName,
+        supported_entities: supportedEntities,
+        supported_directions: supportedDirections,
+        config_schema: toJsonbParam(configSchema) as any,
+      })
+      .onConflict((oc) =>
+        oc.column('connector_id').doUpdateSet({
+          display_name: displayName,
+          supported_entities: supportedEntities,
+          supported_directions: supportedDirections,
+          config_schema: toJsonbParam(configSchema) as any,
+        }),
+      )
       .execute();
   }
 

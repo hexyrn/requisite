@@ -13,6 +13,11 @@ export interface ReportTemplate {
  * serves any app's registered templates.
  */
 export const reportsApi = {
-  listTemplates: (appId: string) => request<ReportTemplate[]>(`/reports/templates?appId=${encodeURIComponent(appId)}`),
-  execute: (templateKey: string) => request<{ name: string; rows: Record<string, unknown>[] }>('/reports/execute', { method: 'POST', body: JSON.stringify({ templateKey }) }),
+  listTemplates: (appId: string) =>
+    request<ReportTemplate[]>(`/reports/templates?appId=${encodeURIComponent(appId)}`),
+  execute: (templateKey: string) =>
+    request<{ name: string; rows: Record<string, unknown>[] }>('/reports/execute', {
+      method: 'POST',
+      body: JSON.stringify({ templateKey }),
+    }),
 };

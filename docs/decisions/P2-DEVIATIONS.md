@@ -54,7 +54,7 @@ records the same kind of thing `P0-DEVIATIONS.md`/`P1-DEVIATIONS.md` do.
   organisation (it reuses `ExportService`'s synchronous path and its
   `MAX_SYNCHRONOUS_ROWS` cap per dataset).
 - **Query timeout (item 25)** is a single fixed 10s `SET LOCAL
-  statement_timeout`, not per-role/per-plan configurable.
+statement_timeout`, not per-role/per-plan configurable.
 - **Webhook delivery (item 14)** does not yet implement exponential
   backoff between retry attempts - a failed delivery is retried on the
   next `dispatchPending()` pass with no enforced delay, same as the P1

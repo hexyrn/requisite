@@ -1,4 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Header, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { withOrgContext } from '../../db/org-context';
 import { RequirePermission } from '../../rbac/permission.guard';
@@ -50,10 +60,19 @@ export class RequisiteController {
 
   @RequirePermission('requisite.suppliers.manage')
   @Post('suppliers')
-  async createSupplier(@Req() req: FastifyRequest, @Body() body: { name: string; email?: string; phone?: string }) {
+  async createSupplier(
+    @Req() req: FastifyRequest,
+    @Body() body: { name: string; email?: string; phone?: string },
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.suppliers.createSupplier(ctx, db, subject.userAccountId, body);
     });
   }
@@ -62,14 +81,18 @@ export class RequisiteController {
   @Get('requisitions')
   async listRequisitions(@Req() req: FastifyRequest) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.requisitions.listRequisitions(db, organisationId));
+    return withOrgContext(organisationId, (db) =>
+      this.requisitions.listRequisitions(db, organisationId),
+    );
   }
 
   @RequirePermission('requisite.requisitions.view')
   @Get('requisitions/:id')
   async getRequisition(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.requisitions.getRequisition(db, organisationId, id));
+    return withOrgContext(organisationId, (db) =>
+      this.requisitions.getRequisition(db, organisationId, id),
+    );
   }
 
   @RequirePermission('requisite.requisitions.create')
@@ -77,7 +100,13 @@ export class RequisiteController {
   async createRequisition(@Req() req: FastifyRequest, @Body() body: any) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.requisitions.createRequisition(ctx, db, subject.userAccountId, body);
     });
   }
@@ -87,7 +116,9 @@ export class RequisiteController {
   @Get('requisitions/:id/approval-history')
   async getApprovalHistory(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.requisitions.getApprovalHistory(db, organisationId, id));
+    return withOrgContext(organisationId, (db) =>
+      this.requisitions.getApprovalHistory(db, organisationId, id),
+    );
   }
 
   /**
@@ -110,8 +141,22 @@ export class RequisiteController {
     if (!uploaded) throw new BadRequestException('No file was uploaded.');
     const buffer: Buffer = await uploaded.toBuffer();
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
-      return this.requisitions.attachFile(ctx, db, subject.userAccountId, id, buffer, uploaded.filename, uploaded.mimetype);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
+      return this.requisitions.attachFile(
+        ctx,
+        db,
+        subject.userAccountId,
+        id,
+        buffer,
+        uploaded.filename,
+        uploaded.mimetype,
+      );
     });
   }
 
@@ -119,26 +164,56 @@ export class RequisiteController {
   @Get('requisitions/:id/attachments')
   async listAttachments(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.requisitions.listAttachments(db, organisationId, id));
+    return withOrgContext(organisationId, (db) =>
+      this.requisitions.listAttachments(db, organisationId, id),
+    );
   }
 
   @RequirePermission('requisite.requisitions.submit')
   @Post('requisitions/:id/submit')
-  async submitRequisition(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { version: number }) {
+  async submitRequisition(
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Body() body: { version: number },
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.requisitions.submitRequisition(ctx, db, subject.userAccountId, id, body.version);
     });
   }
 
   @RequirePermission('requisite.requisitions.approve')
   @Post('requisitions/:id/decisions')
-  async decideRequisition(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { stepId: string; decision: 'approve' | 'reject'; reason?: string }) {
+  async decideRequisition(
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Body() body: { stepId: string; decision: 'approve' | 'reject'; reason?: string },
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
-      return this.requisitions.decide(ctx, db, subject.userAccountId, id, body.stepId, body.decision, body.reason);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
+      return this.requisitions.decide(
+        ctx,
+        db,
+        subject.userAccountId,
+        id,
+        body.stepId,
+        body.decision,
+        body.reason,
+      );
     });
   }
 
@@ -147,27 +222,59 @@ export class RequisiteController {
   async cancelRequisition(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.requisitions.cancelRequisition(ctx, db, subject.userAccountId, id);
     });
   }
 
   @RequirePermission('requisite.purchase-orders.create')
   @Post('requisitions/:id/purchase-orders')
-  async generatePurchaseOrder(@Req() req: FastifyRequest, @Param('id') requisitionId: string, @Body() body: any) {
+  async generatePurchaseOrder(
+    @Req() req: FastifyRequest,
+    @Param('id') requisitionId: string,
+    @Body() body: any,
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
-      return this.purchaseOrders.generateFromRequisition(ctx, db, subject.userAccountId, requisitionId, body);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
+      return this.purchaseOrders.generateFromRequisition(
+        ctx,
+        db,
+        subject.userAccountId,
+        requisitionId,
+        body,
+      );
     });
   }
 
   @RequirePermission('requisite.purchase-orders.issue')
   @Post('purchase-orders/:id/issue')
-  async issuePurchaseOrder(@Req() req: FastifyRequest, @Param('id') id: string, @Body() body: { version: number }) {
+  async issuePurchaseOrder(
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Body() body: { version: number },
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.purchaseOrders.issue(ctx, db, subject.userAccountId, id, body.version);
     });
   }
@@ -176,10 +283,18 @@ export class RequisiteController {
   @RequirePermission('requisite.purchase-orders.view')
   @Get('purchase-orders/:id/document.pdf')
   @Header('content-type', 'application/pdf')
-  async getPurchaseOrderPdf(@Req() req: FastifyRequest, @Res({ passthrough: true }) res: FastifyReply, @Param('id') id: string) {
+  async getPurchaseOrderPdf(
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) res: FastifyReply,
+    @Param('id') id: string,
+  ) {
     const { organisationId } = this.ctx(req);
     const pdf = await withOrgContext(organisationId, async (db) => {
-      const org = await db.selectFrom('organisations').select('display_name').where('id', '=', organisationId).executeTakeFirstOrThrow();
+      const org = await db
+        .selectFrom('organisations')
+        .select('display_name')
+        .where('id', '=', organisationId)
+        .executeTakeFirstOrThrow();
       return this.poDocuments.generatePdf(db, organisationId, id, org.display_name);
     });
     res.header('content-disposition', `attachment; filename="${id}.pdf"`);
@@ -190,21 +305,27 @@ export class RequisiteController {
   @Get('purchase-orders')
   async listPurchaseOrders(@Req() req: FastifyRequest) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.purchaseOrders.listPurchaseOrders(db, organisationId));
+    return withOrgContext(organisationId, (db) =>
+      this.purchaseOrders.listPurchaseOrders(db, organisationId),
+    );
   }
 
   @RequirePermission('requisite.purchase-orders.view')
   @Get('purchase-orders/:id')
   async getPurchaseOrder(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.purchaseOrders.getPurchaseOrder(db, organisationId, id));
+    return withOrgContext(organisationId, (db) =>
+      this.purchaseOrders.getPurchaseOrder(db, organisationId, id),
+    );
   }
 
   @RequirePermission('requisite.goods-receipts.view')
   @Get('goods-receipts/:id')
   async getGoodsReceipt(@Req() req: FastifyRequest, @Param('id') id: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.goodsReceipts.getGoodsReceipt(db, organisationId, id));
+    return withOrgContext(organisationId, (db) =>
+      this.goodsReceipts.getGoodsReceipt(db, organisationId, id),
+    );
   }
 
   /** Item 13 - the PO detail screen shows every receipt against it, each remaining a distinct immutable record. */
@@ -212,16 +333,34 @@ export class RequisiteController {
   @Get('purchase-orders/:id/goods-receipts')
   async listGoodsReceiptsForPo(@Req() req: FastifyRequest, @Param('id') purchaseOrderId: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.goodsReceipts.listGoodsReceiptsForPo(db, organisationId, purchaseOrderId));
+    return withOrgContext(organisationId, (db) =>
+      this.goodsReceipts.listGoodsReceiptsForPo(db, organisationId, purchaseOrderId),
+    );
   }
 
   @RequirePermission('requisite.goods-receipts.create')
   @Post('purchase-orders/:id/goods-receipts')
-  async recordGoodsReceipt(@Req() req: FastifyRequest, @Param('id') purchaseOrderId: string, @Body() body: any) {
+  async recordGoodsReceipt(
+    @Req() req: FastifyRequest,
+    @Param('id') purchaseOrderId: string,
+    @Body() body: any,
+  ) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
-      return this.goodsReceipts.recordReceipt(ctx, db, subject.userAccountId, purchaseOrderId, body);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
+      return this.goodsReceipts.recordReceipt(
+        ctx,
+        db,
+        subject.userAccountId,
+        purchaseOrderId,
+        body,
+      );
     });
   }
 
@@ -246,7 +385,13 @@ export class RequisiteController {
   async createRfq(@Req() req: FastifyRequest, @Body() body: { requisitionId?: string }) {
     const { organisationId, subject } = this.ctx(req);
     return withOrgContext(organisationId, (db) => {
-      const ctx = this.contextFactory.create(APP_ID, organisationId, subject.grantedPermissions, subject.userAccountId, db);
+      const ctx = this.contextFactory.create(
+        APP_ID,
+        organisationId,
+        subject.grantedPermissions,
+        subject.userAccountId,
+        db,
+      );
       return this.rfqs.createRfq(ctx, db, subject.userAccountId, body.requisitionId);
     });
   }
@@ -255,20 +400,31 @@ export class RequisiteController {
   @Post('rfqs/:id/quotes')
   async recordQuote(@Req() req: FastifyRequest, @Param('id') rfqId: string, @Body() body: any) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.rfqs.recordQuote(db, organisationId, rfqId, body));
+    return withOrgContext(organisationId, (db) =>
+      this.rfqs.recordQuote(db, organisationId, rfqId, body),
+    );
   }
 
   @RequirePermission('requisite.rfqs.manage')
   @Post('rfqs/:id/quotes/:quoteId/select')
-  async selectQuote(@Req() req: FastifyRequest, @Param('id') rfqId: string, @Param('quoteId') quoteId: string, @Body() body: { reason?: string }) {
+  async selectQuote(
+    @Req() req: FastifyRequest,
+    @Param('id') rfqId: string,
+    @Param('quoteId') quoteId: string,
+    @Body() body: { reason?: string },
+  ) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.rfqs.selectQuote(db, organisationId, rfqId, quoteId, body?.reason));
+    return withOrgContext(organisationId, (db) =>
+      this.rfqs.selectQuote(db, organisationId, rfqId, quoteId, body?.reason),
+    );
   }
 
   @RequirePermission('requisite.rfqs.manage')
   @Post('rfqs/:id/quotes/:quoteId/reject')
   async rejectQuote(@Req() req: FastifyRequest, @Param('quoteId') quoteId: string) {
     const { organisationId } = this.ctx(req);
-    return withOrgContext(organisationId, (db) => this.rfqs.rejectQuote(db, organisationId, quoteId));
+    return withOrgContext(organisationId, (db) =>
+      this.rfqs.rejectQuote(db, organisationId, quoteId),
+    );
   }
 }

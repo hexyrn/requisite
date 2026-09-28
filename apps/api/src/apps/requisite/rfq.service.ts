@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { HexyrnAppContext } from '@hexyrn/app-sdk';
 import { Database } from '../../db/types';
@@ -35,34 +40,77 @@ export interface RecordQuoteInput {
 export class RfqService {
   constructor(private readonly onboarding: RequisiteOnboardingService) {}
 
-  async createRfq(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, requisitionId?: string) {
+  async createRfq(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    requisitionId?: string,
+  ) {
     await this.onboarding.onboardOrganisation(db, ctx.organisationId);
     const rfqNumber = await ctx.numbering.next(db, 'rfq');
-    return db.insertInto('requisite_rfqs').values({ organisation_id: ctx.organisationId, rfq_number: rfqNumber, requisition_id: requisitionId ?? null, created_by: actorUserAccountId }).returningAll().executeTakeFirstOrThrow();
+    return db
+      .insertInto('requisite_rfqs')
+      .values({
+        organisation_id: ctx.organisationId,
+        rfq_number: rfqNumber,
+        requisition_id: requisitionId ?? null,
+        created_by: actorUserAccountId,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 
   async listRfqs(db: Kysely<Database>, organisationId: string) {
-    return db.selectFrom('requisite_rfqs').selectAll().where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').execute();
+    return db
+      .selectFrom('requisite_rfqs')
+      .selectAll()
+      .where('organisation_id', '=', organisationId)
+      .orderBy('created_at', 'desc')
+      .execute();
   }
 
   async getRfq(db: Kysely<Database>, organisationId: string, rfqId: string) {
-    const rfq = await db.selectFrom('requisite_rfqs').selectAll().where('id', '=', rfqId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const rfq = await db
+      .selectFrom('requisite_rfqs')
+      .selectAll()
+      .where('id', '=', rfqId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!rfq) throw new NotFoundException('RFQ not found.');
     const quotes = await this.listQuotesForRfq(db, organisationId, rfqId);
     return { ...rfq, quotes };
   }
 
-  async recordQuote(db: Kysely<Database>, organisationId: string, rfqId: string, input: RecordQuoteInput) {
-    if (input.lines.length === 0) throw new BadRequestException('A quotation must have at least one line.');
-    const rfq = await db.selectFrom('requisite_rfqs').selectAll().where('id', '=', rfqId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async recordQuote(
+    db: Kysely<Database>,
+    organisationId: string,
+    rfqId: string,
+    input: RecordQuoteInput,
+  ) {
+    if (input.lines.length === 0)
+      throw new BadRequestException('A quotation must have at least one line.');
+    const rfq = await db
+      .selectFrom('requisite_rfqs')
+      .selectAll()
+      .where('id', '=', rfqId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!rfq) throw new NotFoundException('RFQ not found.');
-    if (rfq.status !== 'open') throw new ForbiddenException(`Cannot record a quote against a "${rfq.status}" RFQ.`);
+    if (rfq.status !== 'open')
+      throw new ForbiddenException(`Cannot record a quote against a "${rfq.status}" RFQ.`);
 
-    const supplier = await db.selectFrom('requisite_suppliers').selectAll().where('id', '=', input.supplierId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const supplier = await db
+      .selectFrom('requisite_suppliers')
+      .selectAll()
+      .where('id', '=', input.supplierId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!supplier) throw new NotFoundException('Supplier not found.');
 
     const carriageMinor = BigInt(input.carriageMinor || '0');
-    const lineTotals = input.lines.map((l) => multiplyMinor(BigInt(l.unitPriceMinor || '0'), l.quantity));
+    const lineTotals = input.lines.map((l) =>
+      multiplyMinor(BigInt(l.unitPriceMinor || '0'), l.quantity),
+    );
     const totalMinor = sumMinor(lineTotals) + carriageMinor;
 
     const quote = await db
@@ -128,19 +176,55 @@ export class RfqService {
   }
 
   /** Explicit human selection - demotes any previously-selected quote on this RFQ back to 'received' so at most one quote is ever 'selected'. */
-  async selectQuote(db: Kysely<Database>, organisationId: string, rfqId: string, quoteId: string, reason?: string) {
-    const quote = await db.selectFrom('requisite_quotes').selectAll().where('id', '=', quoteId).where('rfq_id', '=', rfqId).where('organisation_id', '=', organisationId).executeTakeFirst();
+  async selectQuote(
+    db: Kysely<Database>,
+    organisationId: string,
+    rfqId: string,
+    quoteId: string,
+    reason?: string,
+  ) {
+    const quote = await db
+      .selectFrom('requisite_quotes')
+      .selectAll()
+      .where('id', '=', quoteId)
+      .where('rfq_id', '=', rfqId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!quote) throw new NotFoundException('Quote not found.');
 
-    await db.updateTable('requisite_quotes').set({ status: 'received' }).where('rfq_id', '=', rfqId).where('status', '=', 'selected').execute();
-    const selected = await db.updateTable('requisite_quotes').set({ status: 'selected', selection_reason: reason ?? null }).where('id', '=', quoteId).returningAll().executeTakeFirstOrThrow();
-    await db.updateTable('requisite_rfqs').set({ status: 'closed' }).where('id', '=', rfqId).execute();
+    await db
+      .updateTable('requisite_quotes')
+      .set({ status: 'received' })
+      .where('rfq_id', '=', rfqId)
+      .where('status', '=', 'selected')
+      .execute();
+    const selected = await db
+      .updateTable('requisite_quotes')
+      .set({ status: 'selected', selection_reason: reason ?? null })
+      .where('id', '=', quoteId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await db
+      .updateTable('requisite_rfqs')
+      .set({ status: 'closed' })
+      .where('id', '=', rfqId)
+      .execute();
     return selected;
   }
 
   async rejectQuote(db: Kysely<Database>, organisationId: string, quoteId: string) {
-    const quote = await db.selectFrom('requisite_quotes').selectAll().where('id', '=', quoteId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const quote = await db
+      .selectFrom('requisite_quotes')
+      .selectAll()
+      .where('id', '=', quoteId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!quote) throw new NotFoundException('Quote not found.');
-    return db.updateTable('requisite_quotes').set({ status: 'rejected' }).where('id', '=', quoteId).returningAll().executeTakeFirstOrThrow();
+    return db
+      .updateTable('requisite_quotes')
+      .set({ status: 'rejected' })
+      .where('id', '=', quoteId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 }

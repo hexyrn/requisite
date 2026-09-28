@@ -24,6 +24,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set real values for:
+
 - `SESSION_SECRET` - `openssl rand -base64 48`
 - `TOTP_MASTER_KEY` - `openssl rand -base64 32` (must decode to exactly 32 bytes)
 
@@ -36,8 +37,7 @@ services unless you're running Postgres elsewhere.
 docker compose up -d postgres postgres_test
 ```
 
-`postgres` (port 5432) is the development database. `postgres_test` (port
-5433) is a separate instance used only by the automated test suite, so
+`postgres` (port 5432) is the development database. `postgres_test` (port 5433) is a separate instance used only by the automated test suite, so
 running tests never touches your dev data.
 
 ## 4. Run migrations

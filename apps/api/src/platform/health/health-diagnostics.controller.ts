@@ -21,7 +21,9 @@ export class HealthDiagnosticsController {
   @Get('health')
   async getHealth(@Req() req: FastifyRequest) {
     const organisationId = (req as any).currentOrganisationId;
-    return withOrgContext(organisationId, (db) => this.service.getSystemHealth(db, getPool(), organisationId));
+    return withOrgContext(organisationId, (db) =>
+      this.service.getSystemHealth(db, getPool(), organisationId),
+    );
   }
 
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)

@@ -87,12 +87,18 @@ class SmtpSession {
 function requireSuccess(lines: SmtpLine[], context: string): void {
   const last = lines[lines.length - 1];
   if (!last || last.code < 200 || last.code >= 400) {
-    throw new Error(`SMTP server rejected ${context}: ${last?.code ?? '???'} ${last?.message ?? '(no response)'}`);
+    throw new Error(
+      `SMTP server rejected ${context}: ${last?.code ?? '???'} ${last?.message ?? '(no response)'}`,
+    );
   }
 }
 
 /** Real socket-level SMTP send. Connects, negotiates TLS/auth, sends one message, disconnects. */
-export async function sendSmtpMail(config: SmtpConfig, message: SmtpMessage, timeoutMs = 15000): Promise<SmtpSendResult> {
+export async function sendSmtpMail(
+  config: SmtpConfig,
+  message: SmtpMessage,
+  timeoutMs = 15000,
+): Promise<SmtpSendResult> {
   let socket: Socket | TLSSocket | null = null;
   try {
     socket = await connectWithTimeout(config, timeoutMs);
@@ -122,13 +128,22 @@ export async function sendSmtpMail(config: SmtpConfig, message: SmtpMessage, tim
   }
 }
 
-async function deliverAfterHandshake(session: SmtpSession, config: SmtpConfig, message: SmtpMessage, _socket: Socket | TLSSocket): Promise<SmtpSendResult> {
+async function deliverAfterHandshake(
+  session: SmtpSession,
+  config: SmtpConfig,
+  message: SmtpMessage,
+  _socket: Socket | TLSSocket,
+): Promise<SmtpSendResult> {
   if (config.username && config.password) {
     const authResponse = await session.send('AUTH LOGIN');
     requireSuccess(authResponse, 'AUTH LOGIN');
-    const userResponse = await session.send(Buffer.from(config.username, 'utf8').toString('base64'));
+    const userResponse = await session.send(
+      Buffer.from(config.username, 'utf8').toString('base64'),
+    );
     requireSuccess(userResponse, 'AUTH username');
-    const passResponse = await session.send(Buffer.from(config.password, 'utf8').toString('base64'));
+    const passResponse = await session.send(
+      Buffer.from(config.password, 'utf8').toString('base64'),
+    );
     requireSuccess(passResponse, 'AUTH password');
   }
 
@@ -136,7 +151,14 @@ async function deliverAfterHandshake(session: SmtpSession, config: SmtpConfig, m
   requireSuccess(await session.send(`RCPT TO:<${message.to}>`), 'RCPT TO');
   requireSuccess(await session.send('DATA'), 'DATA');
 
-  const body = [`From: ${config.fromAddress}`, `To: ${message.to}`, `Subject: ${message.subject}`, '', message.text, '.'].join('\r\n');
+  const body = [
+    `From: ${config.fromAddress}`,
+    `To: ${message.to}`,
+    `Subject: ${message.subject}`,
+    '',
+    message.text,
+    '.',
+  ].join('\r\n');
   requireSuccess(await session.send(body), 'message body');
 
   await session.send('QUIT').catch(() => undefined); // best-effort - delivery already succeeded above
@@ -145,10 +167,13 @@ async function deliverAfterHandshake(session: SmtpSession, config: SmtpConfig, m
 
 function connectWithTimeout(config: SmtpConfig, timeoutMs: number): Promise<Socket | TLSSocket> {
   return new Promise((resolve, reject) => {
-    const onError = (err: Error) => reject(new Error(`Could not connect to ${config.host}:${config.port} - ${err.message}`));
+    const onError = (err: Error) =>
+      reject(new Error(`Could not connect to ${config.host}:${config.port} - ${err.message}`));
     const timer = setTimeout(() => {
       socket.destroy();
-      reject(new Error(`Connection to ${config.host}:${config.port} timed out after ${timeoutMs}ms`));
+      reject(
+        new Error(`Connection to ${config.host}:${config.port} timed out after ${timeoutMs}ms`),
+      );
     }, timeoutMs);
 
     const socket: Socket | TLSSocket = config.secure

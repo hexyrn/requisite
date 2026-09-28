@@ -1,9 +1,13 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Kysely } from 'kysely';
 import { HexyrnAppContext } from '@hexyrn/app-sdk';
 import { Database } from '../../db/types';
 import { RequisiteOnboardingService } from './requisite-onboarding.service';
-
 
 export interface CreateSupplierInput {
   name: string;
@@ -28,7 +32,12 @@ export interface CreateSupplierInput {
 export class SupplierService {
   constructor(private readonly onboarding: RequisiteOnboardingService) {}
 
-  async createSupplier(ctx: HexyrnAppContext<Kysely<Database>>, db: Kysely<Database>, actorUserAccountId: string, input: CreateSupplierInput) {
+  async createSupplier(
+    ctx: HexyrnAppContext<Kysely<Database>>,
+    db: Kysely<Database>,
+    actorUserAccountId: string,
+    input: CreateSupplierInput,
+  ) {
     await this.onboarding.onboardOrganisation(db, ctx.organisationId); // idempotent - suppliers can be the first thing set up, before any requisition
     if (!input.name?.trim()) throw new BadRequestException('Supplier name is required.');
 
@@ -53,7 +62,12 @@ export class SupplierService {
       .executeTakeFirstOrThrow();
   }
 
-  async updateSupplier(db: Kysely<Database>, organisationId: string, supplierId: string, updates: Partial<CreateSupplierInput>) {
+  async updateSupplier(
+    db: Kysely<Database>,
+    organisationId: string,
+    supplierId: string,
+    updates: Partial<CreateSupplierInput>,
+  ) {
     const supplier = await this.getSupplier(db, organisationId, supplierId);
     if (supplier.status === 'inactive') {
       throw new ForbiddenException('Cannot edit an inactive supplier - reactivate it first.');
@@ -77,22 +91,42 @@ export class SupplierService {
 
   async deactivateSupplier(db: Kysely<Database>, organisationId: string, supplierId: string) {
     await this.getSupplier(db, organisationId, supplierId);
-    return db.updateTable('requisite_suppliers').set({ status: 'inactive', updated_at: new Date() as any }).where('id', '=', supplierId).where('organisation_id', '=', organisationId).returningAll().executeTakeFirstOrThrow();
+    return db
+      .updateTable('requisite_suppliers')
+      .set({ status: 'inactive', updated_at: new Date() as any })
+      .where('id', '=', supplierId)
+      .where('organisation_id', '=', organisationId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 
   async reactivateSupplier(db: Kysely<Database>, organisationId: string, supplierId: string) {
     await this.getSupplier(db, organisationId, supplierId);
-    return db.updateTable('requisite_suppliers').set({ status: 'active', updated_at: new Date() as any }).where('id', '=', supplierId).where('organisation_id', '=', organisationId).returningAll().executeTakeFirstOrThrow();
+    return db
+      .updateTable('requisite_suppliers')
+      .set({ status: 'active', updated_at: new Date() as any })
+      .where('id', '=', supplierId)
+      .where('organisation_id', '=', organisationId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 
   async getSupplier(db: Kysely<Database>, organisationId: string, supplierId: string) {
-    const supplier = await db.selectFrom('requisite_suppliers').selectAll().where('id', '=', supplierId).where('organisation_id', '=', organisationId).executeTakeFirst();
+    const supplier = await db
+      .selectFrom('requisite_suppliers')
+      .selectAll()
+      .where('id', '=', supplierId)
+      .where('organisation_id', '=', organisationId)
+      .executeTakeFirst();
     if (!supplier) throw new NotFoundException('Supplier not found.');
     return supplier;
   }
 
   async listSuppliers(db: Kysely<Database>, organisationId: string, includeInactive = false) {
-    let query = db.selectFrom('requisite_suppliers').selectAll().where('organisation_id', '=', organisationId);
+    let query = db
+      .selectFrom('requisite_suppliers')
+      .selectAll()
+      .where('organisation_id', '=', organisationId);
     if (!includeInactive) query = query.where('status', '=', 'active');
     return query.orderBy('name', 'asc').execute();
   }

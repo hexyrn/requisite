@@ -14,7 +14,10 @@ describe('parseCsv - bounded CSV parsing (P2 items 10/24)', () => {
   it('parses headers and rows, handling quoted commas', () => {
     const { headers, rows } = parseCsv('title,notes\n"Widget, Deluxe",Fine\nSimple,Ok');
     expect(headers).toEqual(['title', 'notes']);
-    expect(rows).toEqual([{ title: 'Widget, Deluxe', notes: 'Fine' }, { title: 'Simple', notes: 'Ok' }]);
+    expect(rows).toEqual([
+      { title: 'Widget, Deluxe', notes: 'Fine' },
+      { title: 'Simple', notes: 'Ok' },
+    ]);
   });
 
   it('rejects a CSV with more than MAX_IMPORT_ROWS data rows', () => {
@@ -30,71 +33,165 @@ describe('parseCsv - bounded CSV parsing (P2 items 10/24)', () => {
   });
 });
 
-describeIfDb('ImportService - permission-safe import over an app-registered handler (P2 item 10)', () => {
-  let pool: Pool;
-  let orgA: string;
-  const handlers = new ImportHandlerRegistryService();
-  const importService = new ImportService(handlers);
-  const imported: Record<string, unknown>[] = [];
+describeIfDb(
+  'ImportService - permission-safe import over an app-registered handler (P2 item 10)',
+  () => {
+    let pool: Pool;
+    let orgA: string;
+    const handlers = new ImportHandlerRegistryService();
+    const importService = new ImportService(handlers);
+    const imported: Record<string, unknown>[] = [];
 
-  let testUserId: string;
+    let testUserId: string;
 
-  function subject(permissions: string[], organisationId: string) {
-    return { userAccountId: testUserId, organisationId, grantedPermissions: new Set(permissions) };
-  }
+    function subject(permissions: string[], organisationId: string) {
+      return {
+        userAccountId: testUserId,
+        organisationId,
+        grantedPermissions: new Set(permissions),
+      };
+    }
 
-  beforeAll(async () => {
-    pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 10 }));
-    await setUpTestDatabase(pool);
-    orgA = await createTestOrg(pool, 'Import Org A');
-    testUserId = await withOrgContext(orgA, (db) => db.insertInto('user_accounts').values({ organisation_id: orgA, email: `import-${randomUUID()}@example.com`, password_hash: 'x', is_active: true }).returningAll().executeTakeFirstOrThrow(), pool).then((r) => r.id);
+    beforeAll(async () => {
+      pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 10 }));
+      await setUpTestDatabase(pool);
+      orgA = await createTestOrg(pool, 'Import Org A');
+      testUserId = await withOrgContext(
+        orgA,
+        (db) =>
+          db
+            .insertInto('user_accounts')
+            .values({
+              organisation_id: orgA,
+              email: `import-${randomUUID()}@example.com`,
+              password_hash: 'x',
+              is_active: true,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow(),
+        pool,
+      ).then((r) => r.id);
 
-    await withOrgContext(orgA, (db) => importService.registerEntityType(db, 'reference.widget.import', 'com.hexyrn.reference', 'reference.widget.create', [
-      { key: 'title', label: 'Title', required: true, fieldType: 'string' },
-      { key: 'count', label: 'Count', fieldType: 'number' },
-    ]), pool);
+      await withOrgContext(
+        orgA,
+        (db) =>
+          importService.registerEntityType(
+            db,
+            'reference.widget.import',
+            'com.hexyrn.reference',
+            'reference.widget.create',
+            [
+              { key: 'title', label: 'Title', required: true, fieldType: 'string' },
+              { key: 'count', label: 'Count', fieldType: 'number' },
+            ],
+          ),
+        pool,
+      );
 
-    handlers.register('reference.widget.import', async (_db, _orgId, row) => {
-      if (row.title === 'FAIL_ME') throw new Error('simulated row failure');
-      imported.push(row);
+      handlers.register('reference.widget.import', async (_db, _orgId, row) => {
+        if (row.title === 'FAIL_ME') throw new Error('simulated row failure');
+        imported.push(row);
+      });
+    }, 60000);
+
+    afterAll(async () => {
+      await pool.end();
     });
-  }, 60000);
 
-  afterAll(async () => {
-    await pool.end();
-  });
+    it('imports rows through the registered handler, mapping only declared fields', async () => {
+      const rows = [{ Name: 'Widget A', Qty: '5', UndeclaredColumn: 'should not pass through' }];
+      const result = await withOrgContext(
+        orgA,
+        (db) =>
+          importService.runImport(
+            db,
+            subject(['reference.widget.create'], orgA),
+            'reference.widget.import',
+            rows,
+            { title: 'Name', count: 'Qty' },
+          ),
+        pool,
+      );
+      expect(result.successCount).toBe(1);
+      expect(result.errorCount).toBe(0);
+      expect(imported[imported.length - 1]).toEqual({ title: 'Widget A', count: 5 });
+    });
 
-  it('imports rows through the registered handler, mapping only declared fields', async () => {
-    const rows = [{ Name: 'Widget A', Qty: '5', UndeclaredColumn: 'should not pass through' }];
-    const result = await withOrgContext(orgA, (db) => importService.runImport(db, subject(['reference.widget.create'], orgA), 'reference.widget.import', rows, { title: 'Name', count: 'Qty' }), pool);
-    expect(result.successCount).toBe(1);
-    expect(result.errorCount).toBe(0);
-    expect(imported[imported.length - 1]).toEqual({ title: 'Widget A', count: 5 });
-  });
+    it('PERMISSION SAFETY: a subject without the required permission cannot import', async () => {
+      await expect(
+        withOrgContext(
+          orgA,
+          (db) =>
+            importService.runImport(
+              db,
+              subject([], orgA),
+              'reference.widget.import',
+              [{ Name: 'X' }],
+              { title: 'Name' },
+            ),
+          pool,
+        ),
+      ).rejects.toThrow(/missing required permission/i);
+    });
 
-  it('PERMISSION SAFETY: a subject without the required permission cannot import', async () => {
-    await expect(withOrgContext(orgA, (db) => importService.runImport(db, subject([], orgA), 'reference.widget.import', [{ Name: 'X' }], { title: 'Name' }), pool)).rejects.toThrow(/missing required permission/i);
-  });
+    it('a row failing the handler is recorded as an error without discarding other successful rows', async () => {
+      const rows = [{ Name: 'Good Row' }, { Name: 'FAIL_ME' }, { Name: 'Another Good Row' }];
+      const result = await withOrgContext(
+        orgA,
+        (db) =>
+          importService.runImport(
+            db,
+            subject(['reference.widget.create'], orgA),
+            'reference.widget.import',
+            rows,
+            { title: 'Name' },
+          ),
+        pool,
+      );
+      expect(result.successCount).toBe(2);
+      expect(result.errorCount).toBe(1);
 
-  it('a row failing the handler is recorded as an error without discarding other successful rows', async () => {
-    const rows = [{ Name: 'Good Row' }, { Name: 'FAIL_ME' }, { Name: 'Another Good Row' }];
-    const result = await withOrgContext(orgA, (db) => importService.runImport(db, subject(['reference.widget.create'], orgA), 'reference.widget.import', rows, { title: 'Name' }), pool);
-    expect(result.successCount).toBe(2);
-    expect(result.errorCount).toBe(1);
+      const job = await withOrgContext(
+        orgA,
+        (db) =>
+          db
+            .selectFrom('import_jobs')
+            .selectAll()
+            .where('id', '=', result.jobId)
+            .executeTakeFirstOrThrow(),
+        pool,
+      );
+      expect(job.status).toBe('completed_with_errors');
+      expect((job.row_errors as any[]).length).toBe(1);
+    });
 
-    const job = await withOrgContext(orgA, (db) => db.selectFrom('import_jobs').selectAll().where('id', '=', result.jobId).executeTakeFirstOrThrow(), pool);
-    expect(job.status).toBe('completed_with_errors');
-    expect((job.row_errors as any[]).length).toBe(1);
-  });
+    it('a missing required field is recorded as a row error, not thrown', async () => {
+      const rows = [{ Name: '' }];
+      const result = await withOrgContext(
+        orgA,
+        (db) =>
+          importService.runImport(
+            db,
+            subject(['reference.widget.create'], orgA),
+            'reference.widget.import',
+            rows,
+            { title: 'Name' },
+          ),
+        pool,
+      );
+      expect(result.errorCount).toBe(1);
+      expect(result.successCount).toBe(0);
+    });
 
-  it('a missing required field is recorded as a row error, not thrown', async () => {
-    const rows = [{ Name: '' }];
-    const result = await withOrgContext(orgA, (db) => importService.runImport(db, subject(['reference.widget.create'], orgA), 'reference.widget.import', rows, { title: 'Name' }), pool);
-    expect(result.errorCount).toBe(1);
-    expect(result.successCount).toBe(0);
-  });
-
-  it('rejects an unregistered entity type', async () => {
-    await expect(withOrgContext(orgA, (db) => importService.runImport(db, subject(['anything'], orgA), 'not.registered', [], {}), pool)).rejects.toThrow(/not registered/i);
-  });
-});
+    it('rejects an unregistered entity type', async () => {
+      await expect(
+        withOrgContext(
+          orgA,
+          (db) =>
+            importService.runImport(db, subject(['anything'], orgA), 'not.registered', [], {}),
+          pool,
+        ),
+      ).rejects.toThrow(/not registered/i);
+    });
+  },
+);

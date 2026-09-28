@@ -53,7 +53,11 @@ describe('TOTP envelope encryption (P3 item 7 - resolves ADR 0002)', () => {
       const cipher = createCipheriv('aes-256-gcm', Buffer.from(KEY_A, 'base64'), iv);
       const ciphertext = Buffer.concat([cipher.update('LEGACYSECRET1234', 'utf8'), cipher.final()]);
       const tag = cipher.getAuthTag();
-      const legacyStored = [iv.toString('base64'), tag.toString('base64'), ciphertext.toString('base64')].join('.');
+      const legacyStored = [
+        iv.toString('base64'),
+        tag.toString('base64'),
+        ciphertext.toString('base64'),
+      ].join('.');
 
       expect(decryptTotpSecret(legacyStored)).toBe('LEGACYSECRET1234');
     });

@@ -15,7 +15,7 @@ can discover it. This is data, read once at boot (`registerApp`).
 
 `packages/app-sdk/src/context.ts` - **`HexyrnAppContext<Db>`**, the runtime
 object Core hands to an app's own service/handler code for every request.
-This is the *only* way application code touches Core - an app never
+This is the _only_ way application code touches Core - an app never
 imports `apps/api/src/platform/**` directly, and never queries another
 app's (or Core's own) database tables. The concrete implementation
 (`AppContextFactory`, `apps/api/src/platform/app-context.factory.ts`) is
@@ -29,12 +29,12 @@ it returns.
 
 Every app has four independent, non-conflated states (Architecture §3):
 
-| State | Meaning | Set by |
-|---|---|---|
-| **installed** | The app's manifest is registered (`installed_applications`, no RLS - installation-level, not organisation data) | `ApplicationRegistryService.registerApp()` at boot, for every compiled-in app |
-| **enabled** | An admin turned it on for *this* organisation (`app_enablements`, RLS-protected) | `ApplicationRegistryService.enableApp(db, orgId, appId)` |
-| **licensed** | A valid license record exists for this org+app+major version (`application_licenses`) | `ApplicationRegistryService.grantLicense(...)`. P1 uses simplified verification - see `docs/decisions/0004-app-licensing-simplification.md` |
-| **compatible** | The app's `requiresCoreVersion` is satisfied by the running Core version | Computed at read time, `isCoreVersionCompatible()` (`apps/api/src/platform/core-version.ts`) |
+| State          | Meaning                                                                                                         | Set by                                                                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **installed**  | The app's manifest is registered (`installed_applications`, no RLS - installation-level, not organisation data) | `ApplicationRegistryService.registerApp()` at boot, for every compiled-in app                                                               |
+| **enabled**    | An admin turned it on for _this_ organisation (`app_enablements`, RLS-protected)                                | `ApplicationRegistryService.enableApp(db, orgId, appId)`                                                                                    |
+| **licensed**   | A valid license record exists for this org+app+major version (`application_licenses`)                           | `ApplicationRegistryService.grantLicense(...)`. P1 uses simplified verification - see `docs/decisions/0004-app-licensing-simplification.md` |
+| **compatible** | The app's `requiresCoreVersion` is satisfied by the running Core version                                        | Computed at read time, `isCoreVersionCompatible()` (`apps/api/src/platform/core-version.ts`)                                                |
 
 **Active** = `installed ∧ enabled ∧ licensed ∧ compatible` - the one gate
 that determines whether an app's code is allowed to run at all.
@@ -50,7 +50,7 @@ end-to-end in `reference-app.e2e.integration.spec.ts` ("APP INACTIVITY").
 
 ## Capability registry
 
-Apps ask for a *capability* (`purchasing.cost-source.v1`), never for a
+Apps ask for a _capability_ (`purchasing.cost-source.v1`), never for a
 specific app ("is Requisite installed?"). `CapabilityResolverService.resolve(db,
 orgId, capability)` returns every provider that is currently **active**
 for that organisation - an installed-but-disabled or unlicensed provider
@@ -81,7 +81,7 @@ manifest and an actual handler function via
 - **Organisation context**: every delivery attempt runs inside
   `withOrgContext(event.organisation_id, ...)` - the same invariant P0
   established for HTTP requests applies identically here. Cross-org
-  discovery of *which* orgs have due events uses a routing-only table with
+  discovery of _which_ orgs have due events uses a routing-only table with
   no RLS (`dispatch_queue`) - see `docs/decisions/0005-cross-org-background-enumeration.md`
   for why that's necessary and why it's safe (it carries no payload, only
   pointers).
@@ -92,7 +92,7 @@ in the reference app test.
 ## Custom fields
 
 `ctx.customFields.{getDefinitions,getValues,setValues}`. Storage is
-canonical JSONB (`custom_field_values.values`); the *only* code permitted
+canonical JSONB (`custom_field_values.values`); the _only_ code permitted
 to write a raw `values->>'key'` path is
 `CustomFieldQueryProvider`/`CustomFieldService` themselves
 (`apps/api/src/platform/custom-fields/custom-field.service.ts`) - report/
@@ -159,7 +159,7 @@ decisionRule: 'any_one_of'|'unanimous', requiredApproverCount? }] }`.
 checks the decider holds the step's permission, enforces step ordering
 under `sequential` mode, and resolves the step once its decision rule is
 satisfied (a single decision for `any_one_of`, a configurable count of
-*distinct* approvers for `unanimous`). `approval_decisions` rows are
+_distinct_ approvers for `unanimous`). `approval_decisions` rows are
 insert-only - no service method updates or deletes one, so the full
 history is permanently auditable. Delegation
 (`createDelegation`/`getActiveDelegators`) lets a delegate decide on a
@@ -172,7 +172,7 @@ delegator's behalf, recorded via `on_behalf_of`. 11/11 tests in
 options?, conditional?, scoreWeight?, flagsIssueOnFail? }] }] }`. Core
 owns the mechanism (templates, instances, responses, weighted scoring at
 completion, required-question and conditional-visibility enforcement);
-applications own what a checklist *means* - `resulting_issue_ref` is a
+applications own what a checklist _means_ - `resulting_issue_ref` is a
 free-text pointer an app can set on a failed answer to link to its own
 issue/ticket entity, with Core never needing to know that entity's shape.
 4/4 tests in `checklist.integration.spec.ts`.
@@ -220,7 +220,7 @@ routing table as events. 6/6 tests in `scheduling.integration.spec.ts`.
 `ctx.terminology.resolve(db, termKey, fallback)` returns an
 organisation-configured display override if one exists
 (`TerminologyService.setOverride`), otherwise the app-supplied fallback.
-This affects *display only* - `termKey` remains the stable identifier
+This affects _display only_ - `termKey` remains the stable identifier
 used everywhere else (API routes, permission keys, event names, migration
 identifiers); nothing about changing a display override ever touches
 those. 3/3 tests in `terminology.integration.spec.ts`.

@@ -2,7 +2,11 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { authenticator } from 'otplib';
 import { Kysely } from 'kysely';
 import { Database } from '../db/types';
-import { encryptTotpSecret, decryptTotpSecret, rotateMasterKeyWrapping } from '../security/totp-encryption';
+import {
+  encryptTotpSecret,
+  decryptTotpSecret,
+  rotateMasterKeyWrapping,
+} from '../security/totp-encryption';
 import { hashToken, generateNumericRecoveryCode } from '../security/tokens';
 
 const RECOVERY_CODE_COUNT = 10;
@@ -100,7 +104,10 @@ export class TotpService {
       .set({ mfa_enabled: false, totp_secret_encrypted: null })
       .where('id', '=', userAccountId)
       .execute();
-    await db.deleteFrom('mfa_recovery_codes').where('user_account_id', '=', userAccountId).execute();
+    await db
+      .deleteFrom('mfa_recovery_codes')
+      .where('user_account_id', '=', userAccountId)
+      .execute();
   }
 
   /**
@@ -127,9 +134,11 @@ export class TotpService {
    * investigate them individually rather than the entire operation
    * silently doing nothing because of one bad row.
    */
-  async rotateAllMasterKeys(
-    db: Kysely<Database>,
-  ): Promise<{ rotated: number; skipped: number; failed: Array<{ userAccountId: string; reason: string }> }> {
+  async rotateAllMasterKeys(db: Kysely<Database>): Promise<{
+    rotated: number;
+    skipped: number;
+    failed: Array<{ userAccountId: string; reason: string }>;
+  }> {
     const rows = await db
       .selectFrom('user_accounts')
       .select(['id', 'totp_secret_encrypted'])
@@ -145,7 +154,10 @@ export class TotpService {
       try {
         outcome = rotateMasterKeyWrapping(row.totp_secret_encrypted);
       } catch (err) {
-        failed.push({ userAccountId: row.id, reason: err instanceof Error ? err.message : String(err) });
+        failed.push({
+          userAccountId: row.id,
+          reason: err instanceof Error ? err.message : String(err),
+        });
         continue;
       }
       if (outcome.changed) {

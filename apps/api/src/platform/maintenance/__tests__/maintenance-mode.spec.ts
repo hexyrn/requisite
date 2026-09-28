@@ -66,35 +66,46 @@ describe('Maintenance mode enforcement (P3 item 4)', () => {
     const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
     const maybeIt = TEST_DATABASE_URL ? it : it.skip;
 
-    maybeIt('sets the in-memory flag AND persists it to installations.config, and clearing it correctly un-blocks traffic (never permanently stuck)', async () => {
-      const pool = new Pool({ connectionString: TEST_DATABASE_URL });
-      try {
-        await pool.query(`INSERT INTO installations (core_version) SELECT '0.1.0-maint-test' WHERE NOT EXISTS (SELECT 1 FROM installations)`);
+    maybeIt(
+      'sets the in-memory flag AND persists it to installations.config, and clearing it correctly un-blocks traffic (never permanently stuck)',
+      async () => {
+        const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        try {
+          await pool.query(
+            `INSERT INTO installations (core_version) SELECT '0.1.0-maint-test' WHERE NOT EXISTS (SELECT 1 FROM installations)`,
+          );
 
-        await setMaintenanceMode(pool, true);
-        expect(isMaintenanceModeActive()).toBe(true);
-        expect(checkMaintenanceMode('POST', '/api/v1/requisite/requisitions').blocked).toBe(true);
-        const rowDuringMaintenance = await pool.query<{ config: any }>('SELECT config FROM installations LIMIT 1');
-        expect(rowDuringMaintenance.rows[0].config.maintenanceMode).toBe(true);
+          await setMaintenanceMode(pool, true);
+          expect(isMaintenanceModeActive()).toBe(true);
+          expect(checkMaintenanceMode('POST', '/api/v1/requisite/requisitions').blocked).toBe(true);
+          const rowDuringMaintenance = await pool.query<{ config: any }>(
+            'SELECT config FROM installations LIMIT 1',
+          );
+          expect(rowDuringMaintenance.rows[0].config.maintenanceMode).toBe(true);
 
-        // Simulates the "recoverable failure" case from P3 item 4's
-        // requirement: even after maintenance mode was entered, clearing
-        // it (as applyUpdate()'s own try/finally guarantees on an
-        // unexpected error, or as an operator recovering manually) must
-        // genuinely un-block traffic - proving the enforcement mechanism
-        // itself cannot leave the app permanently stuck once the flag is
-        // cleared, which is the property that actually matters here (the
-        // ORCHESTRATION-level "never silently stuck" guarantee is already
-        // proven by update.service.spec.ts's maintenance-mode tests).
-        await setMaintenanceMode(pool, false);
-        expect(isMaintenanceModeActive()).toBe(false);
-        expect(checkMaintenanceMode('POST', '/api/v1/requisite/requisitions').blocked).toBe(false);
-        const rowAfter = await pool.query<{ config: any }>('SELECT config FROM installations LIMIT 1');
-        expect(rowAfter.rows[0].config.maintenanceMode).toBe(false);
-      } finally {
-        await pool.end();
-      }
-    });
+          // Simulates the "recoverable failure" case from P3 item 4's
+          // requirement: even after maintenance mode was entered, clearing
+          // it (as applyUpdate()'s own try/finally guarantees on an
+          // unexpected error, or as an operator recovering manually) must
+          // genuinely un-block traffic - proving the enforcement mechanism
+          // itself cannot leave the app permanently stuck once the flag is
+          // cleared, which is the property that actually matters here (the
+          // ORCHESTRATION-level "never silently stuck" guarantee is already
+          // proven by update.service.spec.ts's maintenance-mode tests).
+          await setMaintenanceMode(pool, false);
+          expect(isMaintenanceModeActive()).toBe(false);
+          expect(checkMaintenanceMode('POST', '/api/v1/requisite/requisitions').blocked).toBe(
+            false,
+          );
+          const rowAfter = await pool.query<{ config: any }>(
+            'SELECT config FROM installations LIMIT 1',
+          );
+          expect(rowAfter.rows[0].config.maintenanceMode).toBe(false);
+        } finally {
+          await pool.end();
+        }
+      },
+    );
   });
 
   it('MAINTENANCE_RESPONSE_BODY is a clear, user-facing 503 - not a raw error', () => {

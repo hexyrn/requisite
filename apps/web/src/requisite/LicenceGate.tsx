@@ -45,7 +45,8 @@ export function LicenceGate({ children }: { children: React.ReactNode }) {
     <Card>
       <h1 style={{ fontSize: 20, marginBottom: 12 }}>Hexyrn Requisite — Not Licensed</h1>
       <p style={{ marginBottom: 12, color: '#374151' }}>
-        Requisite is installed but is not currently active for your organisation. No purchasing functionality is available until this is resolved.
+        Requisite is installed but is not currently active for your organisation. No purchasing
+        functionality is available until this is resolved.
       </p>
       <ul style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.8 }}>
         <li>Installed: {state.installed ? 'Yes' : 'No'}</li>
@@ -53,7 +54,9 @@ export function LicenceGate({ children }: { children: React.ReactNode }) {
         <li>Licensed: {state.licensed ? 'Yes' : 'No — a valid licence has not been applied'}</li>
         <li>Compatible with this Core version: {state.compatible ? 'Yes' : 'No'}</li>
       </ul>
-      <p style={{ marginTop: 12, fontSize: 13, color: '#6b7280' }}>Contact your Hexyrn account administrator to import a valid licence.</p>
+      <p style={{ marginTop: 12, fontSize: 13, color: '#6b7280' }}>
+        Contact your Hexyrn account administrator to import a valid licence.
+      </p>
     </Card>
   );
 }

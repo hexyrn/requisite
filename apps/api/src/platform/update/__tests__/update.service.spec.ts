@@ -9,7 +9,10 @@ import {
   ApplyUpdateOptions,
 } from '../update.service';
 import { signReleaseManifest, buildReleaseManifest } from '../../release-signing/release-signer';
-import { TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../../release-signing/release-keys';
+import {
+  TEST_RELEASE_KEY_ID_1,
+  TEST_RELEASE_PRIVATE_KEY_1_PEM,
+} from '../../release-signing/release-keys';
 import { ReleaseManifest } from '../../release-signing/release-manifest';
 
 async function mkTmpFile(content: string): Promise<string> {
@@ -51,14 +54,27 @@ describe('Update system (P3 items 14/15)', () => {
   });
 
   describe('checkUpdateCompatibility', () => {
-    const manifest = signReleaseManifest({ ...BASE_FIELDS, artifactSha256: 'a'.repeat(64), artifactSizeBytes: 1, builtAt: new Date().toISOString() }, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+    const manifest = signReleaseManifest(
+      {
+        ...BASE_FIELDS,
+        artifactSha256: 'a'.repeat(64),
+        artifactSizeBytes: 1,
+        builtAt: new Date().toISOString(),
+      },
+      TEST_RELEASE_KEY_ID_1,
+      TEST_RELEASE_PRIVATE_KEY_1_PEM,
+    );
 
     it('accepts an update package with the same major version as running Core', () => {
-      expect(checkUpdateCompatibility({ ...manifest, version: '1.0.5' }, '1.0.0').compatible).toBe(true);
+      expect(checkUpdateCompatibility({ ...manifest, version: '1.0.5' }, '1.0.0').compatible).toBe(
+        true,
+      );
     });
 
     it('accepts an update package with a NEWER major version than running Core (the normal forward-update case)', () => {
-      expect(checkUpdateCompatibility({ ...manifest, version: '2.0.0' }, '1.5.0').compatible).toBe(true);
+      expect(checkUpdateCompatibility({ ...manifest, version: '2.0.0' }, '1.5.0').compatible).toBe(
+        true,
+      );
     });
 
     it('refuses an update package OLDER than the currently running version - no downgrade via the update system', () => {
@@ -92,11 +108,17 @@ describe('Update system (P3 items 14/15)', () => {
     async function signedPackage(overrides: Partial<ReleaseManifest> = {}) {
       const path = await mkTmpFile('FAKE UPDATE PACKAGE BYTES');
       const manifest = await buildReleaseManifest(path, { ...BASE_FIELDS, ...overrides });
-      const signed = signReleaseManifest(manifest, TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM);
+      const signed = signReleaseManifest(
+        manifest,
+        TEST_RELEASE_KEY_ID_1,
+        TEST_RELEASE_PRIVATE_KEY_1_PEM,
+      );
       return { path, signed };
     }
 
-    function baseOptions(overrides: Partial<ApplyUpdateOptions> = {}): Omit<ApplyUpdateOptions, 'packagePath' | 'manifest'> {
+    function baseOptions(
+      overrides: Partial<ApplyUpdateOptions> = {},
+    ): Omit<ApplyUpdateOptions, 'packagePath' | 'manifest'> {
       const calls: string[] = [];
       return {
         requiredDiskBytes: 1,
@@ -167,7 +189,11 @@ describe('Update system (P3 items 14/15)', () => {
         packagePath: path,
         manifest: signed,
         runningCoreVersion: '1.0.0',
-        ...baseOptions({ runMigrations: async () => { migrationsRan = true; } }),
+        ...baseOptions({
+          runMigrations: async () => {
+            migrationsRan = true;
+          },
+        }),
       });
 
       expect(result.succeeded).toBe(false);
@@ -184,7 +210,11 @@ describe('Update system (P3 items 14/15)', () => {
         packagePath: path,
         manifest: signed,
         runningCoreVersion: '1.0.0',
-        ...baseOptions({ enterMaintenanceMode: async () => { maintenanceEntered = true; } }),
+        ...baseOptions({
+          enterMaintenanceMode: async () => {
+            maintenanceEntered = true;
+          },
+        }),
       });
       expect(result.succeeded).toBe(false);
       expect(result.steps.map((s) => s.step)).toEqual(['verify_package', 'check_compatibility']);
@@ -200,7 +230,11 @@ describe('Update system (P3 items 14/15)', () => {
         ...baseOptions({ requiredDiskBytes: Number.MAX_SAFE_INTEGER }),
       });
       expect(result.succeeded).toBe(false);
-      expect(result.steps.map((s) => s.step)).toEqual(['verify_package', 'check_compatibility', 'check_disk_space']);
+      expect(result.steps.map((s) => s.step)).toEqual([
+        'verify_package',
+        'check_compatibility',
+        'check_disk_space',
+      ]);
     });
 
     it('auto-creates a backup when none exists and autoBackup is configured, then proceeds', async () => {
@@ -229,7 +263,11 @@ describe('Update system (P3 items 14/15)', () => {
         packagePath: path,
         manifest: signed,
         runningCoreVersion: '1.0.0',
-        ...baseOptions({ hasRecentBackup: async () => false, requireRecentBackup: true, autoBackup: undefined }),
+        ...baseOptions({
+          hasRecentBackup: async () => false,
+          requireRecentBackup: true,
+          autoBackup: undefined,
+        }),
       });
       expect(result.succeeded).toBe(false);
       expect(result.steps.at(-1)?.step).toBe('backup_preflight');
@@ -269,7 +307,9 @@ describe('Update system (P3 items 14/15)', () => {
         packagePath: path,
         manifest: signed,
         runningCoreVersion: '1.0.0',
-        ...baseOptions({ runHealthCheck: async () => ({ healthy: false, issues: ['database connectivity lost'] }) }),
+        ...baseOptions({
+          runHealthCheck: async () => ({ healthy: false, issues: ['database connectivity lost'] }),
+        }),
       });
 
       expect(result.succeeded).toBe(false);

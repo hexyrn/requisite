@@ -23,7 +23,9 @@ const PAYLOAD_SCHEMA_VERSION = 1;
 export class WebhookDispatcherService {
   constructor(
     private readonly webhooks: WebhookService,
-    @Optional() @Inject(WEBHOOK_SENDER) private readonly sender: WebhookSender = new HttpWebhookSender(),
+    @Optional()
+    @Inject(WEBHOOK_SENDER)
+    private readonly sender: WebhookSender = new HttpWebhookSender(),
   ) {}
 
   async dispatchPending(limit = 50, pool: Pool = getPool()): Promise<{ processed: number }> {
@@ -39,12 +41,20 @@ export class WebhookDispatcherService {
 
     let processed = 0;
     for (const entry of dueEntries) {
-      await routingDb.updateTable('dispatch_queue').set({ claimed_at: new Date() }).where('id', '=', entry.id).execute();
+      await routingDb
+        .updateTable('dispatch_queue')
+        .set({ claimed_at: new Date() })
+        .where('id', '=', entry.id)
+        .execute();
       const fullyDispatched = await this.dispatchOne(entry.organisation_id, entry.ref_id, pool);
       if (fullyDispatched) {
         await routingDb.deleteFrom('dispatch_queue').where('id', '=', entry.id).execute();
       } else {
-        await routingDb.updateTable('dispatch_queue').set({ claimed_at: null }).where('id', '=', entry.id).execute();
+        await routingDb
+          .updateTable('dispatch_queue')
+          .set({ claimed_at: null })
+          .where('id', '=', entry.id)
+          .execute();
       }
       processed++;
     }
@@ -55,7 +65,11 @@ export class WebhookDispatcherService {
     return withOrgContext(
       organisationId,
       async (db) => {
-        const event = await db.selectFrom('event_outbox').selectAll().where('id', '=', eventId).executeTakeFirst();
+        const event = await db
+          .selectFrom('event_outbox')
+          .selectAll()
+          .where('id', '=', eventId)
+          .executeTakeFirst();
         if (!event) return true;
 
         const endpoints = await db
@@ -68,7 +82,14 @@ export class WebhookDispatcherService {
 
         let allTerminal = true;
         for (const endpoint of endpoints) {
-          const outcome = await this.deliverToEndpoint(db, organisationId, eventId, event.event_type, event.payload as Record<string, unknown>, endpoint);
+          const outcome = await this.deliverToEndpoint(
+            db,
+            organisationId,
+            eventId,
+            event.event_type,
+            event.payload as Record<string, unknown>,
+            endpoint,
+          );
           if (outcome === 'retry') allTerminal = false;
         }
         return allTerminal;
@@ -85,11 +106,21 @@ export class WebhookDispatcherService {
     payload: Record<string, unknown>,
     endpoint: { id: string; url: string; signing_key_encrypted: string },
   ): Promise<'delivered' | 'retry' | 'failed-terminal'> {
-    const existing = await db.selectFrom('webhook_deliveries').selectAll().where('event_id', '=', eventId).where('endpoint_id', '=', endpoint.id).executeTakeFirst();
+    const existing = await db
+      .selectFrom('webhook_deliveries')
+      .selectAll()
+      .where('event_id', '=', eventId)
+      .where('endpoint_id', '=', endpoint.id)
+      .executeTakeFirst();
     if (existing?.status === 'delivered') return 'delivered';
 
     const attemptCount = (existing?.attempt_count ?? 0) + 1;
-    const body = JSON.stringify({ eventId, eventType, payloadVersion: PAYLOAD_SCHEMA_VERSION, data: payload });
+    const body = JSON.stringify({
+      eventId,
+      eventType,
+      payloadVersion: PAYLOAD_SCHEMA_VERSION,
+      data: payload,
+    });
     const signingKey = this.webhooks.decryptSigningKey(endpoint.signing_key_encrypted);
     const signature = this.webhooks.sign(body, signingKey);
 
@@ -100,7 +131,11 @@ export class WebhookDispatcherService {
       'x-hexyrn-payload-version': String(PAYLOAD_SCHEMA_VERSION),
     });
 
-    const status = result.success ? 'delivered' : attemptCount >= MAX_DELIVERY_ATTEMPTS ? 'failed' : 'pending_retry';
+    const status = result.success
+      ? 'delivered'
+      : attemptCount >= MAX_DELIVERY_ATTEMPTS
+        ? 'failed'
+        : 'pending_retry';
 
     await db
       .insertInto('webhook_deliveries')
@@ -128,7 +163,11 @@ export class WebhookDispatcherService {
       .execute();
 
     if (!result.success) {
-      logStructured({ event: 'webhook.delivery.failed', errorCode: 'WEBHOOK_DELIVERY_FAILED', context: { eventType, attemptCount, statusCode: result.statusCode } });
+      logStructured({
+        event: 'webhook.delivery.failed',
+        errorCode: 'WEBHOOK_DELIVERY_FAILED',
+        context: { eventType, attemptCount, statusCode: result.statusCode },
+      });
     }
 
     if (result.success) return 'delivered';

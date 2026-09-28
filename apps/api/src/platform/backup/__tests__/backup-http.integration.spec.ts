@@ -73,7 +73,9 @@ describeIfDb('Backup admin HTTP endpoints (P3 items 9-13)', () => {
     });
 
     agent = request.agent(server());
-    const login = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
     csrfToken = login.body.csrfToken;
   }, 60000);
 
@@ -92,7 +94,7 @@ describeIfDb('Backup admin HTTP endpoints (P3 items 9-13)', () => {
     expect(res.body.backups).toEqual([]);
   });
 
-  it('lists a real, manually-created backup with its integrity status (using the fake-dump path createBackup already supports, matching backup.service.spec.ts\'s own pattern)', async () => {
+  it("lists a real, manually-created backup with its integrity status (using the fake-dump path createBackup already supports, matching backup.service.spec.ts's own pattern)", async () => {
     const storageDir = await fs.mkdtemp(join(tmpdir(), 'hexyrn-storage-http-'));
     await createBackup({
       destinationDir: join(backupsDir, '2026-01-01T00-00-00'),
@@ -105,7 +107,11 @@ describeIfDb('Backup admin HTTP endpoints (P3 items 9-13)', () => {
 
     const listRes = await agent.get('/api/v1/backup');
     expect(listRes.status).toBe(200);
-    expect(listRes.body.backups.some((b: any) => b.backupId === '2026-01-01T00-00-00' && b.valid === true)).toBe(true);
+    expect(
+      listRes.body.backups.some(
+        (b: any) => b.backupId === '2026-01-01T00-00-00' && b.valid === true,
+      ),
+    ).toBe(true);
 
     const getRes = await agent.get('/api/v1/backup/2026-01-01T00-00-00');
     expect(getRes.status).toBe(200);
@@ -139,6 +145,9 @@ describeIfDb('Backup admin HTTP endpoints (P3 items 9-13)', () => {
     const anon = request.agent(server());
     expect((await anon.get('/api/v1/backup')).status).toBe(401);
     expect((await anon.get('/api/v1/backup/2026-01-01T00-00-00')).status).toBe(401);
-    expect((await anon.post('/api/v1/backup/2026-01-01T00-00-00/restore').send({ confirmed: true })).status).toBe(401);
+    expect(
+      (await anon.post('/api/v1/backup/2026-01-01T00-00-00/restore').send({ confirmed: true }))
+        .status,
+    ).toBe(401);
   });
 });

@@ -28,7 +28,11 @@ export class ReferenceConnectorAdapter implements SyncAdapter {
     this.fixtureRecords = records;
   }
 
-  async fetchExternalRecords(_config: Record<string, unknown>, _secrets: Record<string, string>, entityType: string): Promise<ExternalRecord[]> {
+  async fetchExternalRecords(
+    _config: Record<string, unknown>,
+    _secrets: Record<string, string>,
+    entityType: string,
+  ): Promise<ExternalRecord[]> {
     if (entityType !== 'reference.widget') return [];
     return this.fixtureRecords;
   }
@@ -52,22 +56,35 @@ export async function registerReferenceConnector(
   const adapter = new ReferenceConnectorAdapter();
   adapters.register(adapter);
 
-  syncHandlers.register('reference.widget', async (db: Kysely<Database>, organisationId: string, mappedFields: Record<string, unknown>, existingId?: string) => {
-    const title = String(mappedFields.title ?? 'Untitled');
-    const widgetNumber = String(mappedFields.widgetNumber ?? `SYNC-${Date.now()}`);
+  syncHandlers.register(
+    'reference.widget',
+    async (
+      db: Kysely<Database>,
+      organisationId: string,
+      mappedFields: Record<string, unknown>,
+      existingId?: string,
+    ) => {
+      const title = String(mappedFields.title ?? 'Untitled');
+      const widgetNumber = String(mappedFields.widgetNumber ?? `SYNC-${Date.now()}`);
 
-    if (existingId) {
-      await db.updateTable('reference_widgets').set({ title }).where('id', '=', existingId).where('organisation_id', '=', organisationId).execute();
-      return existingId;
-    }
+      if (existingId) {
+        await db
+          .updateTable('reference_widgets')
+          .set({ title })
+          .where('id', '=', existingId)
+          .where('organisation_id', '=', organisationId)
+          .execute();
+        return existingId;
+      }
 
-    const row = await db
-      .insertInto('reference_widgets')
-      .values({ organisation_id: organisationId, widget_number: widgetNumber, title })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return row.id;
-  });
+      const row = await db
+        .insertInto('reference_widgets')
+        .values({ organisation_id: organisationId, widget_number: widgetNumber, title })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return row.id;
+    },
+  );
 
   return adapter;
 }

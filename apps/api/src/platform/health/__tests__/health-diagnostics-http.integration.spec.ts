@@ -36,8 +36,12 @@ describeIfDb('Health/Diagnostics - real HTTP layer (P3 item 19/20)', () => {
     // support-bundle.service.spec.ts found) setUpTestDatabase()'s
     // replay-every-migration-file path never creates, unlike the real
     // apps/api/src/db/migrate.ts CLI runner used in production.
-    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await pool.query(`INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql') ON CONFLICT DO NOTHING`);
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+    );
+    await pool.query(
+      `INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql') ON CONFLICT DO NOTHING`,
+    );
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -64,7 +68,9 @@ describeIfDb('Health/Diagnostics - real HTTP layer (P3 item 19/20)', () => {
     organisationId = result.organisationId;
 
     agent = request.agent(server());
-    const login = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
     csrfToken = login.body.csrfToken;
     void csrfToken;
   }, 60000);
@@ -117,7 +123,13 @@ describeIfDb('Health/Diagnostics - real HTTP layer (P3 item 19/20)', () => {
       (db: Kysely<Database>) =>
         db
           .insertInto('scheduled_jobs')
-          .values({ organisation_id: organisationId, app_id: 'com.hexyrn.requisite', job_type: 'test-job', status: 'failed', last_error: 'boom' })
+          .values({
+            organisation_id: organisationId,
+            app_id: 'com.hexyrn.requisite',
+            job_type: 'test-job',
+            status: 'failed',
+            last_error: 'boom',
+          })
           .execute(),
       pool,
     );
@@ -130,10 +142,14 @@ describeIfDb('Health/Diagnostics - real HTTP layer (P3 item 19/20)', () => {
   });
 
   it('reports smtp as configured after a real SMTP config is set, without exposing the password', async () => {
-    await agent
-      .post('/api/v1/smtp')
-      .set('X-Hexyrn-CSRF', csrfToken)
-      .send({ host: 'smtp.example.com', port: 587, secure: false, username: 'u', password: 'a-real-canary-password-value', fromAddress: 'hexyrn@example.com' });
+    await agent.post('/api/v1/smtp').set('X-Hexyrn-CSRF', csrfToken).send({
+      host: 'smtp.example.com',
+      port: 587,
+      secure: false,
+      username: 'u',
+      password: 'a-real-canary-password-value',
+      fromAddress: 'hexyrn@example.com',
+    });
 
     const res = await agent.get('/api/v1/system/health');
     expect(res.body.smtp.status).toBe('ok');

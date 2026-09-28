@@ -76,7 +76,11 @@ export class SessionService {
   }
 
   async markMfaVerified(db: Kysely<Database>, sessionId: string): Promise<void> {
-    await db.updateTable('sessions').set({ mfa_verified: true }).where('id', '=', sessionId).execute();
+    await db
+      .updateTable('sessions')
+      .set({ mfa_verified: true })
+      .where('id', '=', sessionId)
+      .execute();
   }
 
   async revokeSession(db: Kysely<Database>, sessionId: string): Promise<void> {

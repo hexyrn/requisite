@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { PageHeader, Card, Button, Input, StatusBadge, Money, EmptyState } from '@hexyrn/design-system';
+import {
+  PageHeader,
+  Card,
+  Button,
+  Input,
+  StatusBadge,
+  Money,
+  EmptyState,
+} from '@hexyrn/design-system';
 import { requisiteApi, RfqDetail, Supplier, QuoteLineInput } from '../api/requisite';
 import { statusLabel, statusTone } from './status';
 
@@ -38,7 +46,10 @@ export function RfqDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [detail, sups] = await Promise.all([requisiteApi.getRfq(id), requisiteApi.listSuppliers()]);
+      const [detail, sups] = await Promise.all([
+        requisiteApi.getRfq(id),
+        requisiteApi.listSuppliers(),
+      ]);
       setRfq(detail);
       setSuppliers(sups);
       if (sups[0]) setSupplierId((prev) => prev || sups[0].id);
@@ -60,7 +71,13 @@ export function RfqDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await requisiteApi.recordQuote(rfq.id, { supplierId, quoteReference: quoteReference || undefined, expiryDate: expiryDate || undefined, carriageMinor, lines: lines.map(({ key: _key, ...rest }) => rest) });
+      await requisiteApi.recordQuote(rfq.id, {
+        supplierId,
+        quoteReference: quoteReference || undefined,
+        expiryDate: expiryDate || undefined,
+        carriageMinor,
+        lines: lines.map(({ key: _key, ...rest }) => rest),
+      });
       setLines([emptyLine()]);
       setQuoteReference('');
       await load();
@@ -99,13 +116,25 @@ export function RfqDetailPage() {
     }
   }
 
-  if (error) return <div role="alert" style={{ color: '#991b1b' }}>{error}</div>;
+  if (error)
+    return (
+      <div role="alert" style={{ color: '#991b1b' }}>
+        {error}
+      </div>
+    );
   if (!rfq) return <p>Loading…</p>;
 
   return (
     <div>
-      <PageHeader title={rfq.rfq_number} subtitle={<StatusBadge label={statusLabel(rfq.status)} tone={statusTone(rfq.status)} />} />
-      {actionError && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{actionError}</div>}
+      <PageHeader
+        title={rfq.rfq_number}
+        subtitle={<StatusBadge label={statusLabel(rfq.status)} tone={statusTone(rfq.status)} />}
+      />
+      {actionError && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {actionError}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Quote Comparison</h2>
@@ -129,20 +158,35 @@ export function RfqDetailPage() {
                 <tr key={q.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '4px 8px' }}>{q.supplier_name}</td>
                   <td style={{ padding: '4px 8px' }}>{q.quote_reference ?? '—'}</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}><Money minorUnits={q.carriage_minor} currency={q.currency} /></td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}><Money minorUnits={q.total_minor} currency={q.currency} /></td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                    <Money minorUnits={q.carriage_minor} currency={q.currency} />
+                  </td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                    <Money minorUnits={q.total_minor} currency={q.currency} />
+                  </td>
                   <td style={{ padding: '4px 8px' }}>{q.expiry_date ?? '—'}</td>
                   <td style={{ padding: '4px 8px' }}>
                     <StatusBadge label={statusLabel(q.status)} tone={statusTone(q.status)} />
-                    {q.selection_reason && <div style={{ fontSize: 12, color: '#6b7280' }}>"{q.selection_reason}"</div>}
+                    {q.selection_reason && (
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>"{q.selection_reason}"</div>
+                    )}
                   </td>
                   <td style={{ padding: '4px 8px' }}>
                     {q.status === 'received' && (
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <Button onClick={() => onSelect(q.id)} disabled={busy} aria-label={`Select quote from ${q.supplier_name}`}>
+                        <Button
+                          onClick={() => onSelect(q.id)}
+                          disabled={busy}
+                          aria-label={`Select quote from ${q.supplier_name}`}
+                        >
                           Select
                         </Button>
-                        <Button variant="danger" onClick={() => onReject(q.id)} disabled={busy} aria-label={`Reject quote from ${q.supplier_name}`}>
+                        <Button
+                          variant="danger"
+                          onClick={() => onReject(q.id)}
+                          disabled={busy}
+                          aria-label={`Reject quote from ${q.supplier_name}`}
+                        >
                           Reject
                         </Button>
                       </div>
@@ -155,7 +199,12 @@ export function RfqDetailPage() {
         )}
         {rfq.quotes.some((q) => q.status === 'received') && (
           <div style={{ marginTop: 12 }}>
-            <Input label="Selection reason (optional)" value={selectionReason} onChange={(e) => setSelectionReason(e.target.value)} placeholder="e.g. Best price and delivery time" />
+            <Input
+              label="Selection reason (optional)"
+              value={selectionReason}
+              onChange={(e) => setSelectionReason(e.target.value)}
+              placeholder="e.g. Best price and delivery time"
+            />
           </div>
         )}
       </Card>
@@ -165,7 +214,18 @@ export function RfqDetailPage() {
         <label htmlFor="quote-supplier" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
           Supplier
         </label>
-        <select id="quote-supplier" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #d1d5db', marginBottom: 12, minWidth: 240 }}>
+        <select
+          id="quote-supplier"
+          value={supplierId}
+          onChange={(e) => setSupplierId(e.target.value)}
+          style={{
+            padding: 8,
+            borderRadius: 6,
+            border: '1px solid #d1d5db',
+            marginBottom: 12,
+            minWidth: 240,
+          }}
+        >
           {suppliers.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -173,20 +233,75 @@ export function RfqDetailPage() {
           ))}
         </select>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <Input label="Quote reference" value={quoteReference} onChange={(e) => setQuoteReference(e.target.value)} />
-          <Input label="Expiry date" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-          <Input label="Carriage (pence)" type="number" min="0" value={carriageMinor} onChange={(e) => setCarriageMinor(e.target.value)} />
+        <div
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}
+        >
+          <Input
+            label="Quote reference"
+            value={quoteReference}
+            onChange={(e) => setQuoteReference(e.target.value)}
+          />
+          <Input
+            label="Expiry date"
+            type="date"
+            value={expiryDate}
+            onChange={(e) => setExpiryDate(e.target.value)}
+          />
+          <Input
+            label="Carriage (pence)"
+            type="number"
+            min="0"
+            value={carriageMinor}
+            onChange={(e) => setCarriageMinor(e.target.value)}
+          />
         </div>
 
         {lines.map((line, idx) => (
-          <div key={line.key} style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <Input label={idx === 0 ? 'Description' : undefined} aria-label="Quote line description" value={line.description} onChange={(e) => setLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, description: e.target.value } : l)))} />
-            <Input label={idx === 0 ? 'Quantity' : undefined} aria-label="Quote line quantity" type="number" value={line.quantity} onChange={(e) => setLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, quantity: e.target.value } : l)))} />
-            <Input label={idx === 0 ? 'Unit price (pence)' : undefined} aria-label="Quote line unit price in pence" type="number" value={line.unitPriceMinor} onChange={(e) => setLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, unitPriceMinor: e.target.value } : l)))} />
+          <div
+            key={line.key}
+            style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr', gap: 8, marginBottom: 8 }}
+          >
+            <Input
+              label={idx === 0 ? 'Description' : undefined}
+              aria-label="Quote line description"
+              value={line.description}
+              onChange={(e) =>
+                setLines((prev) =>
+                  prev.map((l) => (l.key === line.key ? { ...l, description: e.target.value } : l)),
+                )
+              }
+            />
+            <Input
+              label={idx === 0 ? 'Quantity' : undefined}
+              aria-label="Quote line quantity"
+              type="number"
+              value={line.quantity}
+              onChange={(e) =>
+                setLines((prev) =>
+                  prev.map((l) => (l.key === line.key ? { ...l, quantity: e.target.value } : l)),
+                )
+              }
+            />
+            <Input
+              label={idx === 0 ? 'Unit price (pence)' : undefined}
+              aria-label="Quote line unit price in pence"
+              type="number"
+              value={line.unitPriceMinor}
+              onChange={(e) =>
+                setLines((prev) =>
+                  prev.map((l) =>
+                    l.key === line.key ? { ...l, unitPriceMinor: e.target.value } : l,
+                  ),
+                )
+              }
+            />
           </div>
         ))}
-        <Button type="button" variant="secondary" onClick={() => setLines((prev) => [...prev, emptyLine()])}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setLines((prev) => [...prev, emptyLine()])}
+        >
           + Add line
         </Button>
         <div style={{ marginTop: 12 }}>

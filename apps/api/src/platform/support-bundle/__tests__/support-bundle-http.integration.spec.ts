@@ -28,8 +28,12 @@ describeIfDb('Support bundle admin HTTP endpoints (P3 item 21/8)', () => {
     pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 10 }));
     await setUpTestDatabase(pool);
     setPool(pool);
-    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await pool.query(`INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql') ON CONFLICT DO NOTHING`);
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+    );
+    await pool.query(
+      `INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql') ON CONFLICT DO NOTHING`,
+    );
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -55,7 +59,9 @@ describeIfDb('Support bundle admin HTTP endpoints (P3 item 21/8)', () => {
     });
 
     agent = request.agent(server());
-    const login = await agent.post('/api/v1/auth/login').send({ email: ownerEmail, password: ownerPassword });
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
     csrfToken = login.body.csrfToken;
   }, 60000);
 

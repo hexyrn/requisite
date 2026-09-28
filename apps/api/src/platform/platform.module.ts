@@ -84,7 +84,10 @@ import { getConfiguredOutboundNetworkPolicy } from '../security/outbound-network
     // P3 item 34/12 (SSRF hardening): the outbound network policy is built
     // fresh at provider-construction time from HEXYRN_OUTBOUND_ALLOWED_HOSTS
     // - see security/outbound-network-policy.ts for the full design.
-    { provide: WEBHOOK_SENDER, useValue: new HttpWebhookSender(getConfiguredOutboundNetworkPolicy()) },
+    {
+      provide: WEBHOOK_SENDER,
+      useValue: new HttpWebhookSender(getConfiguredOutboundNetworkPolicy()),
+    },
     WebhookDispatcherService,
     ScheduledReportService,
     SearchService,

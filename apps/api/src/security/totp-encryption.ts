@@ -117,7 +117,7 @@ function unsealWithAnyKey(sealed: Sealed, keys: Buffer[]): Buffer {
     haveBoth
       ? 'Could not decrypt: neither TOTP_MASTER_KEY_CURRENT nor TOTP_MASTER_KEY_PREVIOUS opens this secret.'
       : 'Could not decrypt with TOTP_MASTER_KEY_CURRENT, and TOTP_MASTER_KEY_PREVIOUS is not set - ' +
-          'if this secret was wrapped under an older key, set TOTP_MASTER_KEY_PREVIOUS to that key\'s value to recover access.',
+          "if this secret was wrapped under an older key, set TOTP_MASTER_KEY_PREVIOUS to that key's value to recover access.",
   );
 }
 
@@ -152,7 +152,10 @@ export function decryptTotpSecret(stored: string): string {
     const [, wIv, wTag, wCt, iv, tag, ct] = parts;
     const wrapped: Sealed = { iv: fromB64(wIv), tag: fromB64(wTag), ciphertext: fromB64(wCt) };
     const dataKey = unsealWithAnyKey(wrapped, candidateKeys());
-    const plain = unsealWithAnyKey({ iv: fromB64(iv), tag: fromB64(tag), ciphertext: fromB64(ct) }, [dataKey]);
+    const plain = unsealWithAnyKey(
+      { iv: fromB64(iv), tag: fromB64(tag), ciphertext: fromB64(ct) },
+      [dataKey],
+    );
     return plain.toString('utf8');
   }
 
@@ -202,12 +205,14 @@ export function rotateMasterKeyWrapping(stored: string): { value: string; change
   if (!previousKey) {
     throw new Error(
       'Could not rotate: this secret is not wrapped under TOTP_MASTER_KEY_CURRENT, and ' +
-        'TOTP_MASTER_KEY_PREVIOUS is not set to try. Set it to the outgoing key\'s value before rotating.',
+        "TOTP_MASTER_KEY_PREVIOUS is not set to try. Set it to the outgoing key's value before rotating.",
     );
   }
   const dataKey = tryUnseal(previousKey, wrapped);
   if (!dataKey) {
-    throw new Error('Could not rotate: this secret opens under neither TOTP_MASTER_KEY_CURRENT nor TOTP_MASTER_KEY_PREVIOUS.');
+    throw new Error(
+      'Could not rotate: this secret opens under neither TOTP_MASTER_KEY_CURRENT nor TOTP_MASTER_KEY_PREVIOUS.',
+    );
   }
 
   const rewrapped = seal(currentKey, dataKey);

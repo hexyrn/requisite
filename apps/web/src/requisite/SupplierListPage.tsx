@@ -38,7 +38,11 @@ export function SupplierListPage() {
   return (
     <div>
       <PageHeader title="Suppliers" />
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Add Supplier</h2>

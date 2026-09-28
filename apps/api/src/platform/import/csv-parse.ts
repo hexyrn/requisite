@@ -51,7 +51,9 @@ export function parseCsv(text: string): { headers: string[]; rows: Record<string
   const headers = parseLine(lines[0]);
   const dataLines = lines.slice(1);
   if (dataLines.length > MAX_IMPORT_ROWS) {
-    throw new CsvTooLargeError(`Import exceeds the maximum of ${MAX_IMPORT_ROWS} rows (got ${dataLines.length}).`);
+    throw new CsvTooLargeError(
+      `Import exceeds the maximum of ${MAX_IMPORT_ROWS} rows (got ${dataLines.length}).`,
+    );
   }
 
   const rows = dataLines.map((line) => {

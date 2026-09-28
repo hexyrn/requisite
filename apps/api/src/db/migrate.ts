@@ -36,7 +36,10 @@ export interface MigrationRunResult {
 }
 
 /** Runs every not-yet-applied migration against the given pool (expected to be connected with the schema-owning role). Does not close the pool - caller owns its lifecycle. */
-export async function runPendingMigrations(pool: Pool, migrationsDir: string = join(__dirname, 'migrations')): Promise<MigrationRunResult> {
+export async function runPendingMigrations(
+  pool: Pool,
+  migrationsDir: string = join(__dirname, 'migrations'),
+): Promise<MigrationRunResult> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       filename TEXT PRIMARY KEY,
@@ -48,7 +51,9 @@ export async function runPendingMigrations(pool: Pool, migrationsDir: string = j
     .filter((f) => f.endsWith('.sql'))
     .sort();
 
-  const { rows: appliedRows } = await pool.query<{ filename: string }>('SELECT filename FROM schema_migrations');
+  const { rows: appliedRows } = await pool.query<{ filename: string }>(
+    'SELECT filename FROM schema_migrations',
+  );
   const applied = new Set(appliedRows.map((r) => r.filename));
 
   const appliedFiles: string[] = [];
@@ -64,7 +69,9 @@ export async function runPendingMigrations(pool: Pool, migrationsDir: string = j
       appliedFiles.push(file);
     } catch (err) {
       await client.query('ROLLBACK');
-      throw new Error(`Migration failed: ${file} - ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `Migration failed: ${file} - ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       client.release();
     }
@@ -87,7 +94,11 @@ async function main() {
       console.log(`applied: ${file}`);
     }
     // eslint-disable-next-line no-console
-    console.log(appliedFiles.length === 0 ? 'No pending migrations.' : `Applied ${appliedFiles.length} migration(s).`);
+    console.log(
+      appliedFiles.length === 0
+        ? 'No pending migrations.'
+        : `Applied ${appliedFiles.length} migration(s).`,
+    );
   } finally {
     await pool.end();
   }

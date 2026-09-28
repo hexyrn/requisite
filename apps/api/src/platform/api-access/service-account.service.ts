@@ -26,10 +26,21 @@ export interface IssuedCredential {
  */
 @Injectable()
 export class ServiceAccountService {
-  async createServiceAccount(db: Kysely<Database>, organisationId: string, name: string, scopes: string[], createdBy?: string) {
+  async createServiceAccount(
+    db: Kysely<Database>,
+    organisationId: string,
+    name: string,
+    scopes: string[],
+    createdBy?: string,
+  ) {
     return db
       .insertInto('service_accounts')
-      .values({ organisation_id: organisationId, name, granted_scopes: scopes, created_by: createdBy ?? null })
+      .values({
+        organisation_id: organisationId,
+        name,
+        granted_scopes: scopes,
+        created_by: createdBy ?? null,
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
   }
@@ -43,14 +54,24 @@ export class ServiceAccountService {
    * BEFORE the secret has been verified - see migration 0032's comment for
    * why this mirrors ADR 0005's dispatch_queue pattern.
    */
-  async issueCredential(db: Kysely<Database>, organisationId: string, serviceAccountId: string, pool: Pool = getPool()): Promise<IssuedCredential> {
+  async issueCredential(
+    db: Kysely<Database>,
+    organisationId: string,
+    serviceAccountId: string,
+    pool: Pool = getPool(),
+  ): Promise<IssuedCredential> {
     const prefix = generateSecureToken(6); // short, public, display-only identifier
     const secret = generateSecureToken(32); // high-entropy, never stored in plaintext
     const plaintextKey = `${KEY_PREFIX_PREFIX}${prefix}.${secret}`;
 
     const credential = await db
       .insertInto('api_credentials')
-      .values({ organisation_id: organisationId, service_account_id: serviceAccountId, key_prefix: prefix, secret_hash: hashToken(secret) })
+      .values({
+        organisation_id: organisationId,
+        service_account_id: serviceAccountId,
+        key_prefix: prefix,
+        secret_hash: hashToken(secret),
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
 
@@ -61,7 +82,12 @@ export class ServiceAccountService {
       (noOrgDb) =>
         noOrgDb
           .insertInto('api_credential_lookup')
-          .values({ key_prefix: prefix, organisation_id: organisationId, credential_id: credential.id, service_account_id: serviceAccountId })
+          .values({
+            key_prefix: prefix,
+            organisation_id: organisationId,
+            credential_id: credential.id,
+            service_account_id: serviceAccountId,
+          })
           .execute(),
       pool,
     );
@@ -69,7 +95,12 @@ export class ServiceAccountService {
     return { credentialId: credential.id, plaintextKey, keyPrefix: prefix };
   }
 
-  async revokeCredential(db: Kysely<Database>, organisationId: string, credentialId: string, pool: Pool = getPool()): Promise<void> {
+  async revokeCredential(
+    db: Kysely<Database>,
+    organisationId: string,
+    credentialId: string,
+    pool: Pool = getPool(),
+  ): Promise<void> {
     const row = await db
       .updateTable('api_credentials')
       .set({ is_revoked: true, revoked_at: new Date() as any })
@@ -78,7 +109,14 @@ export class ServiceAccountService {
       .returningAll()
       .executeTakeFirst();
     if (row) {
-      await withNoOrgContext((noOrgDb) => noOrgDb.deleteFrom('api_credential_lookup').where('credential_id', '=', credentialId).execute(), pool);
+      await withNoOrgContext(
+        (noOrgDb) =>
+          noOrgDb
+            .deleteFrom('api_credential_lookup')
+            .where('credential_id', '=', credentialId)
+            .execute(),
+        pool,
+      );
     }
   }
 
@@ -96,7 +134,15 @@ export class ServiceAccountService {
    *      the lookup table is only ever a routing hint, never itself trusted
    *      as proof of a valid credential.
    */
-  async authenticate(plaintextKey: string, pool: Pool = getPool()): Promise<{ organisationId: string; serviceAccountId: string; scopes: string[]; credentialId: string } | null> {
+  async authenticate(
+    plaintextKey: string,
+    pool: Pool = getPool(),
+  ): Promise<{
+    organisationId: string;
+    serviceAccountId: string;
+    scopes: string[];
+    credentialId: string;
+  } | null> {
     if (!plaintextKey.startsWith(KEY_PREFIX_PREFIX)) return null;
     const withoutMarker = plaintextKey.slice(KEY_PREFIX_PREFIX.length);
     const dot = withoutMarker.indexOf('.');
@@ -105,31 +151,77 @@ export class ServiceAccountService {
     const secret = withoutMarker.slice(dot + 1);
     if (!secret) return null;
 
-    const pointer = await withNoOrgContext((db) => db.selectFrom('api_credential_lookup').selectAll().where('key_prefix', '=', prefix).executeTakeFirst(), pool);
+    const pointer = await withNoOrgContext(
+      (db) =>
+        db
+          .selectFrom('api_credential_lookup')
+          .selectAll()
+          .where('key_prefix', '=', prefix)
+          .executeTakeFirst(),
+      pool,
+    );
     if (!pointer) return null;
 
     return this.verifyWithinOrg(pointer.organisation_id, pointer.credential_id, secret, pool);
   }
 
-  private async verifyWithinOrg(organisationId: string, credentialId: string, secret: string, pool: Pool) {
-    return withOrgContext(organisationId, async (db) => {
-      const credential = await db.selectFrom('api_credentials').selectAll().where('id', '=', credentialId).executeTakeFirst();
-      if (!credential || credential.is_revoked) return null;
-      if (!verifyTokenHash(secret, credential.secret_hash)) return null;
+  private async verifyWithinOrg(
+    organisationId: string,
+    credentialId: string,
+    secret: string,
+    pool: Pool,
+  ) {
+    return withOrgContext(
+      organisationId,
+      async (db) => {
+        const credential = await db
+          .selectFrom('api_credentials')
+          .selectAll()
+          .where('id', '=', credentialId)
+          .executeTakeFirst();
+        if (!credential || credential.is_revoked) return null;
+        if (!verifyTokenHash(secret, credential.secret_hash)) return null;
 
-      const serviceAccount = await db.selectFrom('service_accounts').selectAll().where('id', '=', credential.service_account_id).executeTakeFirst();
-      if (!serviceAccount || !serviceAccount.is_enabled) return null;
+        const serviceAccount = await db
+          .selectFrom('service_accounts')
+          .selectAll()
+          .where('id', '=', credential.service_account_id)
+          .executeTakeFirst();
+        if (!serviceAccount || !serviceAccount.is_enabled) return null;
 
-      await db.updateTable('api_credentials').set({ last_used_at: new Date() as any }).where('id', '=', credentialId).execute();
-      await db.updateTable('service_accounts').set({ last_used_at: new Date() as any }).where('id', '=', serviceAccount.id).execute();
+        await db
+          .updateTable('api_credentials')
+          .set({ last_used_at: new Date() as any })
+          .where('id', '=', credentialId)
+          .execute();
+        await db
+          .updateTable('service_accounts')
+          .set({ last_used_at: new Date() as any })
+          .where('id', '=', serviceAccount.id)
+          .execute();
 
-      return { organisationId, serviceAccountId: serviceAccount.id, scopes: serviceAccount.granted_scopes, credentialId };
-    }, pool);
+        return {
+          organisationId,
+          serviceAccountId: serviceAccount.id,
+          scopes: serviceAccount.granted_scopes,
+          credentialId,
+        };
+      },
+      pool,
+    );
   }
 
   /** Builds a PermissionCheckSubject for a service account, for reuse with the exact same FlatRolePermissionEvaluator as human users. */
-  toPermissionSubject(auth: { organisationId: string; serviceAccountId: string; scopes: string[] }): PermissionCheckSubject {
-    return { userAccountId: auth.serviceAccountId, organisationId: auth.organisationId, grantedPermissions: new Set(auth.scopes) };
+  toPermissionSubject(auth: {
+    organisationId: string;
+    serviceAccountId: string;
+    scopes: string[];
+  }): PermissionCheckSubject {
+    return {
+      userAccountId: auth.serviceAccountId,
+      organisationId: auth.organisationId,
+      grantedPermissions: new Set(auth.scopes),
+    };
   }
 
   /** Enforces that every scope being granted to a service account is itself held (directly or transitively) - mirrors the P1 "cannot hand out a key you don't hold" invitation rule, item 13. */

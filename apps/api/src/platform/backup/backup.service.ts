@@ -78,7 +78,9 @@ async function sha256OfFile(path: string): Promise<{ sha256: string; sizeBytes: 
 }
 
 /** Deterministic combined digest over every file's own digest + relative path, so reordering/renaming is detected. */
-async function sha256OfDirectory(dir: string): Promise<{ sha256: string; sizeBytes: number; fileCount: number }> {
+async function sha256OfDirectory(
+  dir: string,
+): Promise<{ sha256: string; sizeBytes: number; fileCount: number }> {
   const entries = await listFilesRecursive(dir);
   entries.sort();
   const hash = createHash('sha256');
@@ -151,11 +153,17 @@ export async function createBackup(options: CreateBackupOptions): Promise<Create
   if (sourceHasFiles) {
     await copyDirectory(options.storageRootDir, filesDestDir);
     const dirDigest = await sha256OfDirectory(filesDestDir);
-    filesInfo = { includedFileCount: dirDigest.fileCount, sha256: dirDigest.sha256, sizeBytes: dirDigest.sizeBytes };
+    filesInfo = {
+      includedFileCount: dirDigest.fileCount,
+      sha256: dirDigest.sha256,
+      sizeBytes: dirDigest.sizeBytes,
+    };
   }
 
   const installedApps = await options.pool
-    .query<{ app_id: string; version: string }>('SELECT app_id, version FROM installed_applications ORDER BY app_id')
+    .query<{ app_id: string; version: string }>(
+      'SELECT app_id, version FROM installed_applications ORDER BY app_id',
+    )
     .then((r) => r.rows.map((row) => ({ appId: row.app_id, version: row.version })));
 
   const manifest: BackupManifest = {
@@ -168,7 +176,9 @@ export async function createBackup(options: CreateBackupOptions): Promise<Create
     consistencyNote: CONSISTENCY_NOTE,
   };
 
-  await fs.writeFile(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2), { mode: 0o600 });
+  await fs.writeFile(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2), {
+    mode: 0o600,
+  });
 
   return { backupDir, manifest };
 }
@@ -187,37 +197,55 @@ export async function verifyBackupIntegrity(backupDir: string): Promise<Integrit
     const raw = await fs.readFile(join(backupDir, 'manifest.json'), 'utf8');
     manifest = JSON.parse(raw) as BackupManifest;
   } catch (err) {
-    return { valid: false, issues: [`Could not read manifest.json: ${err instanceof Error ? err.message : String(err)}`], manifest: null };
+    return {
+      valid: false,
+      issues: [`Could not read manifest.json: ${err instanceof Error ? err.message : String(err)}`],
+      manifest: null,
+    };
   }
 
   if (manifest.formatVersion !== 1) {
-    issues.push(`Unrecognised backup manifest formatVersion ${manifest.formatVersion} - this version of Hexyrn Core cannot verify or restore it.`);
+    issues.push(
+      `Unrecognised backup manifest formatVersion ${manifest.formatVersion} - this version of Hexyrn Core cannot verify or restore it.`,
+    );
     return { valid: false, issues, manifest };
   }
 
   try {
     const dbDigest = await sha256OfFile(join(backupDir, manifest.database.filename));
     if (dbDigest.sha256 !== manifest.database.sha256) {
-      issues.push(`Database dump checksum mismatch - the file may be corrupted or tampered with (expected ${manifest.database.sha256}, got ${dbDigest.sha256}).`);
+      issues.push(
+        `Database dump checksum mismatch - the file may be corrupted or tampered with (expected ${manifest.database.sha256}, got ${dbDigest.sha256}).`,
+      );
     }
     if (dbDigest.sizeBytes !== manifest.database.sizeBytes) {
-      issues.push(`Database dump size mismatch (expected ${manifest.database.sizeBytes} bytes, got ${dbDigest.sizeBytes}).`);
+      issues.push(
+        `Database dump size mismatch (expected ${manifest.database.sizeBytes} bytes, got ${dbDigest.sizeBytes}).`,
+      );
     }
   } catch (err) {
-    issues.push(`Could not read database dump file: ${err instanceof Error ? err.message : String(err)}`);
+    issues.push(
+      `Could not read database dump file: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   if (manifest.files) {
     try {
       const dirDigest = await sha256OfDirectory(join(backupDir, 'files'));
       if (dirDigest.sha256 !== manifest.files.sha256) {
-        issues.push(`Files archive checksum mismatch - the files directory may be corrupted, tampered with, or incomplete (expected ${manifest.files.sha256}, got ${dirDigest.sha256}).`);
+        issues.push(
+          `Files archive checksum mismatch - the files directory may be corrupted, tampered with, or incomplete (expected ${manifest.files.sha256}, got ${dirDigest.sha256}).`,
+        );
       }
       if (dirDigest.fileCount !== manifest.files.includedFileCount) {
-        issues.push(`Files archive file count mismatch (expected ${manifest.files.includedFileCount}, got ${dirDigest.fileCount}).`);
+        issues.push(
+          `Files archive file count mismatch (expected ${manifest.files.includedFileCount}, got ${dirDigest.fileCount}).`,
+        );
       }
     } catch (err) {
-      issues.push(`Could not read files archive: ${err instanceof Error ? err.message : String(err)}`);
+      issues.push(
+        `Could not read files archive: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -236,11 +264,17 @@ export interface CompatibilityCheckResult {
  * itself (that is a separate, later restore step against the restored
  * database, using the ordinary migration runner).
  */
-export function checkRestoreCompatibility(manifest: BackupManifest, runningCoreVersion: string = CORE_VERSION): CompatibilityCheckResult {
+export function checkRestoreCompatibility(
+  manifest: BackupManifest,
+  runningCoreVersion: string = CORE_VERSION,
+): CompatibilityCheckResult {
   const backupMajor = parseInt(manifest.coreVersion.replace(/^[^\d]*/, '').split('.')[0], 10);
   const runningMajor = parseInt(runningCoreVersion.replace(/^[^\d]*/, '').split('.')[0], 10);
   if (Number.isNaN(backupMajor) || Number.isNaN(runningMajor)) {
-    return { compatible: false, reason: `Could not parse a major version from "${manifest.coreVersion}" or "${runningCoreVersion}".` };
+    return {
+      compatible: false,
+      reason: `Could not parse a major version from "${manifest.coreVersion}" or "${runningCoreVersion}".`,
+    };
   }
   if (backupMajor > runningMajor) {
     return {
@@ -248,7 +282,10 @@ export function checkRestoreCompatibility(manifest: BackupManifest, runningCoreV
       reason: `This backup was created by Hexyrn Core ${manifest.coreVersion}, newer than the running ${runningCoreVersion} - restoring a newer backup onto an older Core build is not supported. Upgrade Core first.`,
     };
   }
-  return { compatible: true, reason: `Backup Core version ${manifest.coreVersion} is compatible with running ${runningCoreVersion}.` };
+  return {
+    compatible: true,
+    reason: `Backup Core version ${manifest.coreVersion} is compatible with running ${runningCoreVersion}.`,
+  };
 }
 
 /**
@@ -259,8 +296,14 @@ export function checkRestoreCompatibility(manifest: BackupManifest, runningCoreV
  * it - retention deletion is real data loss and should never happen silently
  * uninspectable.
  */
-export async function applyRetentionPolicy(backupsRootDir: string, keepLastN: number): Promise<{ kept: string[]; deleted: string[] }> {
-  if (keepLastN < 1) throw new Error('keepLastN must be at least 1 - a retention policy that keeps zero backups is not a backup system.');
+export async function applyRetentionPolicy(
+  backupsRootDir: string,
+  keepLastN: number,
+): Promise<{ kept: string[]; deleted: string[] }> {
+  if (keepLastN < 1)
+    throw new Error(
+      'keepLastN must be at least 1 - a retention policy that keeps zero backups is not a backup system.',
+    );
   let entries: import('fs').Dirent[];
   try {
     entries = await fs.readdir(backupsRootDir, { withFileTypes: true });
@@ -268,7 +311,10 @@ export async function applyRetentionPolicy(backupsRootDir: string, keepLastN: nu
     if (err?.code === 'ENOENT') return { kept: [], deleted: [] };
     throw err;
   }
-  const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name).sort(); // ISO-8601-prefixed names sort chronologically
+  const dirs = entries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort(); // ISO-8601-prefixed names sort chronologically
   const kept = dirs.slice(-keepLastN);
   const toDelete = dirs.slice(0, Math.max(0, dirs.length - keepLastN));
   for (const name of toDelete) {
@@ -301,12 +347,16 @@ export interface RestoreBackupResult {
  */
 export async function restoreBackup(options: RestoreBackupOptions): Promise<RestoreBackupResult> {
   if (!options.confirmed) {
-    throw new Error('Refusing to restore: this is a destructive operation that overwrites the current database and files. Pass confirmed: true only after explicit operator confirmation.');
+    throw new Error(
+      'Refusing to restore: this is a destructive operation that overwrites the current database and files. Pass confirmed: true only after explicit operator confirmation.',
+    );
   }
 
   const integrity = await verifyBackupIntegrity(options.backupDir);
   if (!integrity.valid || !integrity.manifest) {
-    throw new Error(`Refusing to restore: backup failed integrity verification.\n${integrity.issues.join('\n')}`);
+    throw new Error(
+      `Refusing to restore: backup failed integrity verification.\n${integrity.issues.join('\n')}`,
+    );
   }
 
   const compatibility = checkRestoreCompatibility(integrity.manifest, options.runningCoreVersion);
@@ -354,10 +404,19 @@ export async function restoreBackup(options: RestoreBackupOptions): Promise<Rest
  * real dump against a FORCE-RLS-enabled database during this phase's
  * development (see P3-ENVIRONMENT-VERIFICATION.md).
  */
-export function realPgDump(connectionString: string, pgDumpPath = process.env.PG_DUMP_PATH ?? 'pg_dump') {
+export function realPgDump(
+  connectionString: string,
+  pgDumpPath = process.env.PG_DUMP_PATH ?? 'pg_dump',
+) {
   return async (outputPath: string): Promise<void> => {
     try {
-      await execFileAsync(pgDumpPath, ['--format=custom', '--data-only', '--file', outputPath, connectionString]);
+      await execFileAsync(pgDumpPath, [
+        '--format=custom',
+        '--data-only',
+        '--file',
+        outputPath,
+        connectionString,
+      ]);
     } catch (err) {
       throw new Error(
         `pg_dump failed (looked for "${pgDumpPath}" - override with PG_DUMP_PATH if it's not on PATH): ${err instanceof Error ? err.message : String(err)}`,
@@ -405,7 +464,10 @@ export function realPgDump(connectionString: string, pgDumpPath = process.env.PG
  * ownership requirement `--disable-triggers` had. The restore then loads
  * into empty tables in pg_dump's own dependency order.
  */
-export function realPgRestore(connectionString: string, pgRestorePath = process.env.PG_RESTORE_PATH ?? 'pg_restore') {
+export function realPgRestore(
+  connectionString: string,
+  pgRestorePath = process.env.PG_RESTORE_PATH ?? 'pg_restore',
+) {
   return async (dumpPath: string): Promise<void> => {
     const pool = new Pool({ connectionString });
     try {
@@ -424,7 +486,13 @@ export function realPgRestore(connectionString: string, pgRestorePath = process.
     }
     await pool.end();
     try {
-      await execFileAsync(pgRestorePath, ['--data-only', '--no-owner', '--dbname', connectionString, dumpPath]);
+      await execFileAsync(pgRestorePath, [
+        '--data-only',
+        '--no-owner',
+        '--dbname',
+        connectionString,
+        dumpPath,
+      ]);
     } catch (err) {
       throw new Error(
         `pg_restore failed (looked for "${pgRestorePath}" - override with PG_RESTORE_PATH if it's not on PATH): ${err instanceof Error ? err.message : String(err)}`,

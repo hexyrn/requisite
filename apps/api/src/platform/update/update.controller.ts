@@ -73,15 +73,27 @@ export class UpdateController {
    */
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Post('apply')
-  async apply(@Req() req: FastifyRequest, @Body() body: { packagePath: string; manifest: SignedReleaseManifest; confirmed?: boolean; requireBackup?: boolean }) {
+  async apply(
+    @Req() req: FastifyRequest,
+    @Body()
+    body: {
+      packagePath: string;
+      manifest: SignedReleaseManifest;
+      confirmed?: boolean;
+      requireBackup?: boolean;
+    },
+  ) {
     if (body.confirmed !== true) {
-      throw new BadRequestException('Applying an update runs database migrations and cannot be safely undone in place. Set confirmed: true to proceed.');
+      throw new BadRequestException(
+        'Applying an update runs database migrations and cannot be safely undone in place. Set confirmed: true to proceed.',
+      );
     }
     const organisationId = (req as any).currentOrganisationId;
     const actor = (req as any).currentUser;
     const pool = getPool();
     const migrateConnectionString = process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL;
-    if (!migrateConnectionString) throw new BadRequestException('MIGRATE_DATABASE_URL (or DATABASE_URL) is not configured.');
+    if (!migrateConnectionString)
+      throw new BadRequestException('MIGRATE_DATABASE_URL (or DATABASE_URL) is not configured.');
     const migratePool = new Pool({ connectionString: migrateConnectionString });
     // Deliberately a SEPARATE connection string from migrateConnectionString
     // (a real bug found and fixed this phase, same root cause as
@@ -102,7 +114,9 @@ export class UpdateController {
         requireRecentBackup: body.requireBackup ?? true,
         autoBackup: async () => {
           if (!backupConnectionString) {
-            throw new Error('BACKUP_DATABASE_URL is not configured - cannot auto-backup before applying the update. Must point at the hexyrn_backup role (BYPASSRLS), see docker/postgres-init/01-app-role.sh.');
+            throw new Error(
+              'BACKUP_DATABASE_URL is not configured - cannot auto-backup before applying the update. Must point at the hexyrn_backup role (BYPASSRLS), see docker/postgres-init/01-app-role.sh.',
+            );
           }
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           await createBackup({
@@ -118,14 +132,32 @@ export class UpdateController {
           await runPendingMigrations(migratePool);
         },
         runHealthCheck: async () => {
-          const snapshot = await withOrgContext(organisationId, (db) => this.health.getSystemHealth(db, pool, organisationId));
-          return { healthy: snapshot.overallStatus !== 'error', issues: [snapshot.database, snapshot.migrations].filter((c) => c.status === 'error').map((c) => c.detail) };
+          const snapshot = await withOrgContext(organisationId, (db) =>
+            this.health.getSystemHealth(db, pool, organisationId),
+          );
+          return {
+            healthy: snapshot.overallStatus !== 'error',
+            issues: [snapshot.database, snapshot.migrations]
+              .filter((c) => c.status === 'error')
+              .map((c) => c.detail),
+          };
         },
       });
 
-      logStructured({ event: 'update.applied', level: result.succeeded ? 'info' : 'error', userRef: actor?.id, context: { succeeded: result.succeeded, packageVersion: body.manifest.version } });
+      logStructured({
+        event: 'update.applied',
+        level: result.succeeded ? 'info' : 'error',
+        userRef: actor?.id,
+        context: { succeeded: result.succeeded, packageVersion: body.manifest.version },
+      });
       await withOrgContext(organisationId, (db) =>
-        this.audit.record(db, { organisationId, eventType: 'config.changed', actorUserAccountId: actor?.id, entityType: 'update', entityRef: body.manifest.version }),
+        this.audit.record(db, {
+          organisationId,
+          eventType: 'config.changed',
+          actorUserAccountId: actor?.id,
+          entityType: 'update',
+          entityRef: body.manifest.version,
+        }),
       );
 
       return result;

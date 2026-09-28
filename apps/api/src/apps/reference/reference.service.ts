@@ -189,6 +189,12 @@ export class ReferenceService {
    * for both.
    */
   async listWidgets(db: Kysely<Database>, organisationId: string) {
-    return db.selectFrom('reference_widgets').select(['id', 'widget_number', 'title', 'created_at']).where('organisation_id', '=', organisationId).orderBy('created_at', 'desc').limit(100).execute();
+    return db
+      .selectFrom('reference_widgets')
+      .select(['id', 'widget_number', 'title', 'created_at'])
+      .where('organisation_id', '=', organisationId)
+      .orderBy('created_at', 'desc')
+      .limit(100)
+      .execute();
   }
 }

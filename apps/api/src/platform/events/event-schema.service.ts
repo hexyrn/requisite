@@ -20,11 +20,19 @@ export interface EventPayloadSchema {
  */
 @Injectable()
 export class EventSchemaService {
-  async registerSchema(db: Kysely<Database>, eventType: string, version: number, appId: string, schema: EventPayloadSchema): Promise<void> {
+  async registerSchema(
+    db: Kysely<Database>,
+    eventType: string,
+    version: number,
+    appId: string,
+    schema: EventPayloadSchema,
+  ): Promise<void> {
     await db
       .insertInto('event_schemas')
       .values({ event_type: eventType, version, app_id: appId, schema: schema as any })
-      .onConflict((oc) => oc.columns(['event_type', 'version']).doUpdateSet({ schema: schema as any }))
+      .onConflict((oc) =>
+        oc.columns(['event_type', 'version']).doUpdateSet({ schema: schema as any }),
+      )
       .execute();
   }
 
@@ -37,8 +45,18 @@ export class EventSchemaService {
    * pair IS registered, mismatches are rejected outright (fail closed once
    * opted in).
    */
-  async validate(db: Kysely<Database>, eventType: string, version: number, payload: Record<string, unknown>): Promise<void> {
-    const schemaRow = await db.selectFrom('event_schemas').selectAll().where('event_type', '=', eventType).where('version', '=', version).executeTakeFirst();
+  async validate(
+    db: Kysely<Database>,
+    eventType: string,
+    version: number,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const schemaRow = await db
+      .selectFrom('event_schemas')
+      .selectAll()
+      .where('event_type', '=', eventType)
+      .where('version', '=', version)
+      .executeTakeFirst();
     if (!schemaRow) return; // no schema registered for this type/version - not an error, see class doc.
 
     const schema = schemaRow.schema as unknown as EventPayloadSchema;
@@ -57,7 +75,9 @@ export class EventSchemaService {
     }
 
     if (errors.length > 0) {
-      throw new BadRequestException(`Event payload for "${eventType}" v${version} failed schema validation: ${errors.join('; ')}`);
+      throw new BadRequestException(
+        `Event payload for "${eventType}" v${version} failed schema validation: ${errors.join('; ')}`,
+      );
     }
   }
 }

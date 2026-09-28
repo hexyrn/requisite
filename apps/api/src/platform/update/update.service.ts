@@ -50,7 +50,10 @@ export function checkDiskSpace(targetPath: string, requiredBytes: number): DiskS
       ok: availableBytes >= requiredBytes,
       availableBytes,
       requiredBytes,
-      reason: availableBytes >= requiredBytes ? undefined : `Only ${availableBytes} bytes free at "${targetPath}", need at least ${requiredBytes}.`,
+      reason:
+        availableBytes >= requiredBytes
+          ? undefined
+          : `Only ${availableBytes} bytes free at "${targetPath}", need at least ${requiredBytes}.`,
     };
   } catch (err) {
     return {
@@ -77,12 +80,18 @@ export interface CompatibilityCheckResult {
  * does not support (Architecture: forward-only migrations, no fake
  * rollback - see the module doc comment on applyUpdate).
  */
-export function checkUpdateCompatibility(manifest: SignedReleaseManifest, runningCoreVersion: string = CORE_VERSION): CompatibilityCheckResult {
+export function checkUpdateCompatibility(
+  manifest: SignedReleaseManifest,
+  runningCoreVersion: string = CORE_VERSION,
+): CompatibilityCheckResult {
   const parseMajor = (v: string) => parseInt(v.replace(/^[^\d]*/, '').split('.')[0], 10);
   const packageMajor = parseMajor(manifest.version);
   const runningMajor = parseMajor(runningCoreVersion);
   if (Number.isNaN(packageMajor) || Number.isNaN(runningMajor)) {
-    return { compatible: false, reason: `Could not parse a major version from "${manifest.version}" or "${runningCoreVersion}".` };
+    return {
+      compatible: false,
+      reason: `Could not parse a major version from "${manifest.version}" or "${runningCoreVersion}".`,
+    };
   }
   if (packageMajor < runningMajor) {
     return {
@@ -90,7 +99,10 @@ export function checkUpdateCompatibility(manifest: SignedReleaseManifest, runnin
       reason: `This update package is version ${manifest.version}, OLDER than the currently running ${runningCoreVersion} - downgrading via the update system is not supported. To roll back, restore a pre-update backup instead (see docs/RESTORE.md).`,
     };
   }
-  return { compatible: true, reason: `Update package ${manifest.version} is compatible with running ${runningCoreVersion}.` };
+  return {
+    compatible: true,
+    reason: `Update package ${manifest.version} is compatible with running ${runningCoreVersion}.`,
+  };
 }
 
 export interface BackupPreflightResult {
@@ -113,9 +125,17 @@ export async function checkBackupPreflight(
   const recent = await hasRecentBackup();
   if (recent) return { ok: true, reason: 'A recent backup exists.' };
   if (requireRecentBackup) {
-    return { ok: false, reason: 'No recent backup found, and this update is configured to require one before proceeding. Create a backup first, or pass autoBackup to create one automatically.' };
+    return {
+      ok: false,
+      reason:
+        'No recent backup found, and this update is configured to require one before proceeding. Create a backup first, or pass autoBackup to create one automatically.',
+    };
   }
-  return { ok: true, reason: 'No recent backup found, proceeding anyway (backup preflight is advisory, not required, per current configuration) - strongly recommended to back up before any update regardless.' };
+  return {
+    ok: true,
+    reason:
+      'No recent backup found, proceeding anyway (backup preflight is advisory, not required, per current configuration) - strongly recommended to back up before any update regardless.',
+  };
 }
 
 export type UpdateStepName =
@@ -185,8 +205,18 @@ export async function applyUpdate(options: ApplyUpdateOptions): Promise<ApplyUpd
   let maintenanceModeActive = false;
 
   const verifier = new ReleaseVerifier();
-  const verifyResult = await verifier.verifyArtifactFile(options.packagePath, options.manifest, options.trustedKeys);
-  steps.push({ step: 'verify_package', ok: verifyResult.valid, detail: verifyResult.valid ? 'Package signature and checksum verified.' : verifyResult.reason ?? 'Verification failed.' });
+  const verifyResult = await verifier.verifyArtifactFile(
+    options.packagePath,
+    options.manifest,
+    options.trustedKeys,
+  );
+  steps.push({
+    step: 'verify_package',
+    ok: verifyResult.valid,
+    detail: verifyResult.valid
+      ? 'Package signature and checksum verified.'
+      : (verifyResult.reason ?? 'Verification failed.'),
+  });
   if (!verifyResult.valid) return { succeeded: false, steps, maintenanceModeActive };
 
   const compat = checkUpdateCompatibility(options.manifest, options.runningCoreVersion);
@@ -194,17 +224,32 @@ export async function applyUpdate(options: ApplyUpdateOptions): Promise<ApplyUpd
   if (!compat.compatible) return { succeeded: false, steps, maintenanceModeActive };
 
   const disk = checkDiskSpace(options.diskCheckPath, options.requiredDiskBytes);
-  steps.push({ step: 'check_disk_space', ok: disk.ok, detail: disk.reason ?? `${disk.availableBytes} bytes available.` });
+  steps.push({
+    step: 'check_disk_space',
+    ok: disk.ok,
+    detail: disk.reason ?? `${disk.availableBytes} bytes available.`,
+  });
   if (!disk.ok) return { succeeded: false, steps, maintenanceModeActive };
 
-  let backupPreflight = await checkBackupPreflight(options.hasRecentBackup, options.requireRecentBackup);
+  let backupPreflight = await checkBackupPreflight(
+    options.hasRecentBackup,
+    options.requireRecentBackup,
+  );
   if (!backupPreflight.ok && options.autoBackup) {
     try {
       await options.autoBackup();
-      steps.push({ step: 'create_backup', ok: true, detail: 'Auto-created a backup before proceeding.' });
+      steps.push({
+        step: 'create_backup',
+        ok: true,
+        detail: 'Auto-created a backup before proceeding.',
+      });
       backupPreflight = { ok: true, reason: 'Backup auto-created.' };
     } catch (err) {
-      steps.push({ step: 'create_backup', ok: false, detail: `Auto-backup failed: ${err instanceof Error ? err.message : String(err)}` });
+      steps.push({
+        step: 'create_backup',
+        ok: false,
+        detail: `Auto-backup failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
       return { succeeded: false, steps, maintenanceModeActive };
     }
   }
@@ -214,31 +259,53 @@ export async function applyUpdate(options: ApplyUpdateOptions): Promise<ApplyUpd
   try {
     await options.enterMaintenanceMode();
     maintenanceModeActive = true;
-    steps.push({ step: 'enter_maintenance_mode', ok: true, detail: 'Maintenance mode active - the application is not serving normal requests.' });
+    steps.push({
+      step: 'enter_maintenance_mode',
+      ok: true,
+      detail: 'Maintenance mode active - the application is not serving normal requests.',
+    });
 
     try {
       await options.runMigrations();
       steps.push({ step: 'run_migrations', ok: true, detail: 'Migrations applied.' });
     } catch (err) {
-      steps.push({ step: 'run_migrations', ok: false, detail: `Migration failed: ${err instanceof Error ? err.message : String(err)}. The installation remains in maintenance mode - restore the pre-update backup before resuming normal operation.` });
+      steps.push({
+        step: 'run_migrations',
+        ok: false,
+        detail: `Migration failed: ${err instanceof Error ? err.message : String(err)}. The installation remains in maintenance mode - restore the pre-update backup before resuming normal operation.`,
+      });
       return { succeeded: false, steps, maintenanceModeActive };
     }
 
     const health = await options.runHealthCheck();
-    steps.push({ step: 'health_check', ok: health.healthy, detail: health.healthy ? 'Post-update health check passed.' : `Post-update health check failed: ${health.issues.join('; ')}. The installation remains in maintenance mode - restore the pre-update backup before resuming normal operation.` });
+    steps.push({
+      step: 'health_check',
+      ok: health.healthy,
+      detail: health.healthy
+        ? 'Post-update health check passed.'
+        : `Post-update health check failed: ${health.issues.join('; ')}. The installation remains in maintenance mode - restore the pre-update backup before resuming normal operation.`,
+    });
     if (!health.healthy) {
       return { succeeded: false, steps, maintenanceModeActive };
     }
 
     await options.exitMaintenanceMode();
     maintenanceModeActive = false;
-    steps.push({ step: 'exit_maintenance_mode', ok: true, detail: 'Maintenance mode cleared - the application is serving normal requests again.' });
+    steps.push({
+      step: 'exit_maintenance_mode',
+      ok: true,
+      detail: 'Maintenance mode cleared - the application is serving normal requests again.',
+    });
 
     return { succeeded: true, steps, maintenanceModeActive };
   } catch (err) {
     // An unexpected (not ordinarily-handled) error - try to leave a clean
     // trail even though we can't guarantee more than that.
-    steps.push({ step: 'health_check', ok: false, detail: `Unexpected error during update: ${err instanceof Error ? err.message : String(err)}` });
+    steps.push({
+      step: 'health_check',
+      ok: false,
+      detail: `Unexpected error during update: ${err instanceof Error ? err.message : String(err)}`,
+    });
     return { succeeded: false, steps, maintenanceModeActive };
   }
 }

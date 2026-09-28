@@ -41,14 +41,51 @@ export interface SupportBundleCategory {
 }
 
 export const SUPPORT_BUNDLE_CATEGORIES: SupportBundleCategory[] = [
-  { key: 'versions', label: 'Versions', description: 'Core version and every installed application\'s version.' },
-  { key: 'migrationState', label: 'Migration state', description: 'Which database migrations have been applied, and when.' },
-  { key: 'jobFailures', label: 'Background job failures', description: 'Counts and last-error messages for failed scheduled jobs, grouped by job type - no job payload data.' },
-  { key: 'webhookFailures', label: 'Webhook delivery failures', description: 'Counts and last-error messages for failed webhook deliveries, grouped by endpoint - no delivered payload data, no webhook secrets.' },
-  { key: 'integrationFailures', label: 'Integration failures', description: 'Connection status and last-error messages per integration connection - no connection credentials.' },
-  { key: 'health', label: 'Health summary', description: 'Coarse status signals (database connectivity, migration currency) - see docs/HEALTH_DIAGNOSTICS.md for the full model.' },
-  { key: 'sanitisedConfig', label: 'Sanitised configuration', description: 'Which installation-level configuration variables are SET, never their values.' },
-  { key: 'logs', label: 'Logs', description: 'NOT YET AVAILABLE - this installation does not currently persist logs to a file this module can read (structured logs are written to stdout only). See the bundle\'s logsNote field.' },
+  {
+    key: 'versions',
+    label: 'Versions',
+    description: "Core version and every installed application's version.",
+  },
+  {
+    key: 'migrationState',
+    label: 'Migration state',
+    description: 'Which database migrations have been applied, and when.',
+  },
+  {
+    key: 'jobFailures',
+    label: 'Background job failures',
+    description:
+      'Counts and last-error messages for failed scheduled jobs, grouped by job type - no job payload data.',
+  },
+  {
+    key: 'webhookFailures',
+    label: 'Webhook delivery failures',
+    description:
+      'Counts and last-error messages for failed webhook deliveries, grouped by endpoint - no delivered payload data, no webhook secrets.',
+  },
+  {
+    key: 'integrationFailures',
+    label: 'Integration failures',
+    description:
+      'Connection status and last-error messages per integration connection - no connection credentials.',
+  },
+  {
+    key: 'health',
+    label: 'Health summary',
+    description:
+      'Coarse status signals (database connectivity, migration currency) - see docs/HEALTH_DIAGNOSTICS.md for the full model.',
+  },
+  {
+    key: 'sanitisedConfig',
+    label: 'Sanitised configuration',
+    description: 'Which installation-level configuration variables are SET, never their values.',
+  },
+  {
+    key: 'logs',
+    label: 'Logs',
+    description:
+      "NOT YET AVAILABLE - this installation does not currently persist logs to a file this module can read (structured logs are written to stdout only). See the bundle's logsNote field.",
+  },
 ];
 
 /**
@@ -60,7 +97,8 @@ export const SUPPORT_BUNDLE_CATEGORIES: SupportBundleCategory[] = [
  * anyway (layer 1), but a key-based second layer should not rely on
  * assuming layer 1 is perfect.
  */
-const SENSITIVE_KEY_PATTERN = /password|secret|token|totp|authorization|cookie|hash|credential|api[_-]?key|signing[_-]?key|private[_-]?key/i;
+const SENSITIVE_KEY_PATTERN =
+  /password|secret|token|totp|authorization|cookie|hash|credential|api[_-]?key|signing[_-]?key|private[_-]?key/i;
 
 /**
  * Free-text scrubbing for fields the KEY-based redactor above cannot
@@ -82,11 +120,14 @@ const SENSITIVE_KEY_PATTERN = /password|secret|token|totp|authorization|cookie|h
  *      identifier from a free-text error message is a far better failure
  *      mode than under-redacting a real credential.
  */
-const CONTEXTUAL_SECRET_PATTERN = /(bearer|authorization|password|secret|token|api[_-]?key)\s*[:=]?\s*\S+/gi;
+const CONTEXTUAL_SECRET_PATTERN =
+  /(bearer|authorization|password|secret|token|api[_-]?key)\s*[:=]?\s*\S+/gi;
 const GENERIC_TOKEN_SHAPE_PATTERN = /\b(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{16,}\b/g;
 
 export function scrubFreeText(text: string): string {
-  return text.replace(CONTEXTUAL_SECRET_PATTERN, '[REDACTED]').replace(GENERIC_TOKEN_SHAPE_PATTERN, '[REDACTED]');
+  return text
+    .replace(CONTEXTUAL_SECRET_PATTERN, '[REDACTED]')
+    .replace(GENERIC_TOKEN_SHAPE_PATTERN, '[REDACTED]');
 }
 
 export function redactBundleDeep<T>(value: T): T {
@@ -193,25 +234,51 @@ export class SupportBundleService {
    * Architecture §7 for why those have no RLS).
    */
   async generate(db: Kysely<Database>, pool: Pool, organisationId: string): Promise<SupportBundle> {
-    const installedAppsRows = await pool.query<{ app_id: string; version: string }>('SELECT app_id, version FROM installed_applications ORDER BY app_id');
-    const installedApps = installedAppsRows.rows.map((r) => ({ appId: r.app_id, version: r.version }));
+    const installedAppsRows = await pool.query<{ app_id: string; version: string }>(
+      'SELECT app_id, version FROM installed_applications ORDER BY app_id',
+    );
+    const installedApps = installedAppsRows.rows.map((r) => ({
+      appId: r.app_id,
+      version: r.version,
+    }));
 
-    const migrationRows = await pool.query<{ filename: string; applied_at: Date }>('SELECT filename, applied_at FROM schema_migrations ORDER BY filename');
-    const migrationState: MigrationStateEntry[] = migrationRows.rows.map((r) => ({ filename: r.filename, appliedAt: new Date(r.applied_at).toISOString() }));
+    const migrationRows = await pool.query<{ filename: string; applied_at: Date }>(
+      'SELECT filename, applied_at FROM schema_migrations ORDER BY filename',
+    );
+    const migrationState: MigrationStateEntry[] = migrationRows.rows.map((r) => ({
+      filename: r.filename,
+      appliedAt: new Date(r.applied_at).toISOString(),
+    }));
 
     const jobRows = await db
       .selectFrom('scheduled_jobs')
       .select(['job_type', 'last_error'])
       .where('status', '=', 'failed')
       .execute();
-    const jobFailures = summarise(jobRows, (r) => r.job_type, (r) => r.last_error).map(([jobType, { count, lastError }]) => ({ jobType, failedCount: count, mostRecentError: lastError ? scrubFreeText(lastError) : null }));
+    const jobFailures = summarise(
+      jobRows,
+      (r) => r.job_type,
+      (r) => r.last_error,
+    ).map(([jobType, { count, lastError }]) => ({
+      jobType,
+      failedCount: count,
+      mostRecentError: lastError ? scrubFreeText(lastError) : null,
+    }));
 
     const webhookRows = await db
       .selectFrom('webhook_deliveries')
       .select(['endpoint_id', 'last_error'])
       .where('status', '=', 'failed')
       .execute();
-    const webhookFailures = summarise(webhookRows, (r) => r.endpoint_id, (r) => r.last_error).map(([endpointId, { count, lastError }]) => ({ endpointId, failedDeliveryCount: count, mostRecentError: lastError ? scrubFreeText(lastError) : null }));
+    const webhookFailures = summarise(
+      webhookRows,
+      (r) => r.endpoint_id,
+      (r) => r.last_error,
+    ).map(([endpointId, { count, lastError }]) => ({
+      endpointId,
+      failedDeliveryCount: count,
+      mostRecentError: lastError ? scrubFreeText(lastError) : null,
+    }));
 
     const integrationRows = await db
       .selectFrom('integration_connections')
@@ -243,7 +310,8 @@ export class SupportBundleService {
       integrationFailures,
       health,
       sanitisedConfig: sanitisedConfigSnapshot(process.env),
-      logsNote: 'This installation does not currently persist structured logs to a file this module can read (see logging/logger.ts - stdout only). No log excerpts are included. If your deployment captures stdout externally (e.g. a container log driver, journald), attach relevant entries manually.',
+      logsNote:
+        'This installation does not currently persist structured logs to a file this module can read (see logging/logger.ts - stdout only). No log excerpts are included. If your deployment captures stdout externally (e.g. a container log driver, journald), attach relevant entries manually.',
     };
 
     // Second, independent redaction layer - see module doc comment.
@@ -252,7 +320,11 @@ export class SupportBundleService {
 }
 
 /** Groups rows by a key, keeping only the count and the most recent non-null error text encountered. */
-function summarise<T>(rows: T[], keyFn: (r: T) => string, errorFn: (r: T) => string | null): Array<[string, { count: number; lastError: string | null }]> {
+function summarise<T>(
+  rows: T[],
+  keyFn: (r: T) => string,
+  errorFn: (r: T) => string | null,
+): Array<[string, { count: number; lastError: string | null }]> {
   const map = new Map<string, { count: number; lastError: string | null }>();
   for (const row of rows) {
     const key = keyFn(row);

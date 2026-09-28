@@ -29,7 +29,9 @@ export function AdminSmtpPage() {
         setUsername(c.username ?? '');
         setFromAddress(c.fromAddress ?? '');
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load SMTP configuration.'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load SMTP configuration.'),
+      );
   }
 
   useEffect(reload, []);
@@ -77,7 +79,9 @@ export function AdminSmtpPage() {
     setMessage(null);
     try {
       const result = await smtpApi.sendTest(testTo);
-      setMessage(result.success ? `Test email sent to ${testTo}.` : `Test send failed: ${result.error}`);
+      setMessage(
+        result.success ? `Test email sent to ${testTo}.` : `Test send failed: ${result.error}`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Test send failed.');
     } finally {
@@ -87,8 +91,16 @@ export function AdminSmtpPage() {
 
   return (
     <div>
-      {error && <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>{error}</div>}
-      {message && <div role="status" style={{ color: '#166534', marginBottom: 12 }}>{message}</div>}
+      {error && (
+        <div role="alert" style={{ color: '#991b1b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+      {message && (
+        <div role="status" style={{ color: '#166534', marginBottom: 12 }}>
+          {message}
+        </div>
+      )}
 
       <Card>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>SMTP configuration</h2>
@@ -103,8 +115,17 @@ export function AdminSmtpPage() {
             Use TLS
           </label>
           <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <Input label="Password (leave blank to keep existing)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Input label="From address" value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} />
+          <Input
+            label="Password (leave blank to keep existing)"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Input
+            label="From address"
+            value={fromAddress}
+            onChange={(e) => setFromAddress(e.target.value)}
+          />
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={onSave} disabled={saving || !host.trim() || !fromAddress.trim()}>
               {saving ? 'Saving…' : 'Save'}

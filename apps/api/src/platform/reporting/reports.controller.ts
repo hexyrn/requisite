@@ -24,7 +24,13 @@ export class ReportsController {
   @Get('templates')
   async listTemplates(@Req() req: FastifyRequest, @Query('appId') appId: string) {
     const organisationId = (req as any).currentOrganisationId;
-    return withOrgContext(organisationId, (db) => db.selectFrom('report_templates').select(['template_key', 'app_id', 'name', 'primary_dataset']).where('app_id', '=', appId).execute());
+    return withOrgContext(organisationId, (db) =>
+      db
+        .selectFrom('report_templates')
+        .select(['template_key', 'app_id', 'name', 'primary_dataset'])
+        .where('app_id', '=', appId)
+        .execute(),
+    );
   }
 
   @AuthenticatedOnly()
@@ -33,9 +39,17 @@ export class ReportsController {
     const organisationId = (req as any).currentOrganisationId;
     const subject = (req as any).permissionSubject;
     return withOrgContext(organisationId, async (db) => {
-      const template = await db.selectFrom('report_templates').selectAll().where('template_key', '=', body.templateKey).executeTakeFirst();
-      if (!template) throw new NotFoundException(`Report template "${body.templateKey}" not found.`);
-      return { name: template.name, rows: await this.queryEngine.execute(db, subject, template.definition as any) };
+      const template = await db
+        .selectFrom('report_templates')
+        .selectAll()
+        .where('template_key', '=', body.templateKey)
+        .executeTakeFirst();
+      if (!template)
+        throw new NotFoundException(`Report template "${body.templateKey}" not found.`);
+      return {
+        name: template.name,
+        rows: await this.queryEngine.execute(db, subject, template.definition as any),
+      };
     });
   }
 }

@@ -3,7 +3,12 @@ import { randomUUID } from 'crypto';
 import { withOrgContext } from '../../../db/org-context';
 import { setUpTestDatabase } from '../../../test-utils/test-db';
 import { attachPoolErrorHandler } from '../../../db/pool';
-import { SupportBundleService, redactBundleDeep, scrubFreeText, SUPPORT_BUNDLE_CATEGORIES } from '../support-bundle.service';
+import {
+  SupportBundleService,
+  redactBundleDeep,
+  scrubFreeText,
+  SUPPORT_BUNDLE_CATEGORIES,
+} from '../support-bundle.service';
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
@@ -43,8 +48,12 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
     // real deployment. SupportBundleService.generate() queries that table
     // for real (it exists in production) - simulate it here so this test
     // exercises the real query path rather than skipping it.
-    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    await pool.query(`INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql'), ('0002_test.sql') ON CONFLICT DO NOTHING`);
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+    );
+    await pool.query(
+      `INSERT INTO schema_migrations (filename) VALUES ('0001_test.sql'), ('0002_test.sql') ON CONFLICT DO NOTHING`,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -123,7 +132,11 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
 
   it('a bundle generated for an org with NO failures at all contains none of the seeded canaries', async () => {
     const service = new SupportBundleService();
-    const bundle = await withOrgContext(organisationId, (db) => service.generate(db, pool, organisationId), pool);
+    const bundle = await withOrgContext(
+      organisationId,
+      (db) => service.generate(db, pool, organisationId),
+      pool,
+    );
     assertNoCanariesLeak(serialize(bundle));
     expect(bundle.installedApps).toBeDefined();
     expect(bundle.health.databaseConnectivity).toBe(true);
@@ -162,7 +175,11 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
     );
 
     const service = new SupportBundleService();
-    const bundle = await withOrgContext(organisationId, (db) => service.generate(db, pool, organisationId), pool);
+    const bundle = await withOrgContext(
+      organisationId,
+      (db) => service.generate(db, pool, organisationId),
+      pool,
+    );
     const serialized = serialize(bundle);
 
     // The failure summary itself IS expected to be present (that's the feature)...
@@ -175,7 +192,7 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
     assertNoCanariesLeak(serialized);
   });
 
-  it('an integration connection\'s encrypted secrets never appear, even when the connection is in an error state', async () => {
+  it("an integration connection's encrypted secrets never appear, even when the connection is in an error state", async () => {
     await withOrgContext(
       organisationId,
       async (db) => {
@@ -186,7 +203,10 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
             connector_id: 'com.hexyrn.connector.canary-test',
             display_name: 'Canary Integration',
             config: { endpoint: 'https://erp.example.com' },
-            config_secrets_encrypted: { apiSecret: CANARIES.integrationCredential, smtpPassword: CANARIES.smtpCredential },
+            config_secrets_encrypted: {
+              apiSecret: CANARIES.integrationCredential,
+              smtpPassword: CANARIES.smtpCredential,
+            },
             status: 'error',
             last_error: 'authentication failed',
           })
@@ -196,7 +216,11 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
     );
 
     const service = new SupportBundleService();
-    const bundle = await withOrgContext(organisationId, (db) => service.generate(db, pool, organisationId), pool);
+    const bundle = await withOrgContext(
+      organisationId,
+      (db) => service.generate(db, pool, organisationId),
+      pool,
+    );
     const serialized = serialize(bundle);
 
     expect(bundle.integrationFailures.length).toBe(1);
@@ -222,7 +246,11 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
     );
 
     const service = new SupportBundleService();
-    const bundle = await withOrgContext(organisationId, (db) => service.generate(db, pool, organisationId), pool);
+    const bundle = await withOrgContext(
+      organisationId,
+      (db) => service.generate(db, pool, organisationId),
+      pool,
+    );
     const serialized = serialize(bundle);
 
     expect(bundle.jobFailures.length).toBe(1);
@@ -256,7 +284,9 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
       // a string) is blanked wholesale rather than recursed into - the
       // safer failure mode for a second redaction layer is over-redaction,
       // never under-redaction.
-      const input = { webhookSecrets: { innocuousLookingField: 'not obviously sensitive on its own' } };
+      const input = {
+        webhookSecrets: { innocuousLookingField: 'not obviously sensitive on its own' },
+      };
       const result = redactBundleDeep(input) as any;
       expect(result.webhookSecrets).toBe('[REDACTED]');
     });
@@ -283,6 +313,10 @@ describeIfDb('SupportBundleService (P3 item 21/8) - canary secret-leakage tests'
 async function ensureInstallation(db: any): Promise<string> {
   const existing = await db.selectFrom('installations').select(['id']).executeTakeFirst();
   if (existing) return existing.id;
-  const inserted = await db.insertInto('installations').values({ core_version: '0.1.0-test' }).returning('id').executeTakeFirstOrThrow();
+  const inserted = await db
+    .insertInto('installations')
+    .values({ core_version: '0.1.0-test' })
+    .returning('id')
+    .executeTakeFirstOrThrow();
   return inserted.id;
 }

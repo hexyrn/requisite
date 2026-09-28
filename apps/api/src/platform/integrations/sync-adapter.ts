@@ -13,7 +13,11 @@ export interface ExternalRecord {
 
 export interface SyncAdapter {
   connectorId: string;
-  fetchExternalRecords(connectionConfig: Record<string, unknown>, connectionSecrets: Record<string, string>, entityType: string): Promise<ExternalRecord[]>;
+  fetchExternalRecords(
+    connectionConfig: Record<string, unknown>,
+    connectionSecrets: Record<string, string>,
+    entityType: string,
+  ): Promise<ExternalRecord[]>;
 }
 
 export const SYNC_ADAPTER = Symbol('SYNC_ADAPTER_REGISTRY');

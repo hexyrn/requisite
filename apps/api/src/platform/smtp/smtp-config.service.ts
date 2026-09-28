@@ -88,7 +88,15 @@ export class SmtpConfigService {
   async getConfigForDisplay(pool: Pool): Promise<SmtpConfigForDisplay> {
     const stored = await this.readStored(pool);
     if (!stored) {
-      return { configured: false, host: null, port: null, secure: null, username: null, passwordSet: false, fromAddress: null };
+      return {
+        configured: false,
+        host: null,
+        port: null,
+        secure: null,
+        username: null,
+        passwordSet: false,
+        fromAddress: null,
+      };
     }
     return {
       configured: true,
@@ -106,7 +114,9 @@ export class SmtpConfigService {
   }
 
   private async readStored(pool: Pool): Promise<StoredSmtpConfig | null> {
-    const result = await pool.query<{ config: Record<string, unknown> }>('SELECT config FROM installations LIMIT 1');
+    const result = await pool.query<{ config: Record<string, unknown> }>(
+      'SELECT config FROM installations LIMIT 1',
+    );
     const config = result.rows[0]?.config;
     if (!config || !config[CONFIG_KEY]) return null;
     return config[CONFIG_KEY] as StoredSmtpConfig;

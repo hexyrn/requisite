@@ -68,10 +68,14 @@ export function getTrustedReleasePublicKeys(): TrustedKeyEntry[] {
     try {
       parsed = JSON.parse(configured);
     } catch (err) {
-      throw new Error(`HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS is set but is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS is set but is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error('HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS must be a non-empty JSON array of {keyId, publicKeyPem, status}.');
+      throw new Error(
+        'HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS must be a non-empty JSON array of {keyId, publicKeyPem, status}.',
+      );
     }
     return parsed as TrustedKeyEntry[];
   }
@@ -87,7 +91,15 @@ export function getTrustedReleasePublicKeys(): TrustedKeyEntry[] {
     },
   });
   return [
-    { keyId: TEST_RELEASE_KEY_ID_1, publicKeyPem: TEST_RELEASE_PUBLIC_KEY_1_PEM, status: 'current' },
-    { keyId: TEST_RELEASE_KEY_ID_2, publicKeyPem: TEST_RELEASE_PUBLIC_KEY_2_PEM, status: 'historical' },
+    {
+      keyId: TEST_RELEASE_KEY_ID_1,
+      publicKeyPem: TEST_RELEASE_PUBLIC_KEY_1_PEM,
+      status: 'current',
+    },
+    {
+      keyId: TEST_RELEASE_KEY_ID_2,
+      publicKeyPem: TEST_RELEASE_PUBLIC_KEY_2_PEM,
+      status: 'historical',
+    },
   ];
 }
