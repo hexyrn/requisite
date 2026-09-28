@@ -592,9 +592,22 @@ describeIfDb('HTTP layer - sessions, CSRF, app boot (real Nest + real Postgres)'
   describe('TOTP master key rotation (P3 item 7, real DB round-trip)', () => {
     const KEY_A = Buffer.alloc(32, 11).toString('base64');
     const KEY_B = Buffer.alloc(32, 12).toString('base64');
-    const originalEnv = { ...process.env };
+    // Restore ONLY the keys this block mutates, captured at test time. The
+    // previous version snapshotted the whole of process.env when the file was
+    // collected - i.e. BEFORE beforeAll set COOKIE_SECURE=false - and swapped
+    // that stale snapshot back in afterEach, silently re-enabling Secure
+    // cookies for every later test (the plain-HTTP test client then drops
+    // the session cookie and all subsequent logins fail with "No session").
+    const MUTATED_KEYS = ['TOTP_MASTER_KEY_CURRENT', 'TOTP_MASTER_KEY_PREVIOUS'] as const;
+    let savedEnv: Record<string, string | undefined> = {};
+    beforeEach(() => {
+      savedEnv = Object.fromEntries(MUTATED_KEYS.map((k) => [k, process.env[k]]));
+    });
     afterEach(() => {
-      process.env = { ...originalEnv };
+      for (const k of MUTATED_KEYS) {
+        if (savedEnv[k] === undefined) delete process.env[k];
+        else process.env[k] = savedEnv[k];
+      }
     });
 
     it('rotates a real enrolled user\'s stored secret to a new master key without breaking their MFA challenge', async () => {
