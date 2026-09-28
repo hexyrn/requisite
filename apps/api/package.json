@@ -11,7 +11,8 @@
     "migrate": "ts-node src/db/migrate.ts",
     "migrate:build": "node dist/db/migrate.js",
     "test": "jest --runInBand",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "licence": "ts-node scripts/licence-tool.ts"
   },
   "dependencies": {
     "@fastify/cookie": "~10.0.1",

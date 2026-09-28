@@ -219,6 +219,65 @@ export class ApplicationRegistryService {
   }
 
   /**
+   * First-time activation, run when a valid licence is imported: a customer
+   * who has just imported a licence for an app expects to be able to USE it.
+   * Without this a real installation had no path from "licence imported" to
+   * "app usable": nothing else in the running product enables an app for an
+   * organisation or gives anyone its permissions (only test/seed code did).
+   *
+   * Enables the app and grants the app's declared permissions to the
+   * organisation's Owner role - but ONLY when the app has never been
+   * enabled for this organisation. A licence RENEWAL (re-import) must not
+   * silently re-enable an app an administrator deliberately disabled, nor
+   * re-grant permissions an administrator removed. Idempotent.
+   *
+   * @returns true if this call activated the app, false if it was already known.
+   */
+  async activateOnFirstLicence(
+    db: Kysely<Database>,
+    organisationId: string,
+    appId: string,
+  ): Promise<boolean> {
+    const existing = await db
+      .selectFrom('app_enablements')
+      .select('app_id')
+      .where('organisation_id', '=', organisationId)
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
+    if (existing) return false;
+
+    await this.enableApp(db, organisationId, appId);
+
+    const installed = await db
+      .selectFrom('installed_applications')
+      .select('manifest')
+      .where('app_id', '=', appId)
+      .executeTakeFirst();
+    const permissions = (installed?.manifest as unknown as HexyrnAppManifest | undefined)
+      ?.permissions;
+    const ownerRole = await db
+      .selectFrom('roles')
+      .select('id')
+      .where('organisation_id', '=', organisationId)
+      .where('name', '=', 'Owner')
+      .executeTakeFirst();
+    if (ownerRole && permissions?.length) {
+      await db
+        .insertInto('role_permissions')
+        .values(
+          permissions.map((p) => ({
+            organisation_id: organisationId,
+            role_id: ownerRole.id,
+            permission_key: p.key,
+          })),
+        )
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+    }
+    return true;
+  }
+
+  /**
    * The single source of truth for "is this app's code allowed to run for
    * this organisation right now" - Architecture §3's inactivity invariant.
    * Every gate (ApplicationActiveGuard, the event dispatcher, the job

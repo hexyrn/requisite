@@ -4,6 +4,7 @@ import { withOrgContext } from '../../db/org-context';
 import { RequirePermission } from '../../rbac/permission.guard';
 import { CORE_PERMISSIONS } from '../../rbac/permissions';
 import { ApplicationRegistryService } from './application-registry.service';
+import { AuditService } from '../../audit/audit.service';
 
 /**
  * Deliberately NOT gated by @BelongsToApp (ApplicationActiveGuard) -
@@ -19,7 +20,10 @@ import { ApplicationRegistryService } from './application-registry.service';
  */
 @Controller('api/v1/apps')
 export class AppStateController {
-  constructor(private readonly registry: ApplicationRegistryService) {}
+  constructor(
+    private readonly registry: ApplicationRegistryService,
+    private readonly audit: AuditService,
+  ) {}
 
   @RequirePermission(CORE_PERMISSIONS.ORGANISATION_MANAGE)
   @Get(':appId/state')
@@ -55,11 +59,24 @@ export class AppStateController {
     @Body() body: { majorVersion: number; licence: Record<string, unknown> },
   ) {
     const organisationId = (req as any).currentOrganisationId;
-    await withOrgContext(organisationId, (db) =>
-      this.registry.grantLicense(db, organisationId, appId, body.majorVersion, body.licence),
-    );
-    return withOrgContext(organisationId, (db) =>
+    const userId = (req as any).currentUser?.id;
+    // One transaction: a licence that verifies and the activation it
+    // triggers either both happen or neither does.
+    const activated = await withOrgContext(organisationId, async (db) => {
+      await this.registry.grantLicense(db, organisationId, appId, body.majorVersion, body.licence);
+      const first = await this.registry.activateOnFirstLicence(db, organisationId, appId);
+      await this.audit.record(db, {
+        organisationId,
+        eventType: first ? 'app.activated' : 'app.licence_imported',
+        actorUserAccountId: userId,
+        entityType: 'application',
+        entityRef: appId,
+      });
+      return first;
+    });
+    const detail = await withOrgContext(organisationId, (db) =>
       this.registry.getLicenceDetail(db, organisationId, appId),
     );
+    return { ...detail, activated };
   }
 }

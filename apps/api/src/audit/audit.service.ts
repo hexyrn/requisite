@@ -15,7 +15,9 @@ export type AuditEventType =
   | 'auth.mfa.enrolled'
   | 'auth.mfa.recovery_code_used'
   | 'auth.mfa.admin_reset'
-  | 'auth.rate_limited';
+  | 'auth.rate_limited'
+  | 'app.activated'
+  | 'app.licence_imported';
 
 export interface AuditEventInput {
   organisationId: string;

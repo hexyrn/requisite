@@ -44,7 +44,11 @@ export function AdminLicencePage() {
         licence,
       );
       setDetail(result);
-      setMessage('Licence imported.');
+      setMessage(
+        result.activated
+          ? 'Licence imported and Requisite is now active. Open it from the Home page.'
+          : 'Licence imported.',
+      );
       setLicenceJson('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Licence import failed.');
@@ -70,6 +74,12 @@ export function AdminLicencePage() {
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Hexyrn Requisite licence</h2>
         {detail ? (
           <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {typeof detail.organisationId === 'string' && (
+              <li>
+                Organisation ID (quote this when requesting a licence):{' '}
+                <code data-testid="organisation-id">{detail.organisationId}</code>
+              </li>
+            )}
             <li>
               Licence valid:{' '}
               <StatusBadge

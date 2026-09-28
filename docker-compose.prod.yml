@@ -121,6 +121,13 @@ services:
       BACKUP_DATABASE_URL: postgres://hexyrn_backup:${HEXYRN_BACKUP_DB_PASSWORD}@postgres:5432/hexyrn_core
       HEXYRN_SESSION_SECRET: ${HEXYRN_SESSION_SECRET:?HEXYRN_SESSION_SECRET must be set in .env}
       TOTP_MASTER_KEY_CURRENT: ${TOTP_MASTER_KEY_CURRENT:?TOTP_MASTER_KEY_CURRENT must be set in .env}
+      # Encrypts SMTP / webhook / integration secrets at rest. Required: without
+      # it those features fail with a 500 the first time they are used.
+      SECRET_ENCRYPTION_MASTER_KEY: ${SECRET_ENCRYPTION_MASTER_KEY:?SECRET_ENCRYPTION_MASTER_KEY must be set in .env (openssl rand -base64 32)}
+      # Second layer alongside CSRF: browsers must present this origin for any
+      # state-changing request. Override ALLOWED_ORIGINS if you serve on a
+      # non-default port or from several names (comma-separated).
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://${HEXYRN_PUBLIC_HOSTNAME:-localhost}}
       HEXYRN_LICENSE_PUBLIC_KEY: ${HEXYRN_LICENSE_PUBLIC_KEY:?HEXYRN_LICENSE_PUBLIC_KEY must be set in .env}
       COOKIE_SECURE: 'true'
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.16.0.0/12}

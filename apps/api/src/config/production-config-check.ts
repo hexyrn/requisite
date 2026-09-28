@@ -61,6 +61,24 @@ export function checkProductionConfig(env: NodeJS.ProcessEnv): ProductionConfigI
     });
   }
 
+  // Encrypts secrets that must be recoverable (SMTP password, webhook signing
+  // keys, integration credentials). Without it the server boots normally and
+  // then fails with a 500 the first time an admin saves one of those - a
+  // failure that looks like a bug long after deployment - so refuse to start.
+  const secretKey = env.SECRET_ENCRYPTION_MASTER_KEY ?? env.TOTP_MASTER_KEY;
+  if (!secretKey) {
+    issues.push({
+      variable: 'SECRET_ENCRYPTION_MASTER_KEY',
+      message:
+        'must be set in production (generate with: openssl rand -base64 32). Use a DIFFERENT value from TOTP_MASTER_KEY_CURRENT so rotating one does not affect the other.',
+    });
+  } else if (Buffer.from(secretKey, 'base64').length !== 32) {
+    issues.push({
+      variable: 'SECRET_ENCRYPTION_MASTER_KEY',
+      message: 'must decode to exactly 32 bytes (base64-encoded).',
+    });
+  }
+
   if (!env.HEXYRN_LICENSE_PUBLIC_KEY) {
     issues.push({
       variable: 'HEXYRN_LICENSE_PUBLIC_KEY',

@@ -13,6 +13,10 @@ WORKDIR /repo
 # @hexyrn/design-system et al.
 COPY . .
 RUN npm ci
+# npm has been seen to crash mid-install ("Exit handler never called") while the
+# step still reported success, and BuildKit then caches that empty install and
+# every later build fails confusingly with "tsc: not found". Fail right here instead.
+RUN test -x node_modules/.bin/tsc || (echo 'npm ci did not install dependencies' >&2; exit 1)
 # apps/web depends on the compiled dist/ of these workspace packages
 # (@hexyrn/design-system, @hexyrn/shared-types) - same real bug fixed in
 # apps/api/Dockerfile (workspace deps must be built before the app that

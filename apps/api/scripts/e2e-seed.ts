@@ -52,7 +52,13 @@ async function main() {
   const installationService = new InstallationService();
   const bootstrapService = new BootstrapService(new AuditService());
   const registry = new ApplicationRegistryService();
-  const onboarding = new RequisiteOnboardingService(new NumberingService(), new FormService(), new WorkflowService(), new ApprovalService(), new CustomFieldService());
+  const onboarding = new RequisiteOnboardingService(
+    new NumberingService(),
+    new FormService(),
+    new WorkflowService(),
+    new ApprovalService(),
+    new CustomFieldService(),
+  );
   const suppliers = new SupplierService(onboarding);
   const contextFactory = new AppContextFactory(
     new CapabilityResolverService(registry),
@@ -87,9 +93,28 @@ async function main() {
   const organisationId = result.organisationId;
 
   await registry.registerApp(REQUISITE_APP_MANIFEST, pool);
-  await withOrgContext(organisationId, (db) => registry.enableApp(db, organisationId, REQUISITE_APP_MANIFEST.appId), pool);
-  const license = await createTestLicense(REQUISITE_APP_MANIFEST.appId, organisationId, REQUISITE_APP_MANIFEST.majorVersion);
-  await withOrgContext(organisationId, (db) => registry.grantLicense(db, organisationId, REQUISITE_APP_MANIFEST.appId, REQUISITE_APP_MANIFEST.majorVersion, license as any), pool);
+  await withOrgContext(
+    organisationId,
+    (db) => registry.enableApp(db, organisationId, REQUISITE_APP_MANIFEST.appId),
+    pool,
+  );
+  const license = await createTestLicense(
+    REQUISITE_APP_MANIFEST.appId,
+    organisationId,
+    REQUISITE_APP_MANIFEST.majorVersion,
+  );
+  await withOrgContext(
+    organisationId,
+    (db) =>
+      registry.grantLicense(
+        db,
+        organisationId,
+        REQUISITE_APP_MANIFEST.appId,
+        REQUISITE_APP_MANIFEST.majorVersion,
+        license as any,
+      ),
+    pool,
+  );
 
   const approverEmail = 'approver@e2e.hexyrn.test';
   const approverPassword = 'e2e-approver-password-123!';
@@ -97,21 +122,83 @@ async function main() {
   await withOrgContext(
     organisationId,
     async (db) => {
-      const ownerRole = await db.selectFrom('roles').selectAll().where('organisation_id', '=', organisationId).where('name', '=', 'Owner').executeTakeFirstOrThrow();
+      const ownerRole = await db
+        .selectFrom('roles')
+        .selectAll()
+        .where('organisation_id', '=', organisationId)
+        .where('name', '=', 'Owner')
+        .executeTakeFirstOrThrow();
       for (const perm of REQUISITE_APP_MANIFEST.permissions ?? []) {
-        await db.insertInto('role_permissions').values({ organisation_id: organisationId, role_id: ownerRole.id, permission_key: perm.key }).onConflict((oc) => oc.doNothing()).execute();
+        await db
+          .insertInto('role_permissions')
+          .values({
+            organisation_id: organisationId,
+            role_id: ownerRole.id,
+            permission_key: perm.key,
+          })
+          .onConflict((oc) => oc.doNothing())
+          .execute();
       }
-      const approverUser = await db.insertInto('user_accounts').values({ organisation_id: organisationId, email: approverEmail, password_hash: await hashPassword(approverPassword), is_active: true }).returningAll().executeTakeFirstOrThrow();
-      await db.insertInto('user_roles').values({ organisation_id: organisationId, user_account_id: approverUser.id, role_id: ownerRole.id }).execute();
+      const approverUser = await db
+        .insertInto('user_accounts')
+        .values({
+          organisation_id: organisationId,
+          email: approverEmail,
+          password_hash: await hashPassword(approverPassword),
+          is_active: true,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      await db
+        .insertInto('user_roles')
+        .values({
+          organisation_id: organisationId,
+          user_account_id: approverUser.id,
+          role_id: ownerRole.id,
+        })
+        .execute();
     },
     pool,
   );
 
-  const ownerUser = await withOrgContext(organisationId, (db) => db.selectFrom('user_accounts').selectAll().where('email', '=', ownerEmail).executeTakeFirstOrThrow(), pool);
+  const ownerUser = await withOrgContext(
+    organisationId,
+    (db) =>
+      db
+        .selectFrom('user_accounts')
+        .selectAll()
+        .where('email', '=', ownerEmail)
+        .executeTakeFirstOrThrow(),
+    pool,
+  );
   const allPerms = new Set((REQUISITE_APP_MANIFEST.permissions ?? []).map((p) => p.key));
-  const supplier = await withOrgContext(organisationId, (db) => suppliers.createSupplier(contextFactory.create(REQUISITE_APP_MANIFEST.appId, organisationId, allPerms, ownerUser.id, db), db, ownerUser.id, { name: 'Midlands Steel Supplies Ltd', email: 'sales@midlandssteel.example' }), pool);
+  const supplier = await withOrgContext(
+    organisationId,
+    (db) =>
+      suppliers.createSupplier(
+        contextFactory.create(
+          REQUISITE_APP_MANIFEST.appId,
+          organisationId,
+          allPerms,
+          ownerUser.id,
+          db,
+        ),
+        db,
+        ownerUser.id,
+        { name: 'Midlands Steel Supplies Ltd', email: 'sales@midlandssteel.example' },
+      ),
+    pool,
+  );
 
-  const output = { organisationId, ownerEmail, ownerPassword, approverEmail, approverPassword, supplierId: supplier.id, supplierName: supplier.name };
+  const output = {
+    organisationId,
+    ownerEmail,
+    ownerPassword,
+    approverEmail,
+    approverPassword,
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+  };
   // fixtures/ is gitignored, so it does not exist in a fresh checkout / CI job.
   const fixturesDir = join(__dirname, '..', '..', '..', 'e2e', 'fixtures');
   mkdirSync(fixturesDir, { recursive: true });

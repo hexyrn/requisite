@@ -31,3 +31,10 @@ dist-release/
 # restore` + `wix extension add ... /4.0.6` per docs/WINDOWS_ACCEPTANCE_PREP.md).
 .wix/
 
+
+# vendor licence signing keys (private key must never be committed)
+licence-keys/
+licence-private.pem
+*.licence
+.sandbox-ca.crt
+*.sandbox

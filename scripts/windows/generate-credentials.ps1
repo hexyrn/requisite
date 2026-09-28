@@ -83,6 +83,9 @@ $values = [ordered]@{
     # (`openssl rand -base64 32`), just produced via .NET instead of
     # requiring OpenSSL to be separately installed on the target machine.
     TOTP_MASTER_KEY_CURRENT   = New-SecureRandomBase64 -ByteLength 32
+    # Encrypts SMTP/webhook/integration secrets; production-config-check.ts
+    # refuses to start without it. Independent of the TOTP key on purpose.
+    SECRET_ENCRYPTION_MASTER_KEY = New-SecureRandomBase64 -ByteLength 32
     HEXYRN_SESSION_SECRET     = New-SecureRandomBase64 -ByteLength 48
     # Three DISTINCT PostgreSQL role passwords - see
     # docker/postgres-init/01-app-role.sh's own comment on why these must

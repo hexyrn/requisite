@@ -1,0 +1,40 @@
+# Keep the build context small AND keep secrets out of image layers:
+# the Dockerfiles do `COPY . .`, so anything not listed here ends up in an image.
+
+# secrets / local config - NEVER bake into an image
+.env
+.env.*
+!.env.example
+**/bootstrap-token.txt
+**/*.pem
+**/*.key
+e2e/fixtures/
+
+# VCS and editor
+.git
+.github
+.claude
+.config
+.wix
+.vscode
+
+# host build output and dependencies (rebuilt inside the image; host copies
+# carry host-specific symlinks/native binaries and caused Docker Desktop
+# "invalid file request node_modules/.bin/..." build failures)
+**/node_modules
+**/dist
+dist-release
+.build-cache
+**/*.tsbuildinfo
+
+# runtime data
+**/storage
+**/backups
+**/test-results
+**/playwright-report
+
+# not needed to build the API or web images
+installer
+docs/screenshots
+*.md
+!README.md

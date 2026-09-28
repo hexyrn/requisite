@@ -36,10 +36,31 @@ export const TEST_LICENSE_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
 MC4CAQAwBQYDK2VwBCIEIEE5oImvlwDwKH6vyjNw4QIebzvBYWVWwjJIdLnQHZca
 -----END PRIVATE KEY-----`;
 
+/**
+ * Accepts the public key however an operator can realistically get it into an
+ * environment variable: a real multi-line PEM, a PEM with literal "\\n"
+ * sequences (single-line .env / Docker / systemd), or just the bare base64
+ * body that `licence-tool keygen` prints. Node's crypto only understands a
+ * properly line-broken PEM, so anything else is normalised to one.
+ */
+export function normalizePublicKeyPem(raw: string): string {
+  let value = raw
+    .trim()
+    .replace(/^(["'])(.*)\1$/s, '$2')
+    .replace(/\\n/g, '\n')
+    .trim();
+  if (!value.includes('BEGIN')) {
+    const body = value.replace(/\s+/g, '');
+    const lines = body.match(/.{1,64}/g) ?? [];
+    value = `-----BEGIN PUBLIC KEY-----\n${lines.join('\n')}\n-----END PUBLIC KEY-----`;
+  }
+  return value;
+}
+
 export function getConfiguredPublicKey(): string {
   const configured = process.env.HEXYRN_LICENSE_PUBLIC_KEY;
   if (configured && configured.trim().length > 0) {
-    return configured;
+    return normalizePublicKeyPem(configured);
   }
   logStructured({
     event: 'licensing.using_test_public_key',

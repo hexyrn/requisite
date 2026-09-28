@@ -84,7 +84,7 @@ export const licenceApi = {
   getLicence: (appId: string) =>
     request<LicenceDetail>(`/apps/${encodeURIComponent(appId)}/licence`),
   importLicence: (appId: string, majorVersion: number, licence: Record<string, unknown>) =>
-    request<LicenceDetail>(`/apps/${encodeURIComponent(appId)}/licence`, {
+    request<LicenceDetail & { activated?: boolean }>(`/apps/${encodeURIComponent(appId)}/licence`, {
       method: 'POST',
       body: JSON.stringify({ majorVersion, licence }),
     }),

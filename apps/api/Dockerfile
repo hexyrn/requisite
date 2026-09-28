@@ -26,6 +26,10 @@ WORKDIR /repo
 # invalidate the install step too) in exchange for actually working.
 COPY . .
 RUN npm ci
+# npm has been seen to crash mid-install ("Exit handler never called") while the
+# step still reported success, and BuildKit then caches that empty install and
+# every later build fails confusingly with "tsc: not found". Fail right here instead.
+RUN test -x node_modules/.bin/tsc || (echo 'npm ci did not install dependencies' >&2; exit 1)
 
 # apps/api depends on the compiled dist/ of these workspace packages
 # (@hexyrn/shared-types, @hexyrn/app-sdk) - build them first, found as a
