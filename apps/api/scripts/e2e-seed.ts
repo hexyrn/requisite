@@ -14,7 +14,7 @@
  */
 import 'reflect-metadata';
 import 'dotenv/config';
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { Pool } from 'pg';
 import { setUpTestDatabase, createTestLicense } from '../src/test-utils/test-db';
@@ -112,7 +112,10 @@ async function main() {
   const supplier = await withOrgContext(organisationId, (db) => suppliers.createSupplier(contextFactory.create(REQUISITE_APP_MANIFEST.appId, organisationId, allPerms, ownerUser.id, db), db, ownerUser.id, { name: 'Midlands Steel Supplies Ltd', email: 'sales@midlandssteel.example' }), pool);
 
   const output = { organisationId, ownerEmail, ownerPassword, approverEmail, approverPassword, supplierId: supplier.id, supplierName: supplier.name };
-  writeFileSync(join(__dirname, '..', '..', '..', 'e2e', 'fixtures', 'seed-output.json'), JSON.stringify(output, null, 2));
+  // fixtures/ is gitignored, so it does not exist in a fresh checkout / CI job.
+  const fixturesDir = join(__dirname, '..', '..', '..', 'e2e', 'fixtures');
+  mkdirSync(fixturesDir, { recursive: true });
+  writeFileSync(join(fixturesDir, 'seed-output.json'), JSON.stringify(output, null, 2));
   // eslint-disable-next-line no-console
   console.log('E2E seed complete:', output);
 

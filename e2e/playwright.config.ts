@@ -10,5 +10,10 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    // Optional: use an already-installed Chromium (sandboxes / CI images that
+    // pre-bake a browser and cannot download Playwright's own build).
+    launchOptions: process.env.E2E_CHROMIUM_PATH
+      ? { executablePath: process.env.E2E_CHROMIUM_PATH }
+      : {},
   },
 });
