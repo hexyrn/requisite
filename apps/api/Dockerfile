@@ -53,8 +53,19 @@ RUN npm run build --workspace apps/api
 # above) that only resolve correctly if that relative structure is
 # preserved.
 RUN npm ci --omit=dev
+# npm may place some packages under apps/api/node_modules instead of hoisting
+# them to /repo/node_modules (it does whenever versions differ between
+# workspaces - e.g. after a dependency upgrade). The runtime stage must copy
+# both, or the container dies at startup with "Cannot find module '@nestjs/core'".
+# The mkdir keeps the COPY below valid when everything happens to be hoisted.
+RUN mkdir -p apps/api/node_modules
 
 FROM node:20-alpine AS runtime
+# Backup / restore / auto-backup-before-update shell out to pg_dump and
+# pg_restore (apps/api/src/platform/backup/backup.service.ts). A bare
+# node:alpine image has neither, so those features failed in a container
+# deployment. Client major version matches the server (postgres:17-alpine).
+RUN apk add --no-cache postgresql17-client && pg_dump --version && pg_restore --version
 # Deliberately NOT running as root (item 34/production-hardening: a
 # container escape or dependency RCE in a root-owned process is a
 # materially larger blast radius than in an unprivileged one).
@@ -63,6 +74,7 @@ WORKDIR /repo
 ENV NODE_ENV=production
 
 COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /repo/package.json ./package.json
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/api/package.json ./apps/api/package.json

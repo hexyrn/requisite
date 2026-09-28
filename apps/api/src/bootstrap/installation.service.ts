@@ -42,6 +42,31 @@ export class InstallationService {
     try {
       const existing = await db.selectFrom('installations').selectAll().executeTakeFirst();
       if (existing) {
+        // Setup not finished yet (no organisation exists, so there is nothing
+        // to protect): issue a FRESH token on every boot and invalidate the
+        // old one. Only the token's hash is stored, so if the operator missed
+        // the console line - or the container/service was recreated before
+        // they completed setup, taking the log and bootstrap-token.txt with it
+        // - the installation would otherwise be stuck with no way in.
+        // Once setup completes this branch never runs again.
+        const config = existing.config as { primaryOrganisationId?: string } | null;
+        if (!config?.primaryOrganisationId) {
+          const plaintextToken = generateSecureToken(32);
+          const updated = await db
+            .updateTable('bootstrap_tokens')
+            .set({ token_hash: hashToken(plaintextToken) })
+            .where('installation_id', '=', existing.id)
+            .where('consumed_at', 'is', null)
+            .executeTakeFirst();
+          if (Number(updated.numUpdatedRows) === 0) {
+            await db
+              .insertInto('bootstrap_tokens')
+              .values({ installation_id: existing.id, token_hash: hashToken(plaintextToken) })
+              .execute();
+          }
+          this.exposeTokenToOperator(plaintextToken);
+          return { installationId: existing.id, plaintextBootstrapToken: plaintextToken };
+        }
         return { installationId: existing.id };
       }
 

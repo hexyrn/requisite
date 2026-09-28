@@ -89,3 +89,53 @@ describeIfDb('Bootstrap: secure one-time setup token (P0 item 6)', () => {
     ).rejects.toThrow(/invalid, already used, or expired/i);
   });
 });
+
+describeIfDb('Bootstrap: the setup token survives a restart before setup is completed', () => {
+  let pool: Pool;
+  const baseInput = {
+    organisationName: 'Reboot Co',
+    organisationDisplayName: 'Reboot Co',
+    defaultCurrency: 'GBP',
+    timezone: 'UTC',
+    locale: 'en-GB',
+    financialYearStartMonth: 1,
+    ownerEmail: 'owner@reboot.test',
+    ownerPassword: 'a-very-strong-password-123',
+  };
+
+  beforeAll(async () => {
+    pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));
+    await setUpTestDatabase(pool);
+  }, 60000);
+
+  afterAll(async () => {
+    await pool.end();
+  });
+
+  it('a reboot before setup issues a fresh working token and invalidates the lost one; after setup nothing is re-issued', async () => {
+    const svc = new InstallationService();
+    const bootstrap = new BootstrapService(new AuditService());
+
+    const first = await svc.ensureInstallation(pool);
+    // Operator never saw the first token (container recreated / log lost) and restarts the API.
+    const second = await svc.ensureInstallation(pool);
+    expect(second.installationId).toBe(first.installationId);
+    expect(second.plaintextBootstrapToken).toBeDefined();
+    expect(second.plaintextBootstrapToken).not.toBe(first.plaintextBootstrapToken);
+
+    // The old token no longer works - a re-issue must not leave two valid tokens around.
+    await expect(
+      bootstrap.completeBootstrap({ ...baseInput, token: first.plaintextBootstrapToken! }, pool),
+    ).rejects.toThrow(/invalid, already used, or expired/i);
+
+    // The new one completes setup.
+    const done = await bootstrap.completeBootstrap(
+      { ...baseInput, token: second.plaintextBootstrapToken! },
+      pool,
+    );
+    expect(done.organisationId).toBeDefined();
+
+    // Setup is complete: further boots issue nothing.
+    expect((await svc.ensureInstallation(pool)).plaintextBootstrapToken).toBeUndefined();
+  });
+});
