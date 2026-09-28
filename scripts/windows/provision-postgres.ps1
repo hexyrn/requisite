@@ -85,11 +85,27 @@ param(
     [string]$DataDir = (Join-Path $env:ProgramData 'Hexyrn Core\postgresql-data'),
     [int]$Port = 5432,
     [string]$MigratePayloadDir,
+    # Full path of the bundled node.exe. Migrations and the settings-file writer run with it - a Windows
+    # service (and this MSI custom action) has no Node on PATH.
+    [string]$NodeExe = 'node',
+    # Where the application is installed (Program Files\Hexyrn Core) and where its data lives (ProgramData\Hexyrn Core).
+    [string]$InstallDir,
+    [string]$DataRoot,
+    # The vendor's public licence key shipped inside the installer. If supplied, the runtime settings
+    # file (hexyrn.env) the service reads at startup is written after provisioning.
+    [string]$LicenceKeyFile,
+    [int]$WebPort = 3000,
     [switch]$RunMigrations,
     [switch]$RegisterService,
     [hashtable]$Credentials
 )
 
+# MSI directory properties end in a backslash, and a trailing backslash before a closing quote on a command line
+# swallows the quote (and everything after it). The MSI therefore passes "<dir>." and we normalise here.
+foreach ($name in 'DataDir', 'MigratePayloadDir', 'InstallDir', 'DataRoot', 'PgBinPath') {
+    $current = Get-Variable -Name $name -ValueOnly -ErrorAction SilentlyContinue
+    if ($current) { Set-Variable -Name $name -Value ([System.IO.Path]::GetFullPath($current).TrimEnd('\')) }
+}
 $ErrorActionPreference = 'Stop'
 
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
@@ -207,8 +223,24 @@ ALTER DEFAULT PRIVILEGES FOR ROLE hexyrn IN SCHEMA public GRANT USAGE, SELECT ON
         Write-Step 'Running real migrations against the freshly-provisioned cluster'
         $env:MIGRATE_DATABASE_URL = "postgres://hexyrn:$($Credentials['HEXYRN_MIGRATE_DB_PASSWORD'])@127.0.0.1:$Port/hexyrn_core"
         $migrateScript = Join-Path $MigratePayloadDir 'apps\api\dist\db\migrate.js'
-        node $migrateScript
+        & $NodeExe $migrateScript
         if ($LASTEXITCODE -ne 0) { throw 'Migrations failed' }
+    }
+
+    if ($LicenceKeyFile) {
+        # Writes <DataRoot>\config\hexyrn.env: database URLs, secrets, licence key, ports, paths. The service
+        # reads it at startup (apps/api/src/config/env-file.ts). Skips if it already exists, so a repair or
+        # upgrade never regenerates the secrets of a working installation.
+        if (-not $InstallDir -or -not $DataRoot -or -not $MigratePayloadDir) { throw '-LicenceKeyFile requires -InstallDir, -DataRoot and -MigratePayloadDir' }
+        Write-Step 'Writing the runtime settings file the service reads at startup'
+        $writer = Join-Path $MigratePayloadDir 'apps\api\dist\config\write-runtime-config.js'
+        & $NodeExe $writer `
+            --credentials (Join-Path $DataRoot 'config\database.env') `
+            --licence-key-file $LicenceKeyFile `
+            --install-dir $InstallDir --data-dir $DataRoot `
+            --pg-port $Port --web-port $WebPort `
+            --out (Join-Path $DataRoot 'config\hexyrn.env')
+        if ($LASTEXITCODE -ne 0) { throw 'Writing hexyrn.env failed' }
     }
 }
 finally {

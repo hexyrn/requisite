@@ -1,3 +1,4 @@
+import { InstallationService } from './installation.service';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Pool } from 'pg';
@@ -38,7 +39,7 @@ export class BootstrapService {
     const organisationId = randomUUID();
     const tokenHash = hashToken(input.token);
 
-    return withOrgContext(
+    const result = await withOrgContext(
       organisationId,
       async (db) => {
         // Consume the token atomically: only succeeds once, ever.
@@ -133,5 +134,9 @@ export class BootstrapService {
       },
       pool,
     );
+
+    // The token is now dead; don't leave a plaintext copy on disk (best effort, never fails setup).
+    new InstallationService().clearTokenFile();
+    return result;
   }
 }

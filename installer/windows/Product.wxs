@@ -124,6 +124,8 @@
          bundle UI step that probes port availability and lets this
          property be overridden if even 55432 happens to be taken. -->
     <Property Id="HEXYRNPGPORT" Value="55432" />
+    <!-- Port the app listens on (loopback only by default); users open http://localhost:<this>. -->
+    <Property Id="HEXYRNWEBPORT" Value="3000" />
 
     <Feature Id="MainFeature" Title="Hexyrn Core" Level="1">
       <ComponentGroupRef Id="ApiFiles" />
@@ -133,6 +135,8 @@
       <ComponentRef Id="HexyrnPostgresService" />
       <ComponentRef Id="ProvisioningScripts" />
       <ComponentRef Id="ProvisionCustomAction" />
+      <ComponentRef Id="LicenceKeyFile" />
+      <ComponentRef Id="StartMenuShortcuts" />
       <ComponentRef Id="DataDirectories" />
     </Feature>
 
@@ -164,7 +168,7 @@
         Description="Hexyrn Core application server."
         Start="demand"
         ErrorControl="normal"
-        Arguments="&quot;[ApiFolder]dist\main.js&quot;"
+        Arguments="&quot;[ApiFolder]apps\api\dist\main.js&quot;"
         Account="NT SERVICE\HexyrnCore">
         <!-- Real dependency wiring: the SCM itself now enforces that
              HexyrnPostgreSQL is running before HexyrnCore is allowed to
@@ -255,6 +259,7 @@
     <Component Id="ProvisioningScripts" Directory="ScriptsFolder" Guid="9d1f3b5c-7e9a-4c2d-8f1b-3e5d7f9a1c60">
       <File Id="ProvisionPostgresScript" Source="$(var.RepoRoot)\scripts\windows\provision-postgres.ps1" KeyPath="yes" />
       <File Id="GenerateCredentialsScript" Source="$(var.RepoRoot)\scripts\windows\generate-credentials.ps1" />
+      <File Id="OpenHexyrnScript" Source="$(var.RepoRoot)\scripts\windows\Open-Hexyrn.ps1" />
     </Component>
 
     <!-- The provisioning CUSTOM ACTION itself. Execute="deferred" +
@@ -300,7 +305,7 @@
     <CustomAction
       Id="SetHexyrnDataAcls"
       Directory="HexyrnDataFolder"
-      ExeCommand="cmd.exe /c icacls &quot;[HexyrnStorageFolder]&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnBackupsFolder]&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnConfigFolder]&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnPostgresDataFolder]&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot;"
+      ExeCommand="cmd.exe /c icacls &quot;[HexyrnStorageFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnBackupsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnConfigFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnPostgresDataFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot;"
       Execute="deferred"
       Return="check"
       Impersonate="no" />
@@ -313,7 +318,7 @@
     <CustomAction
       Id="ProvisionHexyrnPostgres"
       Directory="ScriptsFolder"
-      ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[ScriptsFolder]provision-postgres.ps1&quot; -PgBinPath &quot;[PostgresFolder]bin&quot; -DataDir &quot;[HexyrnPostgresDataFolder]&quot; -Port [HEXYRNPGPORT]"
+      ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[ScriptsFolder]provision-postgres.ps1&quot; -PgBinPath &quot;[PostgresFolder]bin&quot; -DataDir &quot;[HexyrnPostgresDataFolder].&quot; -Port [HEXYRNPGPORT] -RunMigrations -MigratePayloadDir &quot;[ApiFolder].&quot; -NodeExe &quot;[NodeRuntimeFolder]node.exe&quot; -InstallDir &quot;[INSTALLFOLDER].&quot; -DataRoot &quot;[HexyrnDataFolder].&quot; -LicenceKeyFile &quot;[INSTALLFOLDER]licence-public-key.txt&quot; -WebPort [HEXYRNWEBPORT]"
       Execute="deferred"
       Return="check"
       Impersonate="no" />
@@ -378,6 +383,26 @@
          EXCLUDED from these harvests (see build-release.ps1's harvest
          invocations) because they are hand-authored above as their
          respective services' KeyPath files instead. -->
+
+    <!-- The vendor's PUBLIC licence key, baked in at build time (build-release.ps1 -LicencePublicKeyFile). Public
+         by nature; the matching private key never goes anywhere near an installer. provision-postgres.ps1 copies
+         its value into hexyrn.env, and the app refuses to start in production without it. -->
+    <Component Id="LicenceKeyFile" Directory="INSTALLFOLDER" Guid="4b6d8f0a-2c4e-4a6c-8e0a-2b4d6f8a0c11">
+      <File Id="LicencePublicKeyFile" Source="$(var.LicencePublicKeyFile)" Name="licence-public-key.txt" KeyPath="yes" />
+    </Component>
+
+    <!-- Start Menu: "Hexyrn Core" opens the app (and on first run, the setup page with the setup code copied to
+         the clipboard). Open-Hexyrn.ps1 elevates itself only when it must read the admin-only token file. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="HexyrnMenuFolder" Name="Hexyrn Core" />
+    </StandardDirectory>
+    <Component Id="StartMenuShortcuts" Directory="HexyrnMenuFolder" Guid="6d8f0a2c-4e6a-4c8e-a0c2-4d6f8a0c2e33">
+      <Shortcut Id="OpenHexyrnShortcut" Name="Hexyrn Core" Description="Open Hexyrn Core in your browser"
+                Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+                Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[ScriptsFolder]Open-Hexyrn.ps1&quot; -Port [HEXYRNWEBPORT]" />
+      <RemoveFolder Id="RemoveHexyrnMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Hexyrn\Core" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
 
     <Component Id="DataDirectories" Directory="HexyrnDataFolder" Guid="3c7e9a1b-5d2f-4e8a-b6c3-1a9d7f2e4b08">
       <CreateFolder Directory="HexyrnStorageFolder" />

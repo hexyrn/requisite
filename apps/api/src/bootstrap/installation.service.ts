@@ -5,8 +5,8 @@ import { Database } from '../db/types';
 import { getPool } from '../db/pool';
 import { generateSecureToken, hashToken } from '../security/tokens';
 import { logStructured } from '../logging/logger';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 
 const CORE_VERSION = '0.1.0-p0';
 
@@ -93,6 +93,22 @@ export class InstallationService {
     }
   }
 
+  private tokenFilePath(): string {
+    return process.env.HEXYRN_BOOTSTRAP_TOKEN_FILE ?? join(process.cwd(), 'bootstrap-token.txt');
+  }
+
+  /**
+   * Setup is done and the token is dead; don't leave a plaintext copy lying around on disk.
+   * Best effort - failing to delete must never fail the setup that already succeeded.
+   */
+  clearTokenFile(): void {
+    try {
+      rmSync(this.tokenFilePath(), { force: true });
+    } catch {
+      // ignore
+    }
+  }
+
   private exposeTokenToOperator(token: string): void {
     logStructured({
       event: 'bootstrap.token_generated',
@@ -106,7 +122,10 @@ export class InstallationService {
       `\n=== HEXYRN CORE FIRST-RUN SETUP TOKEN ===\n${token}\n==========================================\n`,
     );
     try {
-      const path = join(process.cwd(), 'bootstrap-token.txt');
+      // A Windows service has no console to print to and its working directory is not
+      // somewhere an operator would look, so the installer points this at the config folder.
+      const path = this.tokenFilePath();
+      mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, token + '\n', { mode: 0o600 });
     } catch {
       // Best-effort only - stdout above is the guaranteed delivery path.

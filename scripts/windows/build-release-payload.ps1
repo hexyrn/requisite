@@ -134,6 +134,12 @@ try {
 
     Write-Step 'Copying the hoisted PRODUCTION-ONLY node_modules (npm workspaces hoists to the repo root - see apps/api/Dockerfile''s own comment on this)'
     Copy-Item -Recurse -Force (Join-Path $buildRoot 'node_modules') (Join-Path $OutDir 'node_modules')
+    # npm may nest some packages under apps/api/node_modules instead of hoisting them (same trap as
+    # apps/api/Dockerfile: the installed service would die with "Cannot find module '@nestjs/core'").
+    $nestedModules = Join-Path $buildRoot 'apps\api\node_modules'
+    if (Test-Path $nestedModules) {
+        Copy-Item -Recurse -Force $nestedModules (Join-Path $apiOut 'node_modules')
+    }
     Copy-Item -Force (Join-Path $buildRoot 'package.json') (Join-Path $OutDir 'package.json')
 
     Write-Step 'Verifying no source .ts files, no devDependencies, and no dotfiles/secrets leaked into the staged payload'

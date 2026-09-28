@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import './config/load-env-file'; // must run before anything reads process.env
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
@@ -38,6 +39,7 @@ import { ImportService } from './platform/import/import.service';
 import { ImportHandlerRegistryService } from './platform/import/import-row-handler';
 import { EventSchemaService } from './platform/events/event-schema.service';
 import { assertProductionConfigOrThrow } from './config/production-config-check';
+import { registerStaticWeb } from './config/static-web';
 
 async function bootstrap() {
   // P3 item 39: fail fast and loudly with NODE_ENV=production and a
@@ -202,8 +204,15 @@ async function bootstrap() {
     app.get(EventSchemaService),
   );
 
+  // Installs without a separate web server (Windows) let the API serve the built web app itself.
+  if (process.env.HEXYRN_WEB_DIR) {
+    registerStaticWeb(app.getHttpAdapter().getInstance(), process.env.HEXYRN_WEB_DIR);
+  }
+
   const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port, '0.0.0.0');
+  // HOST defaults to all interfaces (Docker needs that); the Windows installer sets 127.0.0.1
+  // so a single-PC install is not reachable from the network unless the operator chooses.
+  await app.listen(port, process.env.HOST ?? '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`Hexyrn Core API listening on port ${port}`);
 }

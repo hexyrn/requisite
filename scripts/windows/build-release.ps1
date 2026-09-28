@@ -50,6 +50,10 @@
 param(
     [Parameter(Mandatory = $true)][string]$PostgresZipPath,
     [string]$NodeZipPath,
+    # Your vendor PUBLIC licence key (one line: what `npm run licence -- pubkey` prints after HEXYRN_LICENSE_PUBLIC_KEY=,
+    # or the contents of licence-public.pem). Baked into the installer; without it the installed app refuses to
+    # start in production. NEVER pass a private key here.
+    [Parameter(Mandatory = $true)][string]$LicencePublicKeyFile,
     # REAL bug found compiling this for the first time (WIX1148 warning,
     # not silently ignored): the MSI Product/Version attribute has a
     # genuine Windows Installer SDK format requirement - numeric only
@@ -248,6 +252,7 @@ dotnet tool run wix -- build $productWxs $apiHarvestWxs $nodeHarvestWxs $pgHarve
     -d "NodeRuntimeDir=$nodeRuntimeDirForHarvest" `
     -d "PostgresRuntimeDir=$pgRuntimeDirForHarvest" `
     -d "RepoRoot=$RepoRoot" `
+    -d "LicencePublicKeyFile=$LicencePublicKeyFile" `
     -ext WixToolset.Util.wixext/4.0.6 `
     -out $msiPath
 if ($LASTEXITCODE -ne 0) { throw 'wix build (Product.wxs) failed - see compiler output above.' }

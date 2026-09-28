@@ -134,6 +134,35 @@ check('No test/dev-only signing or licence trust material referenced as if it we
   void designDoc;
 });
 
+check('The registered service runs the file the payload actually contains (payload keeps apps/api/dist/main.js under ApiFolder)', () => {
+  const wxs = read('installer/windows/Product.wxs');
+  const payload = read('scripts/windows/build-release-payload.ps1');
+  assert(/\$apiOut\s*=\s*Join-Path \$OutDir 'apps\\api'/.test(payload), 'payload staging no longer places the API under apps\\api - update the service path together with it');
+  assert(wxs.includes('[ApiFolder]apps\\api\\dist\\main.js'), 'HexyrnCore service Arguments must be [ApiFolder]apps\\api\\dist\\main.js (the harvested payload keeps the apps\\api prefix); the old [ApiFolder]dist\\main.js does not exist after install');
+});
+
+check('No MSI custom-action command line ends a quoted argument with a directory property (a trailing backslash escapes the closing quote)', () => {
+  const wxs = read('installer/windows/Product.wxs');
+  // cmd.exe built-ins (rmdir, net) parse differently; powershell.exe and icacls use CommandLineToArgvW rules.
+  const bad = (wxs.match(/ExeCommand="[^"]*"/g) || []).filter((c) => /powershell\.exe|icacls/.test(c) && /\[[A-Za-z0-9]*Folder\]&quot;/.test(c));
+  assert(bad.length === 0, `directory property directly before a closing quote in: ${bad[0] && bad[0].slice(0, 120)} - append "." (and normalise in the script)`);
+});
+
+check('Provisioning migrates, writes the runtime settings file, and ships what it needs', () => {
+  const wxs = read('installer/windows/Product.wxs');
+  const prov = read('scripts/windows/provision-postgres.ps1');
+  const build = read('scripts/windows/build-release.ps1');
+  const creds = read('scripts/windows/generate-credentials.ps1');
+  for (const arg of ['-RunMigrations', '-NodeExe', '-LicenceKeyFile', '-DataRoot', '-InstallDir']) {
+    assert(wxs.includes(arg), `ProvisionHexyrnPostgres custom action does not pass ${arg}`);
+  }
+  assert(/write-runtime-config\.js/.test(prov), 'provision-postgres.ps1 does not write hexyrn.env');
+  assert(/LicencePublicKeyFile/.test(build) && /Mandatory\s*=\s*\$true\)\]\[string\]\$LicencePublicKeyFile/.test(build), 'build-release.ps1 must REQUIRE -LicencePublicKeyFile (an installer without it cannot start in production)');
+  assert(wxs.includes('licence-public-key.txt') && wxs.includes('Open-Hexyrn.ps1'), 'Product.wxs does not install the licence key file / launcher script');
+  assert(fs.existsSync(path.join(REPO_ROOT, 'scripts/windows/Open-Hexyrn.ps1')), 'scripts/windows/Open-Hexyrn.ps1 is missing');
+  assert(/SECRET_ENCRYPTION_MASTER_KEY/.test(creds), 'generate-credentials.ps1 must generate SECRET_ENCRYPTION_MASTER_KEY');
+});
+
 if (failures > 0) {
   console.error(`\n${failures} check(s) FAILED.`);
   process.exit(1);

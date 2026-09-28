@@ -139,3 +139,41 @@ describeIfDb('Bootstrap: the setup token survives a restart before setup is comp
     expect((await svc.ensureInstallation(pool)).plaintextBootstrapToken).toBeUndefined();
   });
 });
+
+describeIfDb('Bootstrap: the plaintext setup-code file', () => {
+  let pool: Pool;
+  const file = require('path').join(require('os').tmpdir(), `hx-token-${process.pid}.txt`);
+  const fs = require('fs');
+
+  beforeAll(async () => {
+    pool = attachPoolErrorHandler(new Pool({ connectionString: TEST_DATABASE_URL, max: 3 }));
+    await setUpTestDatabase(pool);
+    process.env.HEXYRN_BOOTSTRAP_TOKEN_FILE = file;
+  }, 60000);
+
+  afterAll(async () => {
+    delete process.env.HEXYRN_BOOTSTRAP_TOKEN_FILE;
+    await pool.end();
+  });
+
+  it('is written where the installer says (HEXYRN_BOOTSTRAP_TOKEN_FILE) and deleted once setup completes', async () => {
+    const result = await new InstallationService().ensureInstallation(pool);
+    expect(fs.readFileSync(file, 'utf8').trim()).toBe(result.plaintextBootstrapToken);
+
+    await new BootstrapService(new AuditService()).completeBootstrap(
+      {
+        token: result.plaintextBootstrapToken!,
+        organisationName: 'File Co',
+        organisationDisplayName: 'File Co',
+        defaultCurrency: 'GBP',
+        timezone: 'UTC',
+        locale: 'en-GB',
+        financialYearStartMonth: 1,
+        ownerEmail: 'owner@file.test',
+        ownerPassword: 'a-very-strong-password-123',
+      },
+      pool,
+    );
+    expect(fs.existsSync(file)).toBe(false);
+  });
+});
