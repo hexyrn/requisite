@@ -54,6 +54,10 @@ param(
     # or the contents of licence-public.pem). Baked into the installer; without it the installed app refuses to
     # start in production. NEVER pass a private key here.
     [Parameter(Mandatory = $true)][string]$LicencePublicKeyFile,
+    # WinSW service host (see stage-winsw-artifact.ps1). Either give the path to WinSW-x64.exe, or -DownloadWinSw
+    # to fetch the pinned v2.12.0 release; the SHA-256 is verified either way.
+    [string]$WinSwPath,
+    [switch]$DownloadWinSw,
     # REAL bug found compiling this for the first time (WIX1148 warning,
     # not silently ignored): the MSI Product/Version attribute has a
     # genuine Windows Installer SDK format requirement - numeric only
@@ -137,6 +141,13 @@ else {
 }
 
 # --- 6. Extract/stage PostgreSQL runtime into the payload ---
+Write-Phase '5b' 'Stage and verify the WinSW service host'
+if (-not $WinSwPath -and -not $DownloadWinSw) { throw 'The Windows services need WinSW: pass -WinSwPath <WinSW-x64.exe> or -DownloadWinSw.' }
+$winswArgs = @{ StageDir = (Join-Path $buildCache 'winsw') }
+if ($WinSwPath) { $winswArgs['ExePath'] = $WinSwPath } else { $winswArgs['Download'] = $true }
+$winswInfo = & (Join-Path $PSScriptRoot 'stage-winsw-artifact.ps1') @winswArgs
+if (-not $winswInfo) { throw 'WinSW staging failed.' }
+
 Write-Phase 6 'Stage PostgreSQL runtime into payload (server/client tools ONLY - not the full EDB distribution)'
 # REAL FINDING from actually inspecting the extracted archive (not
 # assumed): EDB's "binaries" zip is ~995MB total, of which "pgAdmin 4\"
@@ -233,7 +244,7 @@ $nodeHarvestWxs = Join-Path $OutDir 'NodeRuntimeFiles.wxs'
 
 $pgRuntimeDirForHarvest = Join-Path $payloadDir 'runtime\postgresql'
 $pgHarvestWxs = Join-Path $OutDir 'PostgresRuntimeFiles.wxs'
-& $harvestGen -PayloadDir $pgRuntimeDirForHarvest -OutFile $pgHarvestWxs -ComponentGroupId 'PostgresRuntimeFiles' -RootDirectoryRef 'PostgresFolder' -SourceVarName 'PostgresRuntimeDir' -ExcludeRelativePaths @('bin\postgres.exe')
+& $harvestGen -PayloadDir $pgRuntimeDirForHarvest -OutFile $pgHarvestWxs -ComponentGroupId 'PostgresRuntimeFiles' -RootDirectoryRef 'PostgresFolder' -SourceVarName 'PostgresRuntimeDir' -ExcludeRelativePaths @('bin\pg_ctl.exe')
 
 Write-Host "Harvest sources generated: $apiHarvestWxs, $nodeHarvestWxs, $pgHarvestWxs"
 
@@ -252,6 +263,7 @@ dotnet tool run wix -- build $productWxs $apiHarvestWxs $nodeHarvestWxs $pgHarve
     -d "NodeRuntimeDir=$nodeRuntimeDirForHarvest" `
     -d "PostgresRuntimeDir=$pgRuntimeDirForHarvest" `
     -d "RepoRoot=$RepoRoot" `
+    -d "WinSwExe=$($winswInfo.ExePath)" `
     -d "LicencePublicKeyFile=$LicencePublicKeyFile" `
     -ext WixToolset.Util.wixext/4.0.6 `
     -out $msiPath

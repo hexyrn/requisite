@@ -55,13 +55,17 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`=== Real pg_dump/pg_restore acceptance test ===`);
   const dumpVersion = await execFileAsync(PG_DUMP_PATH, ['--version']).then((r) => r.stdout.trim());
-  const restoreVersion = await execFileAsync(PG_RESTORE_PATH, ['--version']).then((r) => r.stdout.trim());
+  const restoreVersion = await execFileAsync(PG_RESTORE_PATH, ['--version']).then((r) =>
+    r.stdout.trim(),
+  );
   // eslint-disable-next-line no-console
   console.log(`pg_dump: ${dumpVersion}`);
   // eslint-disable-next-line no-console
   console.log(`pg_restore: ${restoreVersion}`);
   // eslint-disable-next-line no-console
-  console.log(`Target database (ISOLATED, not the dev/test DB): ${TEST_DB_NAME}@${TEST_DB_HOST}:${TEST_DB_PORT}`);
+  console.log(
+    `Target database (ISOLATED, not the dev/test DB): ${TEST_DB_NAME}@${TEST_DB_HOST}:${TEST_DB_PORT}`,
+  );
 
   const pool = new Pool({ connectionString: CONNECTION_STRING });
   const storageDir = await fs.mkdtemp(join(tmpdir(), 'hexyrn-real-backup-storage-'));
@@ -109,21 +113,35 @@ async function main() {
     );
 
     // A real, genuinely signed test licence (Ed25519, same mechanism production uses).
-    const { LicenseSigner } = await import('../src/platform/licensing/license-signer');
-    const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../src/platform/licensing/keys');
+    const { LicenseSigner } = await import('../src/vendor-tools/licensing/license-signer');
+    const { TEST_LICENSE_PRIVATE_KEY_PEM } =
+      await import('../src/vendor-tools/licensing/test-keys');
     const signer = new LicenseSigner(TEST_LICENSE_PRIVATE_KEY_PEM);
-    const licence = signer.issue({ appId: 'com.hexyrn.requisite', organisationId: orgId, majorVersion: 1, supportExpiresAt: null });
+    const licence = signer.issue({
+      appId: 'com.hexyrn.requisite',
+      organisationId: orgId,
+      majorVersion: 1,
+      supportExpiresAt: null,
+    });
     await client.query(
       `INSERT INTO application_licenses (organisation_id, app_id, licensed_major_version, license_payload, signature_valid_at) VALUES ($1, 'com.hexyrn.requisite', 1, $2, now())`,
       [orgId, JSON.stringify(licence)],
     );
 
-    await fs.writeFile(join(storageDir, 'test-upload.txt'), 'this is a real uploaded file for the backup/restore acceptance test');
+    await fs.writeFile(
+      join(storageDir, 'test-upload.txt'),
+      'this is a real uploaded file for the backup/restore acceptance test',
+    );
 
-    step('Seeded organisation/user/Requisite-supplier/licence in isolated database', true, `org=${orgId}`);
+    step(
+      'Seeded organisation/user/Requisite-supplier/licence in isolated database',
+      true,
+      `org=${orgId}`,
+    );
 
     // --- Real backup via the actual pg_dump binary ---
-    const { createBackup, verifyBackupIntegrity, restoreBackup, realPgDump, realPgRestore } = await import('../src/platform/backup/backup.service');
+    const { createBackup, verifyBackupIntegrity, restoreBackup, realPgDump, realPgRestore } =
+      await import('../src/platform/backup/backup.service');
     const backupResult = await createBackup({
       destinationDir: backupDir,
       storageRootDir: storageDir,
@@ -133,14 +151,24 @@ async function main() {
     step('Real pg_dump executed and produced a backup', true, backupResult.backupDir);
 
     const integrity = await verifyBackupIntegrity(backupDir);
-    step('Backup manifest/checksums verify (real dump file, real SHA-256)', integrity.valid, integrity.issues.join('; '));
+    step(
+      'Backup manifest/checksums verify (real dump file, real SHA-256)',
+      integrity.valid,
+      integrity.issues.join('; '),
+    );
 
     // --- Alter/delete data ---
-    await client.query('UPDATE user_accounts SET email = $1 WHERE id = $2', ['CORRUPTED@test.local', userId]);
+    await client.query('UPDATE user_accounts SET email = $1 WHERE id = $2', [
+      'CORRUPTED@test.local',
+      userId,
+    ]);
     await client.query('DELETE FROM requisite_suppliers WHERE id = $1', [supplierId]);
     await client.query('DELETE FROM application_licenses WHERE organisation_id = $1', [orgId]);
     await fs.writeFile(join(storageDir, 'test-upload.txt'), 'CORRUPTED CONTENT');
-    step('Deliberately altered/deleted live data (user email, supplier, licence) + uploaded file', true);
+    step(
+      'Deliberately altered/deleted live data (user email, supplier, licence) + uploaded file',
+      true,
+    );
 
     // --- Real restore via the actual pg_restore binary ---
     const restoreResult = await restoreBackup({
@@ -157,38 +185,87 @@ async function main() {
     // (which drops/recreates the whole database's contents) - re-assert
     // org context defensively before reading. ---
     await client.query('SELECT set_config($1, $2, false)', ['app.current_organisation_id', orgId]);
-    const afterRestore = await client.query<{ email: string }>('SELECT email FROM user_accounts WHERE id = $1', [userId]);
-    step('Original user email restored (real pg_restore, not a fake)', afterRestore.rows[0]?.email === 'real-backup-owner@test.local', afterRestore.rows[0]?.email);
+    const afterRestore = await client.query<{ email: string }>(
+      'SELECT email FROM user_accounts WHERE id = $1',
+      [userId],
+    );
+    step(
+      'Original user email restored (real pg_restore, not a fake)',
+      afterRestore.rows[0]?.email === 'real-backup-owner@test.local',
+      afterRestore.rows[0]?.email,
+    );
 
     const fileContent = await fs.readFile(join(storageDir, 'test-upload.txt'), 'utf8');
-    step('Original uploaded file content restored', fileContent.includes('real uploaded file'), fileContent.slice(0, 40));
+    step(
+      'Original uploaded file content restored',
+      fileContent.includes('real uploaded file'),
+      fileContent.slice(0, 40),
+    );
 
     // Verify authentication state: the restored password hash genuinely
     // still verifies against the real plaintext password (not just that
     // SOME hash string came back, but that Argon2id verification of the
     // exact original credential succeeds after a real restore).
-    const passwordRow = await client.query<{ password_hash: string }>('SELECT password_hash FROM user_accounts WHERE id = $1', [userId]);
-    const passwordStillValid = await verifyPassword(passwordRow.rows[0].password_hash, REAL_PASSWORD);
-    step('Authentication state restored - the real password still verifies against the restored hash', passwordStillValid);
+    const passwordRow = await client.query<{ password_hash: string }>(
+      'SELECT password_hash FROM user_accounts WHERE id = $1',
+      [userId],
+    );
+    const passwordStillValid = await verifyPassword(
+      passwordRow.rows[0].password_hash,
+      REAL_PASSWORD,
+    );
+    step(
+      'Authentication state restored - the real password still verifies against the restored hash',
+      passwordStillValid,
+    );
 
     // Verify the deleted Requisite supplier came back.
-    const supplierRow = await client.query<{ name: string }>('SELECT name FROM requisite_suppliers WHERE id = $1', [supplierId]);
-    step('Deleted Requisite supplier row restored', supplierRow.rows[0]?.name === 'Real Backup Test Supplier Ltd', supplierRow.rows[0]?.name);
+    const supplierRow = await client.query<{ name: string }>(
+      'SELECT name FROM requisite_suppliers WHERE id = $1',
+      [supplierId],
+    );
+    step(
+      'Deleted Requisite supplier row restored',
+      supplierRow.rows[0]?.name === 'Real Backup Test Supplier Ltd',
+      supplierRow.rows[0]?.name,
+    );
 
     // Verify the deleted licence came back AND still verifies (real Ed25519 check via LicenseVerifier).
     const { LicenseVerifier } = await import('../src/platform/licensing/license-verifier');
-    const licenceRow = await client.query<{ license_payload: any }>('SELECT license_payload FROM application_licenses WHERE organisation_id = $1', [orgId]);
+    const licenceRow = await client.query<{ license_payload: any }>(
+      'SELECT license_payload FROM application_licenses WHERE organisation_id = $1',
+      [orgId],
+    );
     const verifier = new LicenseVerifier();
-    const licenceVerification = licenceRow.rows[0] ? verifier.verify(licenceRow.rows[0].license_payload, { appId: 'com.hexyrn.requisite', organisationId: orgId, majorVersion: 1 }) : { valid: false };
-    step('Deleted licence row restored AND still cryptographically verifies', licenceVerification.valid, JSON.stringify(licenceVerification));
+    const licenceVerification = licenceRow.rows[0]
+      ? verifier.verify(licenceRow.rows[0].license_payload, {
+          appId: 'com.hexyrn.requisite',
+          organisationId: orgId,
+          majorVersion: 1,
+        })
+      : { valid: false };
+    step(
+      'Deleted licence row restored AND still cryptographically verifies',
+      licenceVerification.valid,
+      JSON.stringify(licenceVerification),
+    );
 
     // Verify overall application functionality: a real, ordinary org-scoped
     // query (the same shape any controller would run) succeeds post-restore.
-    const functionalCheck = await client.query('SELECT COUNT(*)::int AS n FROM requisite_suppliers WHERE organisation_id = $1', [orgId]);
-    step('Application functionality post-restore: ordinary org-scoped query succeeds', functionalCheck.rows[0].n === 1);
-
+    const functionalCheck = await client.query(
+      'SELECT COUNT(*)::int AS n FROM requisite_suppliers WHERE organisation_id = $1',
+      [orgId],
+    );
+    step(
+      'Application functionality post-restore: ordinary org-scoped query succeeds',
+      functionalCheck.rows[0].n === 1,
+    );
   } catch (err) {
-    step('Unexpected error during acceptance test', false, err instanceof Error ? err.message : String(err));
+    step(
+      'Unexpected error during acceptance test',
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
   } finally {
     client.release();
     await pool.end();

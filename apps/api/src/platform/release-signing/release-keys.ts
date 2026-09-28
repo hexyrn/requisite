@@ -16,7 +16,7 @@
  * distributed to installations, via HEXYRN_RELEASE_TRUSTED_PUBLIC_KEYS
  * (below) - never a private key, never via this file for production use.
  *
- * The two keypairs below are DEV/TEST keys ONLY, generated specifically
+ * The two PUBLIC keys below are DEV/TEST keys ONLY (their private halves live in src/vendor-tools/release-signing/test-private-keys.ts, which is excluded from customer builds), generated specifically
  * for this repository's own tests and the reference release-signing tool.
  * Unmistakably not production keys: both halves are committed (a real
  * production private key never would be), every export is labelled TEST_,
@@ -33,17 +33,11 @@ export const TEST_RELEASE_KEY_ID_1 = 'test-release-key-1';
 export const TEST_RELEASE_PUBLIC_KEY_1_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEA9czJIfQzVwlT7QLI2dbvxC0sLaLiZ9bPvq9w00guc7o=
 -----END PUBLIC KEY-----`;
-export const TEST_RELEASE_PRIVATE_KEY_1_PEM = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIPX27uWNdwQXWj/pUcKG35p3HloYmUn5fgn6NHKrrHuM
------END PRIVATE KEY-----`;
 
 export const TEST_RELEASE_KEY_ID_2 = 'test-release-key-2';
 export const TEST_RELEASE_PUBLIC_KEY_2_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEACi1+8aemlPnUXxzgXDjUXFmSk3vkYXSbr0MWW2zEWcY=
 -----END PUBLIC KEY-----`;
-export const TEST_RELEASE_PRIVATE_KEY_2_PEM = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIL/CX7MbqNrH0MU+w3/00LY5f7jVGxvdZZj0kPutYpTk
------END PRIVATE KEY-----`;
 
 export interface TrustedKeyEntry {
   keyId: string;

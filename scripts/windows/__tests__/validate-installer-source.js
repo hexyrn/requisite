@@ -138,7 +138,9 @@ check('The registered service runs the file the payload actually contains (paylo
   const wxs = read('installer/windows/Product.wxs');
   const payload = read('scripts/windows/build-release-payload.ps1');
   assert(/\$apiOut\s*=\s*Join-Path \$OutDir 'apps\\api'/.test(payload), 'payload staging no longer places the API under apps\\api - update the service path together with it');
-  assert(wxs.includes('[ApiFolder]apps\\api\\dist\\main.js'), 'HexyrnCore service Arguments must be [ApiFolder]apps\\api\\dist\\main.js (the harvested payload keeps the apps\\api prefix); the old [ApiFolder]dist\\main.js does not exist after install');
+  // The service's command line now lives in RequisiteService.xml (WinSW), checked in the WinSW check below;
+  // Product.wxs must not re-introduce the old direct path that does not exist after install.
+  assert(!wxs.includes('[ApiFolder]dist\\main.js'), 'Product.wxs must not reference [ApiFolder]dist\\main.js: the harvested payload keeps the apps\\api prefix');
 });
 
 check('No MSI custom-action command line ends a quoted argument with a directory property (a trailing backslash escapes the closing quote)', () => {
@@ -161,6 +163,46 @@ check('Provisioning migrates, writes the runtime settings file, and ships what i
   assert(wxs.includes('licence-public-key.txt') && wxs.includes('Open-Hexyrn.ps1'), 'Product.wxs does not install the licence key file / launcher script');
   assert(fs.existsSync(path.join(REPO_ROOT, 'scripts/windows/Open-Hexyrn.ps1')), 'scripts/windows/Open-Hexyrn.ps1 is missing');
   assert(/SECRET_ENCRYPTION_MASTER_KEY/.test(creds), 'generate-credentials.ps1 must generate SECRET_ENCRYPTION_MASTER_KEY');
+});
+
+check('Services are real Windows services: WinSW hosts the app, pg_ctl runservice hosts PostgreSQL; both start automatically', () => {
+  const wxs = read('installer/windows/Product.wxs');
+  const components = wxs.match(/<Component\b[\s\S]*?<\/Component>/g) || [];
+  const withService = components.filter((c) => /<ServiceInstall\b/.test(c));
+  assert(withService.length === 2, `expected exactly 2 ServiceInstall components (app + database), found ${withService.length}`);
+  for (const c of withService) {
+    assert(!/Id="NodeExe"/.test(c) && !/Id="PostgresExe"/.test(c), 'node.exe/postgres.exe must never be a service image: neither speaks the Windows service protocol (Windows kills them with error 1053)');
+    assert(/Start="auto"/.test(c), 'every Requisite service must have Start="auto"');
+  }
+  const app = withService.find((c) => /Name="HexyrnCore"/.test(c));
+  const db = withService.find((c) => /Name="HexyrnPostgreSQL"/.test(c));
+  assert(app && /RequisiteService\.exe/.test(app) && /RequisiteService\.xml/.test(app), 'app service must be the WinSW exe with its xml');
+  assert(app && /ServiceDependency Id="HexyrnPostgreSQL"/.test(app), 'app service must depend on the database service');
+  assert(db && /pg_ctl\.exe/.test(db) && /runservice/.test(db), 'database service must run through pg_ctl runservice');
+  assert(db && /\]\.&quot;/.test(db), 'the runservice data-dir argument must end in "." (trailing backslash would escape the quote)');
+  assert(/NT SERVICE\\HexyrnCore/.test(app) && /NT SERVICE\\HexyrnPostgreSQL/.test(db), 'services must run as virtual service accounts, not LocalSystem');
+});
+
+check('pg_ctl.exe is attached to the harvester-generated bin directory, and that id is what the harvester really produces', () => {
+  const wxs = read('installer/windows/Product.wxs');
+  const build = read('scripts/windows/build-release.ps1');
+  const crypto = require('crypto');
+  const md5 = crypto.createHash('md5').update('PostgresRuntimeFiles|bin', 'utf8').digest();
+  const first8 = Buffer.from([md5[3], md5[2], md5[1], md5[0]]).toString('hex'); // .NET Guid(byte[]) field order
+  const expected = `dir_bin_${first8}`;
+  assert(wxs.includes(`Directory="${expected}"`), `Product.wxs must attach pg_ctl.exe to ${expected} (the id generate-payload-harvest.ps1 produces for PostgresRuntimeFiles|bin); the harvester's id scheme changed?`);
+  assert(/-ExcludeRelativePaths @\('bin\\pg_ctl\.exe'\)/.test(build), 'the PostgreSQL harvest must exclude bin\\pg_ctl.exe (it is hand-authored as the service image)');
+  assert(/stage-winsw-artifact\.ps1/.test(build) && /WinSwExe=/.test(build), 'build-release.ps1 must stage and pass the verified WinSW exe');
+});
+
+check('WinSW config runs the payload layout that is actually installed and carries no secrets', () => {
+  const xml = read('installer/windows/RequisiteService.xml');
+  assert(xml.includes('%BASE%\\..\\api\\apps\\api\\dist\\main.js'), 'service arguments must point at api\\apps\\api\\dist\\main.js');
+  assert(xml.includes('%BASE%\\..\\node\\node.exe'), 'service must run the bundled node.exe, never a node from PATH');
+  assert(/HEXYRN_ENV_FILE/.test(xml), 'service must point the app at its settings file');
+  const xmlNoComments = xml.replace(/<!--[\s\S]*?-->/g, '').replace(/HEXYRN_ENV_FILE/g, '');
+  assert(!/PASSWORD|SECRET|TOKEN|postgres:\/\//i.test(xmlNoComments), 'RequisiteService.xml must not contain secrets');
+  assert(/roll-by-size/.test(xml), 'service output must go to rolling log files');
 });
 
 if (failures > 0) {

@@ -39,7 +39,7 @@
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package
-    Name="Hexyrn Core"
+    Name="Requisite"
     Manufacturer="Hexyrn"
     Version="$(var.HexyrnVersion)"
     UpgradeCode="8f2b6c1a-2f0e-4c3a-9a7e-3b1c9d5f6a02"
@@ -51,7 +51,7 @@
          explicitly OLDER installer package - not by letting this MSI
          silently downgrade files under a running database). -->
     <MajorUpgrade
-      DowngradeErrorMessage="A newer version of Hexyrn Core is already installed. Uninstall it first if you specifically need to downgrade."
+      DowngradeErrorMessage="A newer version of Requisite is already installed. Uninstall it first if you specifically need to downgrade."
       Schedule="afterInstallInitialize" />
 
     <MediaTemplate EmbedCab="yes" />
@@ -87,6 +87,7 @@
              PowerShell script files existing anywhere outside this
              installer's own payload. -->
         <Directory Id="ScriptsFolder" Name="scripts" />
+        <Directory Id="ServiceFolder" Name="service" />
         <!-- Config/data directories are OUTSIDE INSTALLFOLDER (in
              ProgramData, not Program Files) - Program Files is
              conventionally treated as read-mostly and can require
@@ -102,6 +103,7 @@
         <Directory Id="HexyrnStorageFolder" Name="storage" />
         <Directory Id="HexyrnBackupsFolder" Name="backups" />
         <Directory Id="HexyrnConfigFolder" Name="config" />
+        <Directory Id="HexyrnLogsFolder" Name="logs" />
         <!-- The actual PostgreSQL CLUSTER (initdb output) - persistent
              customer data, explicitly NOT under the replaceable
              Program Files application directory (docs/
@@ -127,11 +129,12 @@
     <!-- Port the app listens on (loopback only by default); users open http://localhost:<this>. -->
     <Property Id="HEXYRNWEBPORT" Value="3000" />
 
-    <Feature Id="MainFeature" Title="Hexyrn Core" Level="1">
+    <Feature Id="MainFeature" Title="Requisite" Level="1">
       <ComponentGroupRef Id="ApiFiles" />
       <ComponentGroupRef Id="NodeRuntimeFiles" />
       <ComponentGroupRef Id="PostgresRuntimeFiles" />
       <ComponentRef Id="NodeRuntimeExe" />
+      <ComponentRef Id="HexyrnCoreService" />
       <ComponentRef Id="HexyrnPostgresService" />
       <ComponentRef Id="ProvisioningScripts" />
       <ComponentRef Id="ProvisionCustomAction" />
@@ -160,32 +163,32 @@
          unattended on every boot. -->
     <Component Id="NodeRuntimeExe" Directory="NodeRuntimeFolder" Guid="e2f4a6c8-1b3d-4e5f-9a7c-2d4e6f8a1b30">
       <File Id="NodeExe" Source="$(var.NodeRuntimeDir)\node.exe" KeyPath="yes" />
+    </Component>
+
+    <!-- THE APPLICATION SERVICE. node.exe cannot itself be a Windows service (it never answers the Service
+         Control Manager, so Windows kills it after 30 seconds with error 1053). The service image is
+         therefore WinSW (RequisiteService.exe, MIT licence, hash-pinned by stage-winsw-artifact.ps1), which
+         reads RequisiteService.xml beside it and runs the bundled node.exe with the app.
+         - Start="auto": comes back after a reboot without anyone logging in.
+         - Account: a Windows virtual service account (no password to manage, no interactive logon, its own
+           SID that file permissions can target; see SetHexyrnDataAcls below).
+         - ServiceDependency: Windows itself starts the database service first and stops it last.
+         - util:ServiceConfig: restart after a crash after 10s, then 30s, then 60s; the failure counter
+           resets after a day, so an occasional crash never escalates into a permanent outage. -->
+    <Component Id="HexyrnCoreService" Directory="ServiceFolder" Guid="0b2d4f6a-8c1e-4a3b-9d5f-7e9a1c3b5d21">
+      <File Id="RequisiteServiceExe" Source="$(var.WinSwExe)" Name="RequisiteService.exe" KeyPath="yes" />
+      <File Id="RequisiteServiceXml" Source="$(var.RepoRoot)\installer\windows\RequisiteService.xml" Name="RequisiteService.xml" />
       <ServiceInstall
-        Id="HexyrnCoreService"
+        Id="HexyrnCoreServiceInstall"
         Type="ownProcess"
         Name="HexyrnCore"
-        DisplayName="Hexyrn Core"
-        Description="Hexyrn Core application server."
-        Start="demand"
+        DisplayName="Requisite"
+        Description="Requisite application server (web app and API). Depends on the Requisite database service."
+        Start="auto"
         ErrorControl="normal"
-        Arguments="&quot;[ApiFolder]apps\api\dist\main.js&quot;"
         Account="NT SERVICE\HexyrnCore">
-        <!-- Real dependency wiring: the SCM itself now enforces that
-             HexyrnPostgreSQL is running before HexyrnCore is allowed to
-             start, and stops HexyrnCore FIRST on shutdown (SCM stops in
-             reverse dependency order) - "Core must depend on the
-             Hexyrn-managed PostgreSQL service" and "shutdown order must
-             be safe," both structural, not aspirational. -->
         <ServiceDependency Id="HexyrnPostgreSQL" />
       </ServiceInstall>
-      <!-- Account="NT SERVICE\HexyrnCore" - a WINDOWS VIRTUAL SERVICE
-           ACCOUNT (per-service SID), not LocalSystem, not a manually
-           created user Hexyrn would have to generate/rotate a password
-           for. Genuine least-privilege: the SCM creates this identity
-           automatically on first start, it cannot interactively log on,
-           and it gets a real, distinct SID that filesystem ACLs can
-           target specifically - see docs/WINDOWS_INSTALLER_DESIGN.md's
-           "Windows Service account" section. -->
       <ServiceControl
         Id="HexyrnCoreServiceControl"
         Name="HexyrnCore"
@@ -197,14 +200,9 @@
         ServiceName="HexyrnCore"
         FirstFailureActionType="restart"
         SecondFailureActionType="restart"
-        ThirdFailureActionType="none"
-        RestartServiceDelayInSeconds="30"
+        ThirdFailureActionType="restart"
+        RestartServiceDelayInSeconds="10"
         ResetPeriodInDays="1" />
-      <!-- A crashed service auto-restarts twice with a real delay (not
-           a tight crash-loop) before requiring operator attention -
-           "ensure clean stop behaviour" plus reasonable failure
-           handling, not silent permanent downtime after one transient
-           fault. -->
     </Component>
 
     <!-- PostgreSQL Windows Service - Hexyrn-MANAGED identity
@@ -220,17 +218,23 @@
          first-boot-confirmation reasoning as HexyrnCore above; both
          being "demand" rather than "auto" for v1 is a deliberate,
          matched pair, not an oversight on one side. -->
-    <Component Id="HexyrnPostgresService" Directory="PostgresFolder" Guid="7c9e1f3a-5b2d-4e6c-8a1f-3d5b7e9c2a40">
-      <File Id="PostgresExe" Source="$(var.PostgresRuntimeDir)\bin\postgres.exe" KeyPath="yes" />
+    <Component Id="HexyrnPostgresService" Directory="dir_bin_3177c0de" Guid="7c9e1f3a-5b2d-4e6c-8a1f-3d5b7e9c2a40">
+      <!-- postgres.exe is not a Windows service either. PostgreSQL's own service mode is `pg_ctl.exe
+           runservice` (exactly what `pg_ctl register` would write): pg_ctl answers the Service Control
+           Manager, starts postgres.exe with a restricted token, and performs a fast, clean shutdown when
+           the service is stopped or the machine shuts down.
+           The data folder argument ends in "." because a directory property ends in a backslash and a
+           backslash before the closing quote would escape the quote. -->
+      <File Id="PgCtlExe" Source="$(var.PostgresRuntimeDir)\bin\pg_ctl.exe" KeyPath="yes" />
       <ServiceInstall
         Id="HexyrnPostgresServiceInstall"
         Type="ownProcess"
         Name="HexyrnPostgreSQL"
-        DisplayName="Hexyrn Core - PostgreSQL"
-        Description="PostgreSQL 17 database engine managed by Hexyrn Core. Do not confuse with an unrelated PostgreSQL installation on this machine."
-        Start="demand"
+        DisplayName="Requisite Database (PostgreSQL)"
+        Description="PostgreSQL 17 database engine used by Requisite. Listens on the local machine only. Separate from any other PostgreSQL installation."
+        Start="auto"
         ErrorControl="normal"
-        Arguments="-D &quot;[HexyrnPostgresDataFolder]&quot;"
+        Arguments="runservice -N &quot;HexyrnPostgreSQL&quot; -D &quot;[HexyrnPostgresDataFolder].&quot; -w"
         Account="NT SERVICE\HexyrnPostgreSQL" />
       <ServiceControl
         Id="HexyrnPostgresServiceControl"
@@ -243,8 +247,8 @@
         ServiceName="HexyrnPostgreSQL"
         FirstFailureActionType="restart"
         SecondFailureActionType="restart"
-        ThirdFailureActionType="none"
-        RestartServiceDelayInSeconds="30"
+        ThirdFailureActionType="restart"
+        RestartServiceDelayInSeconds="10"
         ResetPeriodInDays="1" />
     </Component>
 
@@ -305,7 +309,7 @@
     <CustomAction
       Id="SetHexyrnDataAcls"
       Directory="HexyrnDataFolder"
-      ExeCommand="cmd.exe /c icacls &quot;[HexyrnStorageFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnBackupsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnConfigFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnPostgresDataFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot;"
+      ExeCommand="cmd.exe /c icacls &quot;[HexyrnStorageFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnBackupsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnConfigFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnPostgresDataFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)F&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[HexyrnLogsFolder].&quot; /inheritance:r /grant:r &quot;NT SERVICE\HexyrnCore:(OI)(CI)M&quot; &quot;*S-1-5-32-544:(OI)(CI)F&quot; &amp; icacls &quot;[INSTALLFOLDER].&quot; /grant &quot;NT SERVICE\HexyrnCore:(OI)(CI)RX&quot; &quot;NT SERVICE\HexyrnPostgreSQL:(OI)(CI)RX&quot;"
       Execute="deferred"
       Return="check"
       Impersonate="no" />
@@ -408,6 +412,7 @@
       <CreateFolder Directory="HexyrnStorageFolder" />
       <CreateFolder Directory="HexyrnBackupsFolder" />
       <CreateFolder Directory="HexyrnConfigFolder" />
+      <CreateFolder Directory="HexyrnLogsFolder" />
       <CreateFolder Directory="HexyrnPostgresDataFolder" />
       <!-- Uninstall behaviour is deliberately NOT "always delete" - see
            docs/WINDOWS_INSTALLER_DESIGN.md's uninstall section: this

@@ -33,9 +33,13 @@
  * release pipeline can feed in the actual key from secured storage
  * without this script needing to know anything about how it's stored).
  */
+import { TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../src/vendor-tools/release-signing/test-private-keys';
 import { promises as fs } from 'fs';
-import { buildReleaseManifest, signReleaseManifest } from '../src/platform/release-signing/release-signer';
-import { TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../src/platform/release-signing/release-keys';
+import {
+  buildReleaseManifest,
+  signReleaseManifest,
+} from '../src/platform/release-signing/release-signer';
+import { TEST_RELEASE_KEY_ID_1 } from '../src/platform/release-signing/release-keys';
 
 interface Args {
   artifact: string;
@@ -88,7 +92,9 @@ async function main() {
         'Fine for development/CI; never use this for a real customer-facing release.',
     );
   }
-  const privateKeyPem = args.signingKeyPemFile ? await fs.readFile(args.signingKeyPemFile, 'utf8') : TEST_RELEASE_PRIVATE_KEY_1_PEM;
+  const privateKeyPem = args.signingKeyPemFile
+    ? await fs.readFile(args.signingKeyPemFile, 'utf8')
+    : TEST_RELEASE_PRIVATE_KEY_1_PEM;
 
   const manifest = await buildReleaseManifest(args.artifact, {
     formatVersion: 1,
@@ -107,7 +113,9 @@ async function main() {
   console.log(`Release manifest written: ${outPath}`);
   console.log(`  artifact: ${args.artifact} (${manifest.artifactSizeBytes} bytes)`);
   console.log(`  sha256:   ${manifest.artifactSha256}`);
-  console.log(`  product:  ${manifest.productId} ${manifest.version} (requires core ${manifest.requiresCoreVersion})`);
+  console.log(
+    `  product:  ${manifest.productId} ${manifest.version} (requires core ${manifest.requiresCoreVersion})`,
+  );
   console.log(`  signed by: ${signed.signingKeyId}${usingTestKey ? ' (TEST KEY)' : ''}`);
 }
 

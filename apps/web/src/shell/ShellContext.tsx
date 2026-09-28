@@ -6,6 +6,8 @@ export interface ShellState {
   userEmail: string | null;
   apps: LauncherApp[];
   canAdminister: boolean;
+  /** Re-reads the organisation and app list (e.g. after a licence activates an app). */
+  refresh?: () => Promise<void>;
 }
 
 const ShellContext = React.createContext<ShellState | null>(null);

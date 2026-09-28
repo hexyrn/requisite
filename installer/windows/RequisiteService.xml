@@ -1,0 +1,42 @@
+<!--
+  WinSW service definition for the Requisite application server.
+
+  WHY THIS EXISTS: node.exe is an ordinary console program - it does not speak the Windows service
+  protocol (it never calls StartServiceCtrlDispatcher), so registering node.exe itself as a service
+  makes Windows report "the service did not respond in a timely fashion" and kill it after 30 seconds.
+  WinSW (MIT licence, pinned + hash-verified by scripts/windows/stage-winsw-artifact.ps1) is the
+  service host: Windows starts RequisiteService.exe, which reads THIS file (same base name, same
+  folder), launches the bundled Node with the app, captures its output into rolling log files, and
+  stops it when the service is stopped.
+
+  The MSI (Product.wxs) owns the service's Windows-side settings (name, automatic start, dependency on
+  the database service, virtual service account, failure recovery). This file owns what the process
+  looks like: what to run, where, with which environment, and how logs roll. All paths are relative to
+  this file (%BASE%) or to ProgramData, so nothing here is machine-specific and the file needs no
+  templating at install time.
+
+  No secrets belong in this file: every secret lives in %ProgramData%\Hexyrn Core\config\hexyrn.env
+  (Administrators + the service account only), which the app reads itself.
+-->
+<service>
+  <id>HexyrnCore</id>
+  <name>Requisite</name>
+  <description>Requisite application server (web app and API).</description>
+
+  <executable>%BASE%\..\node\node.exe</executable>
+  <arguments>"%BASE%\..\api\apps\api\dist\main.js"</arguments>
+  <workingdirectory>%BASE%\..\api\apps\api</workingdirectory>
+
+  <env name="NODE_ENV" value="production" />
+  <env name="HEXYRN_ENV_FILE" value="%ProgramData%\Hexyrn Core\config\hexyrn.env" />
+
+  <!-- Console output of the app (structured JSON log lines) goes to rolling files. -->
+  <logpath>%ProgramData%\Hexyrn Core\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>10</keepFiles>
+  </log>
+
+  <!-- Give the app time to finish in-flight requests before Windows ends the process. -->
+  <stoptimeout>30 sec</stoptimeout>
+</service>

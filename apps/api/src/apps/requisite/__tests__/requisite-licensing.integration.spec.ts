@@ -150,7 +150,7 @@ describeIfDb(
     });
 
     it('a Requisite licence forged with a different (non-Hexyrn) keypair is rejected, proving the public key is actually enforced', async () => {
-      const { LicenseSigner } = await import('../../../platform/licensing/license-signer');
+      const { LicenseSigner } = await import('../../../vendor-tools/licensing/license-signer');
       const { generateKeyPairSync } = await import('crypto');
       const { publicKey, privateKey } = generateKeyPairSync('ed25519');
       const forgedSigner = new LicenseSigner(

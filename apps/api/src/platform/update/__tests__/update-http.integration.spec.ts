@@ -1,3 +1,4 @@
+import { TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../../../vendor-tools/release-signing/test-private-keys';
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
@@ -12,10 +13,7 @@ import { attachPoolErrorHandler, setPool } from '../../../db/pool';
 import { InstallationService } from '../../../bootstrap/installation.service';
 import { BootstrapService } from '../../../bootstrap/bootstrap.service';
 import { signReleaseManifest, buildReleaseManifest } from '../../release-signing/release-signer';
-import {
-  TEST_RELEASE_KEY_ID_1,
-  TEST_RELEASE_PRIVATE_KEY_1_PEM,
-} from '../../release-signing/release-keys';
+import { TEST_RELEASE_KEY_ID_1 } from '../../release-signing/release-keys';
 import { CORE_VERSION } from '../../core-version';
 
 /**

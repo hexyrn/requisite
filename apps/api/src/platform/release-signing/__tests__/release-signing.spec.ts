@@ -1,3 +1,7 @@
+import {
+  TEST_RELEASE_PRIVATE_KEY_1_PEM,
+  TEST_RELEASE_PRIVATE_KEY_2_PEM,
+} from '../../../vendor-tools/release-signing/test-private-keys';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -8,10 +12,8 @@ import { ReleaseVerifier } from '../release-verifier';
 import {
   TEST_RELEASE_KEY_ID_1,
   TEST_RELEASE_PUBLIC_KEY_1_PEM,
-  TEST_RELEASE_PRIVATE_KEY_1_PEM,
   TEST_RELEASE_KEY_ID_2,
   TEST_RELEASE_PUBLIC_KEY_2_PEM,
-  TEST_RELEASE_PRIVATE_KEY_2_PEM,
   getTrustedReleasePublicKeys,
 } from '../release-keys';
 
@@ -251,7 +253,8 @@ describe('Release signing (P3 items 16/26/27)', () => {
     });
 
     it('a licence signed with the licensing test key does NOT verify as a valid release manifest, and vice versa', async () => {
-      const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../../licensing/keys');
+      const { TEST_LICENSE_PRIVATE_KEY_PEM } =
+        await import('../../../vendor-tools/licensing/test-keys');
       // Sign a release manifest with the LICENSING private key, claiming a release key id.
       const manifest = fakeManifest();
       const crossSigned = signReleaseManifest(

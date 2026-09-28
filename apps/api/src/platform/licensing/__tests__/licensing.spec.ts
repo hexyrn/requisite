@@ -6,9 +6,10 @@
  * because there is no network code in this path at all, not because a
  * test merely didn't exercise one).
  */
-import { LicenseSigner } from '../license-signer';
+import { LicenseSigner } from '../../../vendor-tools/licensing/license-signer';
 import { LicenseVerifier } from '../license-verifier';
-import { TEST_LICENSE_PRIVATE_KEY_PEM, TEST_LICENSE_PUBLIC_KEY_PEM } from '../keys';
+import { TEST_LICENSE_PRIVATE_KEY_PEM } from '../../../vendor-tools/licensing/test-keys';
+import { TEST_LICENSE_PUBLIC_KEY_PEM, getConfiguredPublicKey } from '../keys';
 import { canonicalize } from '../license-payload';
 import { generateKeyPairSync } from 'crypto';
 
@@ -241,6 +242,27 @@ describe('Licensing - Ed25519 signature verification (P2 item 21)', () => {
       licenseId: 'x',
     });
     expect(a).toBe(b);
+  });
+
+  it('PRODUCTION never falls back to the built-in test key: with no configured key it refuses, rather than trusting a publicly-known key', () => {
+    const originalEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.HEXYRN_LICENSE_PUBLIC_KEY;
+      expect(() => getConfiguredPublicKey()).toThrow(/HEXYRN_LICENSE_PUBLIC_KEY is not set/);
+      // ...and a licence signed with the (public) test private key therefore cannot verify at all.
+      const license = signer.issue({
+        appId: 'x',
+        organisationId: 'y',
+        majorVersion: 1,
+        supportExpiresAt: null,
+      });
+      expect(
+        verifier.verify(license, { appId: 'x', organisationId: 'y', majorVersion: 1 }).valid,
+      ).toBe(false); // fails closed
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
   });
 
   it('DEV/TEST KEY LABELLING: the test keypair is unmistakably not a production key (documented, and matches the committed private key)', () => {

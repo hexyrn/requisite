@@ -53,6 +53,20 @@ export function AuthenticatedShell() {
     };
   }, [navigate]);
 
+  const refresh = React.useCallback(async () => {
+    const [org, launcher] = await Promise.all([api.getOrganisation(), api.getLauncher()]);
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            orgName: (org as OrgSummary).display_name ?? s.orgName,
+            apps: launcher.apps,
+            canAdminister: launcher.canAdminister,
+          }
+        : s,
+    );
+  }, []);
+
   async function onLogout() {
     await api.logout().catch(() => undefined);
     window.location.href = '/login';
@@ -118,5 +132,5 @@ export function AuthenticatedShell() {
   );
 
   // The provider wraps the WHOLE shell: the top bar's app switcher needs it too, not just the routed page.
-  return state ? <ShellProvider value={state}>{shell}</ShellProvider> : shell;
+  return state ? <ShellProvider value={{ ...state, refresh }}>{shell}</ShellProvider> : shell;
 }

@@ -450,8 +450,9 @@ describeIfDb(
       // --- 14. Offline update check (verify a package without applying) ---
       const { signReleaseManifest, buildReleaseManifest } =
         await import('../platform/release-signing/release-signer');
-      const { TEST_RELEASE_KEY_ID_1, TEST_RELEASE_PRIVATE_KEY_1_PEM } =
-        await import('../platform/release-signing/release-keys');
+      const { TEST_RELEASE_KEY_ID_1 } = await import('../platform/release-signing/release-keys');
+      const { TEST_RELEASE_PRIVATE_KEY_1_PEM } =
+        await import('../vendor-tools/release-signing/test-private-keys');
       const { CORE_VERSION } = await import('../platform/core-version');
       const pkgDir = await fs.mkdtemp(join(tmpdir(), 'hexyrn-harness-update-'));
       const pkgPath = join(pkgDir, 'update.pkg');

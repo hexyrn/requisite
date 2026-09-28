@@ -12,29 +12,24 @@
  *   made to check a license (see LicenseVerifier), so "no mandatory
  *   online activation" and "works with no network connectivity" hold
  *   structurally, not just by policy.
- * - The keypair below is a DEV/TEST keypair ONLY, generated specifically
- *   for this repository's own test suite and the reference app. It is
- *   unmistakably not the production key: it is committed in full
- *   (including the "private" half, which a real production key never
- *   would be), it is labelled TEST_ at every use site, and
- *   `getConfiguredPublicKey()` logs a loud structured warning whenever it
- *   falls back to this key instead of a configured
- *   `HEXYRN_LICENSE_PUBLIC_KEY`. A production deployment that never sets
- *   that environment variable would verify licenses against this well-
- *   known, publicly-committed test key - which is exactly why the warning
- *   exists: this must never happen silently.
+ * - This shipped file contains NO private key of any kind. The matching
+ *   throw-away TEST private key used by the automated tests lives in
+ *   src/vendor-tools/licensing/test-keys.ts, which is excluded from the
+ *   compiled application (tsconfig.json), as is all signing code.
+ * - The public test key below is a DEV/TEST key ONLY. Outside production,
+ *   when HEXYRN_LICENSE_PUBLIC_KEY is unset, the server falls back to it
+ *   with a loud structured warning so development and CI work without
+ *   configuration. In PRODUCTION the fallback is refused outright
+ *   (getConfiguredPublicKey throws), in addition to the startup guard in
+ *   config/production-config-check.ts: a customer installation can only
+ *   ever trust the key Hexyrn's installer was built with.
  */
 import { logStructured } from '../../logging/logger';
 
-// Generated once via `crypto.generateKeyPairSync('ed25519')` for this
-// repository's tests and the reference app/connector only.
+// Public half of the repository's throw-away test keypair (see the note above).
 export const TEST_LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAF9DxmucM/+RCqbVS1vVoLriDczp7Y58T7D5qooXmdjU=
 -----END PUBLIC KEY-----`;
-
-export const TEST_LICENSE_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIEE5oImvlwDwKH6vyjNw4QIebzvBYWVWwjJIdLnQHZca
------END PRIVATE KEY-----`;
 
 /**
  * Accepts the public key however an operator can realistically get it into an
@@ -61,6 +56,11 @@ export function getConfiguredPublicKey(): string {
   const configured = process.env.HEXYRN_LICENSE_PUBLIC_KEY;
   if (configured && configured.trim().length > 0) {
     return normalizePublicKeyPem(configured);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'HEXYRN_LICENSE_PUBLIC_KEY is not set. Refusing to verify licences against the built-in test key in production.',
+    );
   }
   logStructured({
     event: 'licensing.using_test_public_key',

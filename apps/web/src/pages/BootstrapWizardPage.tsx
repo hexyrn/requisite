@@ -1,40 +1,48 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Input } from '@hexyrn/design-system';
 import { AuthLayout } from './AuthLayout';
-import { api } from '../api/client';
+import { api, setCsrfToken } from '../api/client';
+import { COMMON_CURRENCIES, guessRegionDefaults, readTokenFromHash } from './regionDefaults';
 
-const initialState = {
-  token: '',
-  organisationName: '',
-  organisationDisplayName: '',
-  defaultCurrency: 'USD',
-  timezone: 'UTC',
-  locale: 'en-US',
-  financialYearStartMonth: 1,
-  ownerEmail: '',
-  ownerPassword: '',
-};
-
+/**
+ * First-run setup. On a Windows install the Start Menu launcher opens this page with the one-time
+ * setup code already in the URL fragment, so the customer is asked only for what nobody else can know:
+ * the organisation name and the owner's email and password. Regional settings are pre-filled from the
+ * browser and can be changed under "Regional settings". When setup succeeds the owner is signed in
+ * automatically and taken straight to licence activation.
+ */
 export function BootstrapWizardPage() {
-  const [form, setForm] = useState(initialState);
+  const defaults = useMemo(() => guessRegionDefaults(), []);
+  const tokenFromLink = useMemo(() => readTokenFromHash(window.location.hash), []);
+  const [token, setToken] = useState(tokenFromLink);
+  const [organisationName, setOrganisationName] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+  const [region, setRegion] = useState(defaults);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
   const navigate = useNavigate();
-
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await api.completeBootstrap(form);
-      setDone(true);
-      setTimeout(() => navigate('/login'), 1500);
+      await api.completeBootstrap({
+        token: token.trim(),
+        organisationName: organisationName.trim(),
+        organisationDisplayName: organisationName.trim(),
+        ownerEmail: ownerEmail.trim(),
+        ownerPassword,
+        ...region,
+      });
+      // The setup code has done its job - do not leave it in the address bar / history.
+      window.history.replaceState(null, '', window.location.pathname);
+      // Sign the new owner in and continue to licence activation: no extra sign-in step.
+      const login = await api.login(ownerEmail.trim(), ownerPassword);
+      setCsrfToken(login.csrfToken);
+      navigate('/admin/licence?firstRun=1', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed.');
     } finally {
@@ -42,77 +50,44 @@ export function BootstrapWizardPage() {
     }
   }
 
-  if (done) {
-    return (
-      <AuthLayout title="Setup complete">
-        <Alert tone="success">
-          Your organisation and owner account are ready. Redirecting to sign in…
-        </Alert>
-      </AuthLayout>
-    );
-  }
-
   return (
     <AuthLayout
-      title="Set up Hexyrn"
+      title="Set up Requisite"
       width={520}
-      subtitle={
-        <>
-          Enter the one-time setup token printed to the server console (or found in{' '}
-          <code>bootstrap-token.txt</code> on the server) to create your organisation and owner
-          account.
-        </>
-      }
+      subtitle="Create your organisation and the owner account. This takes a minute."
     >
       <form onSubmit={onSubmit}>
-        <Input
-          label="Setup token"
-          name="token"
-          value={form.token}
-          onChange={(e) => update('token', e.target.value)}
-          required
-        />
+        {!tokenFromLink && (
+          <Input
+            label="Setup code"
+            name="token"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            required
+            autoComplete="off"
+          />
+        )}
+        {!tokenFromLink && (
+          <p className="hx-muted" style={{ marginTop: -4, fontSize: 13 }}>
+            Open <strong>Requisite</strong> from the Start Menu and this page fills the code in for
+            you.
+          </p>
+        )}
         <Input
           label="Organisation name"
           name="organisationName"
-          value={form.organisationName}
-          onChange={(e) => update('organisationName', e.target.value)}
-          required
-        />
-        <Input
-          label="Display name"
-          name="organisationDisplayName"
-          value={form.organisationDisplayName}
-          onChange={(e) => update('organisationDisplayName', e.target.value)}
-          required
-        />
-        <Input
-          label="Default currency (ISO 4217)"
-          name="defaultCurrency"
-          value={form.defaultCurrency}
-          onChange={(e) => update('defaultCurrency', e.target.value)}
-          required
-        />
-        <Input
-          label="Timezone (IANA)"
-          name="timezone"
-          value={form.timezone}
-          onChange={(e) => update('timezone', e.target.value)}
-          required
-        />
-        <Input
-          label="Locale (BCP 47)"
-          name="locale"
-          value={form.locale}
-          onChange={(e) => update('locale', e.target.value)}
+          autoFocus
+          value={organisationName}
+          onChange={(e) => setOrganisationName(e.target.value)}
           required
         />
         <Input
           label="Owner email"
           type="email"
           name="ownerEmail"
-          value={form.ownerEmail}
-          onChange={(e) => update('ownerEmail', e.target.value)}
+          autoComplete="username"
+          value={ownerEmail}
+          onChange={(e) => setOwnerEmail(e.target.value)}
           required
         />
         <Input
@@ -121,13 +96,60 @@ export function BootstrapWizardPage() {
           name="ownerPassword"
           autoComplete="new-password"
           minLength={12}
-          value={form.ownerPassword}
-          onChange={(e) => update('ownerPassword', e.target.value)}
+          value={ownerPassword}
+          onChange={(e) => setOwnerPassword(e.target.value)}
           required
         />
+        <details style={{ marginBottom: 16 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+            Regional settings ({region.defaultCurrency}, {region.timezone})
+          </summary>
+          <div style={{ marginTop: 12 }}>
+            <div className="hx-field">
+              <label htmlFor="defaultCurrency">Currency</label>
+              <select
+                id="defaultCurrency"
+                value={region.defaultCurrency}
+                onChange={(e) => setRegion({ ...region, defaultCurrency: e.target.value })}
+              >
+                {[...new Set([region.defaultCurrency, ...COMMON_CURRENCIES])].map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Time zone"
+              name="timezone"
+              value={region.timezone}
+              onChange={(e) => setRegion({ ...region, timezone: e.target.value })}
+            />
+            <Input
+              label="Language / locale"
+              name="locale"
+              value={region.locale}
+              onChange={(e) => setRegion({ ...region, locale: e.target.value })}
+            />
+            <div className="hx-field">
+              <label htmlFor="fyMonth">Financial year starts in</label>
+              <select
+                id="fyMonth"
+                value={region.financialYearStartMonth}
+                onChange={(e) =>
+                  setRegion({ ...region, financialYearStartMonth: Number(e.target.value) })
+                }
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {new Date(2000, i, 1).toLocaleString('en', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </details>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" disabled={submitting} block>
-          {submitting ? 'Setting up…' : 'Complete setup'}
+          {submitting ? 'Setting up…' : 'Create organisation'}
         </Button>
       </form>
     </AuthLayout>

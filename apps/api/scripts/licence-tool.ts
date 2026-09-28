@@ -19,7 +19,7 @@ import {
   generateLicenceKeypair,
   issueLicence,
   publicKeyEnvValueFromPrivate,
-} from '../src/platform/licensing/licence-tool';
+} from '../src/vendor-tools/licensing/licence-tool';
 
 function parseArgs(argv: string[]): { command: string; flags: Record<string, string> } {
   const [command = 'help', ...rest] = argv;

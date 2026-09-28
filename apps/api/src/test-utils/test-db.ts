@@ -86,8 +86,8 @@ export async function createTestLicense(
   majorVersion = 1,
   supportExpiresAt: string | null = null,
 ) {
-  const { LicenseSigner } = await import('../platform/licensing/license-signer');
-  const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../platform/licensing/keys');
+  const { LicenseSigner } = await import('../vendor-tools/licensing/license-signer');
+  const { TEST_LICENSE_PRIVATE_KEY_PEM } = await import('../vendor-tools/licensing/test-keys');
   const signer = new LicenseSigner(TEST_LICENSE_PRIVATE_KEY_PEM);
   return signer.issue({ appId, organisationId, majorVersion, supportExpiresAt });
 }

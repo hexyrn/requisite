@@ -67,8 +67,8 @@ jobs:
       # the general-purpose gitleaks scan above.
       - name: Verify committed dev/test signing keys are exactly the known, documented values
         run: |
-          grep -q "TEST_LICENSE_PRIVATE_KEY_PEM" apps/api/src/platform/licensing/keys.ts
-          grep -q "TEST_RELEASE_PRIVATE_KEY_1_PEM" apps/api/src/platform/release-signing/release-keys.ts
+          grep -q "TEST_LICENSE_PRIVATE_KEY_PEM" apps/api/src/vendor-tools/licensing/test-keys.ts
+          grep -q "TEST_RELEASE_PRIVATE_KEY_1_PEM" apps/api/src/vendor-tools/release-signing/test-private-keys.ts
           echo "Dev/test signing key markers present and labelled as expected."
 
   # ---- Dependency vulnerability scan ----

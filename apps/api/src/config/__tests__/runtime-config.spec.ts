@@ -6,7 +6,7 @@ import { buildRuntimeConfig } from '../runtime-config';
 import { parseEnvFile, loadEnvFile } from '../env-file';
 import { checkProductionConfig } from '../production-config-check';
 import { getConfiguredPublicKey } from '../../platform/licensing/keys';
-import { generateLicenceKeypair, issueLicence } from '../../platform/licensing/licence-tool';
+import { generateLicenceKeypair, issueLicence } from '../../vendor-tools/licensing/licence-tool';
 import { LicenseVerifier } from '../../platform/licensing/license-verifier';
 
 const CREDS = [

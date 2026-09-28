@@ -1,17 +1,22 @@
 import { sign as edSign } from 'crypto';
 import { randomUUID } from 'crypto';
-import { LicensePayload, SignedLicense, canonicalize } from './license-payload';
+import {
+  LicensePayload,
+  SignedLicense,
+  canonicalize,
+} from '../../platform/licensing/license-payload';
 
 /**
- * Represents Hexyrn's OFFLINE license-generation tool. This class is
- * committed here because the reference app/tests need SOMETHING to
- * generate valid test licenses with - but it is never invoked by the
- * running Core server itself (grep `LicenseSigner` outside `licensing/`
- * and tests - there is no runtime code path that signs a license; Core
- * only ever verifies). In a real production process, the equivalent of
- * this class runs in Hexyrn's own separate, offline signing environment,
- * using the real private key, which never enters this repository or any
- * Core deployment.
+ * Hexyrn's OFFLINE licence-signing logic.
+ *
+ * This file lives in src/vendor-tools/, which is EXCLUDED from the compiled application
+ * (tsconfig.json "exclude") and therefore never appears in a customer installation - not in the
+ * Windows installer, not in any other build of the server. The running server can only VERIFY
+ * licences (platform/licensing/license-verifier.ts); nothing that ships can sign one.
+ *
+ * It is used by (a) Hexyrn's own licence-issuing tool (scripts/licence-tool.ts) with the real
+ * private key held offline by Hexyrn, and (b) the automated tests, with the clearly-labelled
+ * throw-away test key in ./test-keys.ts.
  */
 export class LicenseSigner {
   constructor(private readonly privateKeyPem: string) {}

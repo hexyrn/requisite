@@ -3,8 +3,8 @@ import {
   issueLicence,
   publicKeyEnvValueFromPrivate,
 } from '../licence-tool';
-import { LicenseVerifier } from '../license-verifier';
-import { normalizePublicKeyPem } from '../keys';
+import { LicenseVerifier } from '../../../platform/licensing/license-verifier';
+import { normalizePublicKeyPem } from '../../../platform/licensing/keys';
 
 const ORG = '5b0d6a52-3b6f-4c58-9d0e-0c5a1e7a9f10';
 const APP = 'com.hexyrn.requisite';

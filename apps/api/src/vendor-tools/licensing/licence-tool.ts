@@ -1,13 +1,14 @@
 import { generateKeyPairSync, createPublicKey } from 'crypto';
 import { LicenseSigner } from './license-signer';
-import type { SignedLicense } from './license-payload';
+import type { SignedLicense } from '../../platform/licensing/license-payload';
 
 /**
- * Logic behind `npm run licence` (apps/api/scripts/licence-tool.ts): how a
- * vendor generates the licence signing keypair once, and issues a signed
- * licence for a customer's organisation. Lives in src/ so it is unit-tested;
- * the CLI is a thin wrapper. The PRIVATE key is the vendor's root of trust -
- * keep it offline, never in a deployment, never in git.
+ * Logic behind Hexyrn's licence tool (`npm run licence`, apps/api/scripts/licence-tool.ts): generate
+ * the licence signing keypair once, and issue signed licences for customer organisations.
+ *
+ * VENDOR-ONLY: this directory is excluded from the compiled application (see tsconfig.json), so a
+ * customer installation contains neither this code nor any private key. The PRIVATE key is Hexyrn's
+ * root of trust - keep it offline, never in a deployment, never in git.
  */
 export interface GeneratedKeypair {
   privateKeyPem: string;
@@ -27,7 +28,7 @@ export function publicKeyToEnvValue(publicKeyPem: string): string {
   return publicKeyPem.replace(/-----(BEGIN|END) PUBLIC KEY-----/g, '').replace(/\s+/g, '');
 }
 
-/** Derives the public key from a private key file, so an operator can re-print the env value later. */
+/** Derives the public key from a private key file, so the env value can be re-printed later. */
 export function publicKeyEnvValueFromPrivate(privateKeyPem: string): string {
   const publicPem = createPublicKey(privateKeyPem).export({ type: 'spki', format: 'pem' });
   return publicKeyToEnvValue(publicPem.toString());

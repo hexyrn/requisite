@@ -1,3 +1,4 @@
+import { TEST_RELEASE_PRIVATE_KEY_1_PEM } from '../../../vendor-tools/release-signing/test-private-keys';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -9,10 +10,7 @@ import {
   ApplyUpdateOptions,
 } from '../update.service';
 import { signReleaseManifest, buildReleaseManifest } from '../../release-signing/release-signer';
-import {
-  TEST_RELEASE_KEY_ID_1,
-  TEST_RELEASE_PRIVATE_KEY_1_PEM,
-} from '../../release-signing/release-keys';
+import { TEST_RELEASE_KEY_ID_1 } from '../../release-signing/release-keys';
 import { ReleaseManifest } from '../../release-signing/release-manifest';
 
 async function mkTmpFile(content: string): Promise<string> {
